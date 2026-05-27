@@ -1,0 +1,64 @@
+using {{ root_namespace }}.Application.Interfaces;
+using {{ root_namespace }}.Domain.Entities;
+using {{ root_namespace }}.Shared.Requests;
+using {{ root_namespace }}.Shared.Responses;
+using {{ root_namespace }}.Shared.Wrappers;
+
+namespace {{ root_namespace }}.Application.Services;
+
+public class {{ entity_name }}Service(I{{ entity_name }}Repository repository) : I{{ entity_name }}Service
+{
+    public async Task<Response<List<{{ entity_name }}Response>>> GetAllAsync(CancellationToken ct = default)
+    {
+        var items = await repository.GetAllAsync(ct);
+        return new Response<List<{{ entity_name }}Response>>(items.Select(Map).ToList());
+    }
+
+    public async Task<Response<{{ entity_name }}Response>> GetByIdAsync({{ primary_key_clr_type }} id, CancellationToken ct = default)
+    {
+        var item = await repository.GetByIdAsync(id, ct);
+        if (item is null)
+            return new Response<{{ entity_name }}Response> { Succeeded = false, Message = "Not found", Errors = ["NotFound"] };
+        return new Response<{{ entity_name }}Response>(Map(item));
+    }
+
+    public async Task<Response<{{ entity_name }}Response>> CreateAsync(Create{{ entity_name }}Request request, CancellationToken ct = default)
+    {
+        var entity = new {{ entity_name }}
+        {
+{{ for property in properties }}
+            {{ property.name }} = request.{{ property.name }},
+{{ end }}
+        };
+        var created = await repository.AddAsync(entity, ct);
+        return new Response<{{ entity_name }}Response>(Map(created), "{{ entity_name }} created.");
+    }
+
+    public async Task<Response<{{ entity_name }}Response>> UpdateAsync({{ primary_key_clr_type }} id, Update{{ entity_name }}Request request, CancellationToken ct = default)
+    {
+        var entity = await repository.GetByIdAsync(id, ct);
+        if (entity is null)
+            return new Response<{{ entity_name }}Response> { Succeeded = false, Message = "Not found", Errors = ["NotFound"] };
+
+{{ for property in non_key_properties }}
+        entity.{{ property.name }} = request.{{ property.name }};
+{{ end }}
+        var updated = await repository.UpdateAsync(entity, ct);
+        return new Response<{{ entity_name }}Response>(Map(updated), "{{ entity_name }} updated.");
+    }
+
+    public async Task<Response<{{ entity_name }}Response>> DeleteAsync({{ primary_key_clr_type }} id, CancellationToken ct = default)
+    {
+        var deleted = await repository.DeleteAsync(id, ct);
+        if (!deleted)
+            return new Response<{{ entity_name }}Response> { Succeeded = false, Message = "Not found", Errors = ["NotFound"] };
+        return new Response<{{ entity_name }}Response>(default!, "{{ entity_name }} deleted.");
+    }
+
+    private static {{ entity_name }}Response Map({{ entity_name }} entity) => new()
+    {
+{{ for property in properties }}
+        {{ property.name }} = entity.{{ property.name }},
+{{ end }}
+    };
+}

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Hello_World.API</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Asp.Versioning.Mvc" Version="8.1.0" />
+    <PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" Version="8.1.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.9.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Hello_World.Application\Hello_World.Application.csproj" />
+    <ProjectReference Include="..\Hello_World.Persistence\Hello_World.Persistence.csproj" />
+    <ProjectReference Include="..\Hello_World.Shared\Hello_World.Shared.csproj" />
+  </ItemGroup>
+</Project>

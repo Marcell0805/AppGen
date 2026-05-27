@@ -1,0 +1,8 @@
+namespace {{ root_namespace }}.Shared.Responses;
+
+public class {{ entity_name }}Response
+{
+{{ for property in properties }}
+    public {{ property.clr_type }} {{ property.name }} { get; set; }{{ if property.clr_type == "string" }} = string.Empty;{{ end }}
+{{ end }}
+}

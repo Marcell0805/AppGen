@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "applicationName": "{{ app_name }}",
+  "rootNamespace": "{{ root_namespace }}",
+  "database": "{{ database }}",
+  "entities": []
+}

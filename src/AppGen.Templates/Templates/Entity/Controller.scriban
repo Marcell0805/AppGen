@@ -1,0 +1,37 @@
+using {{ root_namespace }}.Application.Services;
+using {{ root_namespace }}.Shared.Requests;
+using {{ root_namespace }}.Shared.Responses;
+using {{ root_namespace }}.Shared.Wrappers;
+using Asp.Versioning;
+using Microsoft.AspNetCore.Mvc;
+
+namespace {{ root_namespace }}.API.Controllers.V1;
+
+[ApiController]
+[Route("api/v1/[controller]")]
+[ApiVersion("1.0")]
+public class {{ entity_plural }}Controller(I{{ entity_name }}Service service) : ControllerBase
+{
+    [HttpGet]
+    [ProducesResponseType(typeof(Response<List<{{ entity_name }}Response>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAll(CancellationToken ct) =>
+        Ok(await service.GetAllAsync(ct));
+
+    [HttpGet("{id}")]
+    [ProducesResponseType(typeof(Response<{{ entity_name }}Response>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetById({{ primary_key_clr_type }} id, CancellationToken ct) =>
+        Ok(await service.GetByIdAsync(id, ct));
+
+    [HttpPost]
+    [ProducesResponseType(typeof(Response<{{ entity_name }}Response>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> Create([FromBody] Create{{ entity_name }}Request request, CancellationToken ct) =>
+        Ok(await service.CreateAsync(request, ct));
+
+    [HttpPut("{id}")]
+    public async Task<IActionResult> Update({{ primary_key_clr_type }} id, [FromBody] Update{{ entity_name }}Request request, CancellationToken ct) =>
+        Ok(await service.UpdateAsync(id, request, ct));
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Delete({{ primary_key_clr_type }} id, CancellationToken ct) =>
+        Ok(await service.DeleteAsync(id, ct));
+}

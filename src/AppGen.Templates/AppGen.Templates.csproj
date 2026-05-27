@@ -1,0 +1,16 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>AppGen.Templates</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Templates\**\*.scriban" />
+    <None Include="Templates\**\*.scriban" />
+    <Compile Remove="Templates\**\**" />
+  </ItemGroup>
+
+</Project>

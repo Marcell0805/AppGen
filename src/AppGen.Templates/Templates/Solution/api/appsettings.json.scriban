@@ -1,0 +1,12 @@
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "{{ if use_oracle }}User Id=app;Password=secret;Data Source=localhost:1521/XEPDB1{{ else }}Server=localhost;Database={{ app_name }};Trusted_Connection=True;TrustServerCertificate=True{{ end }}"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*"
+}

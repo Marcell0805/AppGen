@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AppGen.CLI/AppGen.CLI.csproj" />
+    <Project Path="src/AppGen.Core/AppGen.Core.csproj" />
+    <Project Path="src/AppGen.Engine/AppGen.Engine.csproj" />
+    <Project Path="src/AppGen.Templates/AppGen.Templates.csproj" />
+    <Project Path="src/AppGen.Tests/AppGen.Tests.csproj" />
+    <Project Path="src/AppGen.UI/AppGen.UI.csproj" />
+  </Folder>
+</Solution>

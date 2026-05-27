@@ -1,0 +1,8 @@
+namespace {{ root_namespace }}.Domain.Entities;
+
+public class {{ entity_name }}
+{
+{{ for property in properties }}
+    public {{ property.clr_type }} {{ property.name }} { get; set; }{{ if property.clr_type == "string" }} = string.Empty;{{ end }}
+{{ end }}
+}

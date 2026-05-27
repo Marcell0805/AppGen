@@ -1,0 +1,261 @@
+﻿@page "/"
+@using AppGen.Core.Models
+@using AppGen.UI.Services
+@inject AppGenerationService Generator
+
+<PageTitle>AppGen</PageTitle>
+
+<h1>AppGen</h1>
+
+<p>Generate a layered ASP.NET Core API solution with entities.</p>
+
+<div style="display:grid; grid-template-columns: 1fr; gap: 16px; max-width: 920px;">
+    <fieldset style="padding: 12px;">
+        <legend>Application</legend>
+
+        <div style="display:grid; grid-template-columns: 160px 1fr; gap: 8px; align-items:center;">
+            <label>App name</label>
+            <input @bind="ApplicationName" />
+
+            <label>Root namespace</label>
+            <input @bind="RootNamespace" placeholder="Defaults to app name" />
+
+            <label>Database</label>
+            <select @bind="Database">
+                <option value="@DatabaseProvider.SqlServer">SqlServer</option>
+                <option value="@DatabaseProvider.Oracle">Oracle</option>
+            </select>
+
+            <label>Output folder</label>
+            <input @bind="OutputRoot" placeholder="e.g. C:\temp\generated" />
+        </div>
+    </fieldset>
+
+    <fieldset style="padding: 12px;">
+        <legend>Entities</legend>
+
+        <div style="display:flex; gap: 8px; align-items: center;">
+            <input @bind-value="NewEntityName" @bind-value:event="oninput" placeholder="Entity name (e.g. Product)" />
+            <button @onclick="AddEntity" disabled="@string.IsNullOrWhiteSpace(NewEntityName)">Add entity</button>
+        </div>
+
+        @if (Entities.Count == 0)
+        {
+            <p style="opacity:.75;">No entities yet.</p>
+        }
+        else
+        {
+            @foreach (var entity in Entities)
+            {
+                <div @key="entity" style="border:1px solid #ddd; padding:12px; margin-top:12px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <strong>@entity.Name</strong>
+                        <button @onclick="() => RemoveEntity(entity)">Remove</button>
+                    </div>
+
+                    <div style="margin-top:10px; display:flex; gap:8px; align-items:center;">
+                        <input @bind-value="entity.NewPropertyName" @bind-value:event="oninput" placeholder="Property name" />
+                        <select @bind="entity.NewPropertyType" style="width: 240px;">
+                            @foreach (var t in GetClrTypes(Database))
+                            {
+                                <option value="@t">@t</option>
+                            }
+                        </select>
+                        <label style="display:flex; gap:6px; align-items:center;">
+                            <input type="checkbox" @bind="entity.NewPropertyIsKey" />
+                            Key
+                        </label>
+                        <label style="display:flex; gap:6px; align-items:center;">
+                            <input type="checkbox" @bind="entity.NewPropertyIsNullable" />
+                            Nullable
+                        </label>
+                        <button @onclick="() => AddProperty(entity)">
+                            Add property
+                        </button>
+                    </div>
+
+                    <ul style="margin-top:10px;">
+                        @foreach (var prop in entity.Properties)
+                        {
+                            <li @key="prop">
+                                <code>@prop.ClrType</code> <strong>@prop.Name</strong>
+                                @if (prop.IsKey) { <span>(key)</span> }
+                                @if (prop.IsNullable) { <span>(nullable)</span> }
+                                <button style="margin-left:8px;" @onclick="() => RemoveProperty(entity, prop)">remove</button>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            }
+        }
+    </fieldset>
+
+    <div style="display:flex; gap: 8px; align-items:center;">
+        <button @onclick="Generate" disabled="@IsGenerating">Generate</button>
+        @if (IsGenerating)
+        {
+            <span>Generating…</span>
+        }
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(StatusMessage))
+    {
+        <div style="padding: 12px; border: 1px solid #ddd; background: #fafafa;">
+            <div><strong>Status</strong></div>
+            <div>@StatusMessage</div>
+            @if (!string.IsNullOrWhiteSpace(OutputDirectory))
+            {
+                <div style="margin-top:8px;">
+                    <div><strong>Output</strong></div>
+                    <code>@OutputDirectory</code>
+                    <div style="margin-top:6px;">
+                        Next:
+                        <code>cd "@OutputDirectory"</code>
+                        <code>dotnet build</code>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private string ApplicationName { get; set; } = "InventorySystem";
+    private string? RootNamespace { get; set; }
+    private DatabaseProvider Database { get; set; } = DatabaseProvider.SqlServer;
+    private string OutputRoot { get; set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "AppGenOutput");
+
+    private string NewEntityName { get; set; } = string.Empty;
+    private List<EntityDraft> Entities { get; } = new();
+
+    private bool IsGenerating { get; set; }
+    private string StatusMessage { get; set; } = string.Empty;
+    private string? OutputDirectory { get; set; }
+
+    private static IReadOnlyList<string> GetClrTypes(DatabaseProvider db) =>
+        db switch
+        {
+            DatabaseProvider.SqlServer =>
+            [
+                "string",
+                "long",
+                "int",
+                "decimal",
+                "double",
+                "bool",
+                "DateTime",
+                "Guid"
+            ],
+            DatabaseProvider.Oracle =>
+            [
+                "string",
+                "long",
+                "int",
+                "decimal",
+                "double",
+                "bool",
+                "DateTime",
+                "Guid"
+            ],
+            _ => ["string", "long", "int", "decimal", "bool", "DateTime"]
+        };
+
+    private void AddEntity()
+    {
+        var name = (NewEntityName ?? string.Empty).Trim();
+        if (name.Length == 0) return;
+
+        if (Entities.Any(e => e.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+        {
+            StatusMessage = $"Entity already exists: {name}";
+            return;
+        }
+
+        Entities.Add(new EntityDraft(name));
+        NewEntityName = string.Empty;
+    }
+
+    private void RemoveEntity(EntityDraft entity) => Entities.Remove(entity);
+
+    private void AddProperty(EntityDraft entity)
+    {
+        var name = (entity.NewPropertyName ?? string.Empty).Trim();
+        var type = (entity.NewPropertyType ?? string.Empty).Trim();
+        if (name.Length == 0 || type.Length == 0) return;
+
+        if (entity.Properties.Any(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+        {
+            StatusMessage = $"Property already exists on {entity.Name}: {name}";
+            return;
+        }
+
+        entity.Properties.Add(new PropertySpec
+        {
+            Name = name,
+            ClrType = type,
+            IsKey = entity.NewPropertyIsKey,
+            IsNullable = entity.NewPropertyIsNullable
+        });
+
+        entity.NewPropertyName = string.Empty;
+        entity.NewPropertyType = "string";
+        entity.NewPropertyIsKey = false;
+        entity.NewPropertyIsNullable = false;
+    }
+
+    private void RemoveProperty(EntityDraft entity, PropertySpec prop) => entity.Properties.Remove(prop);
+
+    private async Task Generate()
+    {
+        IsGenerating = true;
+        StatusMessage = string.Empty;
+        OutputDirectory = null;
+
+        try
+        {
+            var entities = Entities.Select(e => e.ToSpec()).ToList();
+            var result = await Generator.GenerateAsync(
+                ApplicationName.Trim(),
+                string.IsNullOrWhiteSpace(RootNamespace) ? null : RootNamespace.Trim(),
+                Database,
+                OutputRoot.Trim(),
+                entities);
+
+            StatusMessage = result.Message;
+            OutputDirectory = result.OutputDirectory;
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+        }
+        finally
+        {
+            IsGenerating = false;
+        }
+    }
+
+    private sealed class EntityDraft
+    {
+        public EntityDraft(string name)
+        {
+            Name = name;
+            Properties.Add(new PropertySpec { Name = "Id", ClrType = "long", IsKey = true });
+            Properties.Add(new PropertySpec { Name = "Name", ClrType = "string" });
+            NewPropertyType = "string";
+        }
+
+        public string Name { get; }
+        public List<PropertySpec> Properties { get; } = new();
+
+        public string NewPropertyName { get; set; } = string.Empty;
+        public string NewPropertyType { get; set; }
+        public bool NewPropertyIsKey { get; set; }
+        public bool NewPropertyIsNullable { get; set; }
+
+        public EntitySpec ToSpec() => new()
+        {
+            Name = Name,
+            Properties = Properties.ToList()
+        };
+    }
+}

@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "applicationName": "Hello_World",
+  "rootNamespace": "Hello_World",
+  "database": "SqlServer",
+  "entities": []
+}

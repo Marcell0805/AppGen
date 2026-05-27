@@ -1,0 +1,14 @@
+using {{ root_namespace }}.Application.Services;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace {{ root_namespace }}.Application;
+
+public static class DependencyInjection
+{
+    public static IServiceCollection AddApplicationServices(this IServiceCollection services)
+    {
+        // <AppGen-ApplicationServices>
+        // </AppGen-ApplicationServices>
+        return services;
+    }
+}

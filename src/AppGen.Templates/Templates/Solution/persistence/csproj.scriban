@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>{{ root_namespace }}.Persistence</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="{{ ef_version }}" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="{{ ef_version }}">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+{{ if use_oracle }}
+    <PackageReference Include="{{ oracle_package }}" Version="{{ oracle_version }}" />
+{{ else }}
+    <PackageReference Include="{{ sqlserver_package }}" Version="{{ ef_version }}" />
+{{ end }}
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\{{ app_name }}.Application\{{ app_name }}.Application.csproj" />
+    <ProjectReference Include="..\{{ app_name }}.Domain\{{ app_name }}.Domain.csproj" />
+  </ItemGroup>
+</Project>
