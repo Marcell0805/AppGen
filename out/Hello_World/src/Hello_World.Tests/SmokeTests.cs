@@ -1,9 +1,0 @@
-using Xunit;
-
-namespace Hello_World.Tests;
-
-public class SmokeTests
-{
-    [Fact]
-    public void Project_Loads() => Assert.True(true);
-}
