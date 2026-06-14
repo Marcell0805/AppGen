@@ -12,7 +12,7 @@ public static class SpecLoader
         PropertyNameCaseInsensitive = true,
         ReadCommentHandling = JsonCommentHandling.Skip,
         AllowTrailingCommas = true,
-        Converters = { new JsonStringEnumConverter() }
+        Converters = { new JsonStringEnumConverter(), new UiTargetJsonConverter() }
     };
 
     public static async Task<SolutionSpec> LoadAsync(string projectDirectory, CancellationToken ct = default)
@@ -26,15 +26,21 @@ public static class SpecLoader
         return spec ?? throw new InvalidOperationException("Failed to deserialize appgen.json.");
     }
 
-    public static SolutionSpec CreateDefault(string applicationName, string? rootNamespace, DatabaseProvider database)
+    public static SolutionSpec CreateDefault(
+        string applicationName,
+        string? rootNamespace,
+        DatabaseProvider database,
+        UiTarget uiTargets = UiTarget.None)
     {
         var normalizedName = NamingHelper.NormalizeAppName(applicationName);
         var normalizedNamespace = NamingHelper.NormalizeAppName(rootNamespace ?? normalizedName);
         return new()
         {
+            SchemaVersion = SolutionSpec.CurrentSchemaVersion,
             ApplicationName = normalizedName,
             RootNamespace = normalizedNamespace,
             Database = database,
+            UiTargets = uiTargets,
             Entities = []
         };
     }

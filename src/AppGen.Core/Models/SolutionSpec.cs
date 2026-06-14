@@ -4,12 +4,16 @@ namespace AppGen.Core.Models;
 
 public sealed class SolutionSpec
 {
-    public const int CurrentSchemaVersion = 1;
+    public const int CurrentSchemaVersion = 2;
 
     public int SchemaVersion { get; init; } = CurrentSchemaVersion;
     public required string ApplicationName { get; init; }
     public required string RootNamespace { get; init; }
     public DatabaseProvider Database { get; init; } = DatabaseProvider.SqlServer;
+
+    [JsonConverter(typeof(UiTargetJsonConverter))]
+    public UiTarget UiTargets { get; init; } = UiTarget.None;
+
     public List<EntitySpec> Entities { get; init; } = [];
 
     [JsonIgnore]
@@ -29,4 +33,7 @@ public sealed class SolutionSpec
 
     [JsonIgnore]
     public string TestsProject => $"{ApplicationName}.Tests";
+
+    [JsonIgnore]
+    public string WebProject => $"{ApplicationName}.Web";
 }

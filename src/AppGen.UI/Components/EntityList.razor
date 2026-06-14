@@ -1,0 +1,92 @@
+@using AppGen.UI.Models
+
+<fieldset class="panel">
+    <legend>Entities</legend>
+
+    <div class="entity-add-row">
+        <input @bind-value="NewEntityName" @bind-value:event="oninput"
+               placeholder="Entity name (e.g. Product)"
+               @onkeydown="OnEntityNameKeyDown" />
+        <button type="button" @onclick="AddEntity" disabled="@string.IsNullOrWhiteSpace(NewEntityName)">Add entity</button>
+    </div>
+
+    @if (Entities.Count == 0)
+    {
+        <p class="muted">No entities yet. Add one or generate API-only.</p>
+    }
+    else
+    {
+        <QuickGrid TGridItem="EntityDraft" Items="@Entities.AsQueryable()" Class="entity-grid">
+            <TemplateColumn Title="Entity">
+                <button type="button"
+                        class="entity-select @(IsSelected(context) ? "selected" : "")"
+                        @onclick="() => SelectEntity(context)">
+                    @context.Name
+                </button>
+            </TemplateColumn>
+            <PropertyColumn Property="@(e => e.Properties.Count)" Title="Properties" />
+            <TemplateColumn Title="Actions">
+                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => DuplicateEntity(context)">Duplicate</button>
+                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => RemoveEntity(context)">Remove</button>
+            </TemplateColumn>
+        </QuickGrid>
+    }
+</fieldset>
+
+@code {
+    [Parameter] public IList<EntityDraft> Entities { get; set; } = [];
+    [Parameter] public EntityDraft? SelectedEntity { get; set; }
+    [Parameter] public EventCallback<EntityDraft?> SelectedEntityChanged { get; set; }
+    [Parameter] public EventCallback<string> OnStatus { get; set; }
+
+    private string NewEntityName { get; set; } = string.Empty;
+
+    private bool IsSelected(EntityDraft entity) =>
+        SelectedEntity is not null && ReferenceEquals(SelectedEntity, entity);
+
+    private async Task SelectEntity(EntityDraft entity) =>
+        await SelectedEntityChanged.InvokeAsync(entity);
+
+    private async Task AddEntity()
+    {
+        var name = NewEntityName.Trim();
+        if (name.Length == 0) return;
+
+        if (Entities.Any(e => e.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+        {
+            await OnStatus.InvokeAsync($"Entity already exists: {name}");
+            return;
+        }
+
+        var draft = new EntityDraft(name);
+        Entities.Add(draft);
+        NewEntityName = string.Empty;
+        await SelectedEntityChanged.InvokeAsync(draft);
+    }
+
+    private async Task OnEntityNameKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await AddEntity();
+    }
+
+    private async Task RemoveEntity(EntityDraft entity)
+    {
+        Entities.Remove(entity);
+        if (IsSelected(entity))
+            await SelectedEntityChanged.InvokeAsync(Entities.FirstOrDefault());
+    }
+
+    private async Task DuplicateEntity(EntityDraft entity)
+    {
+        var baseName = entity.Name + "Copy";
+        var name = baseName;
+        var i = 1;
+        while (Entities.Any(e => e.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+            name = baseName + i++;
+
+        var copy = entity.Duplicate(name);
+        Entities.Add(copy);
+        await SelectedEntityChanged.InvokeAsync(copy);
+    }
+}

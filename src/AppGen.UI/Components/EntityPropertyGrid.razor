@@ -1,0 +1,80 @@
+@using AppGen.UI.Models
+
+@if (Entity is null)
+{
+    <p class="muted">Select an entity to edit its properties.</p>
+}
+else
+{
+    <div class="property-grid-header">
+        <strong>@Entity.Name</strong> — properties
+    </div>
+
+    <QuickGrid TGridItem="PropertyRow" Items="@Entity.Properties.AsQueryable()" Class="property-grid">
+        <TemplateColumn Title="Name">
+            <input class="form-control form-control-sm"
+                   @bind="context.Name"
+                   @bind:event="oninput"
+                   placeholder="Property name" />
+        </TemplateColumn>
+        <TemplateColumn Title="Type">
+            <select class="form-select form-select-sm" @bind="context.ClrType">
+                @foreach (var t in ClrTypes)
+                {
+                    <option value="@t">@t</option>
+                }
+            </select>
+        </TemplateColumn>
+        <TemplateColumn Title="Key">
+            <input type="checkbox"
+                   checked="@context.IsKey"
+                   @onchange="e => OnKeyChanged(context, e)" />
+        </TemplateColumn>
+        <TemplateColumn Title="Nullable">
+            <input type="checkbox" @bind="context.IsNullable" />
+        </TemplateColumn>
+        <TemplateColumn Title="">
+            <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => RemoveRow(context)">Remove</button>
+        </TemplateColumn>
+    </QuickGrid>
+
+    <button type="button" class="btn btn-sm btn-secondary add-property-btn" @onclick="AddRow">+ Add property</button>
+}
+
+@code {
+    [Parameter] public EntityDraft? Entity { get; set; }
+    [Parameter] public IReadOnlyList<string> ClrTypes { get; set; } = [];
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private void AddRow()
+    {
+        if (Entity is null) return;
+        Entity.Properties.Add(PropertyRow.FromDefaults(string.Empty, "string"));
+        NotifyChanged();
+    }
+
+    private void RemoveRow(PropertyRow row)
+    {
+        if (Entity is null) return;
+        Entity.Properties.Remove(row);
+        NotifyChanged();
+    }
+
+    private void OnKeyChanged(PropertyRow row, ChangeEventArgs e)
+    {
+        if (Entity is null) return;
+        var isKey = e.Value is true;
+        if (isKey)
+        {
+            foreach (var p in Entity.Properties)
+                p.IsKey = ReferenceEquals(p, row);
+        }
+        else
+        {
+            row.IsKey = false;
+        }
+        NotifyChanged();
+    }
+
+    private void NotifyChanged() => _ = OnChanged.InvokeAsync();
+}

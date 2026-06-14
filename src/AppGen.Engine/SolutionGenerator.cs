@@ -31,6 +31,23 @@ public sealed class SolutionGenerator(TemplateRenderer renderer)
         ("Solution/appgen.json.scriban", _ => "appgen.json"),
     ];
 
+    private static readonly (string Template, Func<SolutionSpec, string> Output)[] BlazorWebFiles =
+    [
+        ("Solution/web/csproj.scriban", s => $"src/{s.WebProject}/{s.WebProject}.csproj"),
+        ("Solution/web/Program.scriban", s => $"src/{s.WebProject}/Program.cs"),
+        ("Solution/web/App.scriban", s => $"src/{s.WebProject}/App.razor"),
+        ("Solution/web/_Imports.scriban", s => $"src/{s.WebProject}/_Imports.razor"),
+        ("Solution/web/appsettings.json.scriban", s => $"src/{s.WebProject}/appsettings.json"),
+        ("Solution/web/appsettings.Development.json.scriban", s => $"src/{s.WebProject}/appsettings.Development.json"),
+        ("Solution/web/Properties/launchSettings.scriban", s => $"src/{s.WebProject}/Properties/launchSettings.json"),
+        ("Solution/web/Pages/_Host.scriban", s => $"src/{s.WebProject}/Pages/_Host.cshtml"),
+        ("Solution/web/Pages/_Layout.scriban", s => $"src/{s.WebProject}/Pages/_Layout.cshtml"),
+        ("Solution/web/Shared/MainLayout.scriban", s => $"src/{s.WebProject}/Shared/MainLayout.razor"),
+        ("Solution/web/Shared/NavMenu.scriban", s => $"src/{s.WebProject}/Shared/NavMenu.razor"),
+        ("Solution/web/wwwroot/css/site.scriban", s => $"src/{s.WebProject}/wwwroot/css/site.css"),
+        ("Solution/web/Pages/Index.scriban", s => $"src/{s.WebProject}/Pages/Index.razor"),
+    ];
+
     public async Task GenerateAsync(SolutionSpec spec, string outputDirectory, CancellationToken ct = default)
     {
         Directory.CreateDirectory(outputDirectory);
@@ -39,26 +56,55 @@ public sealed class SolutionGenerator(TemplateRenderer renderer)
         foreach (var (templatePath, outputPathFunc) in Files)
         {
             ct.ThrowIfCancellationRequested();
-            var content = renderer.Render(TemplateProvider.Load(templatePath), model);
-            var relativePath = outputPathFunc(spec);
-            var fullPath = Path.Combine(outputDirectory, relativePath);
-            Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
-            await File.WriteAllTextAsync(fullPath, content, ct);
+            await WriteTemplateAsync(renderer, templatePath, outputPathFunc(spec), outputDirectory, model, ct);
+        }
+
+        if (spec.UiTargets.HasFlag(UiTarget.BlazorWeb))
+        {
+            foreach (var (templatePath, outputPathFunc) in BlazorWebFiles)
+            {
+                ct.ThrowIfCancellationRequested();
+                await WriteTemplateAsync(renderer, templatePath, outputPathFunc(spec), outputDirectory, model, ct);
+            }
         }
     }
 
-    internal static object BuildModel(SolutionSpec spec) => new
+    private static async Task WriteTemplateAsync(
+        TemplateRenderer renderer,
+        string templatePath,
+        string relativePath,
+        string outputDirectory,
+        object model,
+        CancellationToken ct)
     {
-        app_name = spec.ApplicationName,
-        root_namespace = spec.RootNamespace,
-        database = spec.Database.ToString(),
-        use_oracle = spec.Database == DatabaseProvider.Oracle,
-        use_sqlserver = spec.Database == DatabaseProvider.SqlServer,
-        oracle_package = "Oracle.EntityFrameworkCore",
-        oracle_version = "8.23.60",
-        sqlserver_package = "Microsoft.EntityFrameworkCore.SqlServer",
-        ef_version = "8.0.11",
-        swagger_version = "6.9.0",
-        versioning_version = "8.1.0",
-    };
+        var content = renderer.Render(TemplateProvider.Load(templatePath), model);
+        var fullPath = Path.Combine(outputDirectory, relativePath);
+        Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+        await File.WriteAllTextAsync(fullPath, content, ct);
+    }
+
+    internal static object BuildModel(SolutionSpec spec)
+    {
+        var uiTargetNames = Enum.GetValues<UiTarget>()
+            .Where(t => t != UiTarget.None && spec.UiTargets.HasFlag(t))
+            .Select(t => t.ToString())
+            .ToList();
+
+        return new
+        {
+            app_name = spec.ApplicationName,
+            root_namespace = spec.RootNamespace,
+            database = spec.Database.ToString(),
+            use_oracle = spec.Database == DatabaseProvider.Oracle,
+            use_sqlserver = spec.Database == DatabaseProvider.SqlServer,
+            include_blazor_web = spec.UiTargets.HasFlag(UiTarget.BlazorWeb),
+            ui_targets = uiTargetNames,
+            oracle_package = "Oracle.EntityFrameworkCore",
+            oracle_version = "8.23.60",
+            sqlserver_package = "Microsoft.EntityFrameworkCore.SqlServer",
+            ef_version = "8.0.11",
+            swagger_version = "6.9.0",
+            versioning_version = "8.1.0",
+        };
+    }
 }

@@ -5,12 +5,14 @@ namespace AppGen.UI.Services;
 
 public sealed class AppGenerationService(
     SolutionGenerator solutionGenerator,
-    EntityGenerator entityGenerator)
+    EntityGenerator entityGenerator,
+    UiGenerator uiGenerator)
 {
     public async Task<GenerationResult> GenerateAsync(
         string applicationName,
         string? rootNamespace,
         DatabaseProvider database,
+        UiTarget uiTargets,
         string outputRootDirectory,
         IReadOnlyList<EntitySpec> entities,
         CancellationToken ct = default)
@@ -21,7 +23,7 @@ public sealed class AppGenerationService(
         if (string.IsNullOrWhiteSpace(outputRootDirectory))
             return GenerationResult.Fail("Output folder is required.");
 
-        var spec = SpecLoader.CreateDefault(applicationName, rootNamespace, database);
+        var spec = SpecLoader.CreateDefault(applicationName, rootNamespace, database, uiTargets);
         var outputDir = Path.GetFullPath(Path.Combine(outputRootDirectory, spec.ApplicationName));
         Directory.CreateDirectory(outputDir);
 
@@ -36,18 +38,22 @@ public sealed class AppGenerationService(
             ct.ThrowIfCancellationRequested();
             await entityGenerator.GenerateAsync(loadedSpec, entity, outputDir, ct);
             loadedSpec = await SpecLoader.LoadAsync(outputDir, ct);
+            await uiGenerator.GenerateAsync(loadedSpec, entity, outputDir, ct);
         }
 
-        return GenerationResult.Ok(outputDir);
+        var uiNote = uiTargets.HasFlag(UiTarget.BlazorWeb)
+            ? " Blazor Web UI included — run the API and Web projects."
+            : string.Empty;
+
+        return GenerationResult.Ok(outputDir, $"Generated successfully.{uiNote}");
     }
 }
 
 public sealed record GenerationResult(bool Success, string Message, string? OutputDirectory)
 {
-    public static GenerationResult Ok(string outputDirectory) =>
-        new(true, "Generated successfully.", outputDirectory);
+    public static GenerationResult Ok(string outputDirectory, string? message = null) =>
+        new(true, message ?? "Generated successfully.", outputDirectory);
 
     public static GenerationResult Fail(string message) =>
         new(false, message, null);
 }
-

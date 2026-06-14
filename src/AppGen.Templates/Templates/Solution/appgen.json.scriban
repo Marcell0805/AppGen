@@ -1,7 +1,8 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "applicationName": "{{ app_name }}",
   "rootNamespace": "{{ root_namespace }}",
   "database": "{{ database }}",
+  "uiTargets": [{{ for t in ui_targets }}{{ if for.index > 0 }}, {{ end }}"{{ t }}"{{ end }}],
   "entities": []
 }

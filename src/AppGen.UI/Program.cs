@@ -11,7 +11,9 @@ builder.Services.AddServerSideBlazor();
 builder.Services.AddSingleton<TemplateRenderer>();
 builder.Services.AddSingleton<SolutionGenerator>();
 builder.Services.AddSingleton<EntityGenerator>();
+builder.Services.AddSingleton<UiGenerator>();
 builder.Services.AddSingleton<AppGenerationService>();
+builder.Services.AddSingleton<OutputFolderService>();
 
 var app = builder.Build();
 

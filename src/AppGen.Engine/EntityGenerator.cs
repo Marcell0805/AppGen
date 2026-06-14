@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using AppGen.Core;
 using AppGen.Core.Models;
 using AppGen.Templates;
@@ -79,11 +80,16 @@ public sealed class EntityGenerator(TemplateRenderer renderer)
             ApplicationName = spec.ApplicationName,
             RootNamespace = spec.RootNamespace,
             Database = spec.Database,
+            UiTargets = spec.UiTargets,
             Entities = spec.Entities.Concat([entity]).ToList()
         };
 
         var jsonPath = Path.Combine(dir, "appgen.json");
-        var options = new JsonSerializerOptions { WriteIndented = true };
+        var options = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            Converters = { new JsonStringEnumConverter(), new UiTargetJsonConverter() }
+        };
         await File.WriteAllTextAsync(jsonPath, JsonSerializer.Serialize(updated, options), ct);
     }
 
@@ -94,15 +100,23 @@ public sealed class EntityGenerator(TemplateRenderer renderer)
             keys = [new PropertySpec { Name = "Id", ClrType = "long", IsKey = true }];
 
         var primaryKey = keys[0];
+        var pkRouteConstraint = primaryKey.ClrType switch
+        {
+            "int" => "int",
+            "Guid" => "guid",
+            _ => "long"
+        };
         return new
         {
             app_name = spec.ApplicationName,
             root_namespace = spec.RootNamespace,
             entity_name = entity.Name,
             entity_plural = NamingHelper.ToPlural(entity.Name),
+            entity_plural_lower = NamingHelper.ToPlural(entity.Name).ToLowerInvariant(),
             entity_camel = NamingHelper.ToCamelCase(entity.Name),
             primary_key_name = primaryKey.Name,
             primary_key_clr_type = primaryKey.ClrType,
+            primary_key_route_constraint = pkRouteConstraint,
             primary_key_camel = NamingHelper.ToCamelCase(primaryKey.Name),
             table_name = entity.TableName ?? entity.Name,
             schema = entity.Schema,
@@ -110,6 +124,7 @@ public sealed class EntityGenerator(TemplateRenderer renderer)
             {
                 name = p.Name,
                 clr_type = p.IsNullable && p.ClrType != "string" ? p.ClrType + "?" : p.ClrType,
+                type_name = p.ClrType,
                 column_name = p.ColumnName ?? p.Name,
                 is_key = p.IsKey,
                 is_nullable = p.IsNullable

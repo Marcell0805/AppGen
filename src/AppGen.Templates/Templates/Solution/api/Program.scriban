@@ -20,6 +20,15 @@ builder.Services.AddApiVersioning(options =>
 
 builder.Services.AddApplicationServices();
 builder.Services.AddPersistenceServices(builder.Configuration);
+{{ if include_blazor_web }}
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+        policy.WithOrigins("https://localhost:5101", "http://localhost:5100")
+            .AllowAnyHeader()
+            .AllowAnyMethod());
+});
+{{ end }}
 
 var app = builder.Build();
 
@@ -31,6 +40,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+{{ if include_blazor_web }}
+app.UseCors();
+{{ end }}
 app.UseAuthorization();
 app.MapControllers();
 app.Run();

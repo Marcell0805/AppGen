@@ -12,7 +12,8 @@ It generates a ready-to-run Visual Studio solution (Swagger enabled by default) 
 
 - **Standalone**: no dependency on other repos or private packages
 - **CLI**: `create` a solution and `entity add` to scaffold CRUD
-- **Simple UI**: Blazor Server wizard that calls the same generator engine
+- **Simple UI**: Blazor Server wizard with QuickGrid entity editor and optional UI target selection
+- **Optional Blazor Web client**: generate `{AppName}.Web` with per-entity list/edit pages (HttpClient → API)
 - **Database providers**: SQL Server + Oracle (template switch)
 - **Swagger-first**: generated APIs open Swagger on run; `/` redirects to `/swagger` in Development
 - **Regeneration-safe**: generator inserts its changes into marked regions in shared files
@@ -21,7 +22,7 @@ It generates a ready-to-run Visual Studio solution (Swagger enabled by default) 
 
 ```powershell
 cd AppGen
-dotnet run --project src/AppGen.CLI -- create InventorySystem --output samples --database SqlServer
+dotnet run --project src/AppGen.CLI -- create InventorySystem --output samples --database SqlServer --ui BlazorWeb
 dotnet run --project src/AppGen.CLI -- entity add Product --project samples/InventorySystem
 dotnet run --project src/AppGen.CLI -- entity add Supplier --project samples/InventorySystem
 dotnet build samples/InventorySystem/InventorySystem.sln
@@ -48,13 +49,14 @@ src/
   InventorySystem.Persistence/  # EF Core, repositories, configurations
   InventorySystem.Shared/       # DTOs, Response<T>
   InventorySystem.Tests/
+  InventorySystem.Web/          # Optional Blazor Server UI (when --ui BlazorWeb)
 ```
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `appgen create <Name> --output <path> [--database SqlServer\|Oracle]` | Scaffold solution |
+| `appgen create <Name> --output <path> [--database SqlServer\|Oracle] [--ui BlazorWeb]` | Scaffold solution (optional Blazor Web UI) |
 | `appgen entity add <Name> --project <path>` | Add CRUD slice for an entity |
 
 ## Sample output

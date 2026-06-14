@@ -1,0 +1,51 @@
+html, body {
+    font-family: 'Segoe UI', sans-serif;
+    margin: 0;
+}
+
+.page {
+    display: flex;
+    min-height: 100vh;
+}
+
+.sidebar {
+    width: 220px;
+    background: #1b2a4a;
+    color: #fff;
+    padding: 1rem 0;
+}
+
+.sidebar .nav-link {
+    color: #cbd5e1;
+}
+
+.sidebar .nav-link.active {
+    color: #fff;
+    font-weight: 600;
+}
+
+.content {
+    flex: 1;
+    padding: 1.5rem;
+}
+
+table.data-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+table.data-table th,
+table.data-table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+}
+
+.form-field {
+    margin-bottom: 12px;
+}
+
+.form-field label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
