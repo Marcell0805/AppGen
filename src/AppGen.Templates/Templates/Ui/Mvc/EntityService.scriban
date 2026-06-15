@@ -1,0 +1,33 @@
+using {{ root_namespace }}.Shared.Requests;
+using {{ root_namespace }}.Shared.Responses;
+
+namespace {{ root_namespace }}.MVC.Services;
+
+public interface I{{ entity_name }}Service
+{
+    Task<List<{{ entity_name }}Response>> GetAllAsync(CancellationToken ct = default);
+    Task<{{ entity_name }}Response?> GetByIdAsync({{ primary_key_clr_type }} id, CancellationToken ct = default);
+    Task<{{ entity_name }}Response?> CreateAsync(Create{{ entity_name }}Request request, CancellationToken ct = default);
+    Task<{{ entity_name }}Response?> UpdateAsync({{ primary_key_clr_type }} id, Update{{ entity_name }}Request request, CancellationToken ct = default);
+    Task<bool> DeleteAsync({{ primary_key_clr_type }} id, CancellationToken ct = default);
+}
+
+public sealed class {{ entity_name }}Service(IHttpClientFactory httpClientFactory)
+    : EntityWebServiceBase<{{ entity_name }}Response, Create{{ entity_name }}Request, Update{{ entity_name }}Request>(httpClientFactory, "api/v1/{{ entity_plural }}"),
+      I{{ entity_name }}Service
+{
+    public Task<List<{{ entity_name }}Response>> GetAllAsync(CancellationToken ct = default) =>
+        GetAllCoreAsync(ct);
+
+    public Task<{{ entity_name }}Response?> GetByIdAsync({{ primary_key_clr_type }} id, CancellationToken ct = default) =>
+        GetByIdCoreAsync(id.ToString(), ct);
+
+    public Task<{{ entity_name }}Response?> CreateAsync(Create{{ entity_name }}Request request, CancellationToken ct = default) =>
+        CreateCoreAsync(request, ct);
+
+    public Task<{{ entity_name }}Response?> UpdateAsync({{ primary_key_clr_type }} id, Update{{ entity_name }}Request request, CancellationToken ct = default) =>
+        UpdateCoreAsync(id.ToString(), request, ct);
+
+    public Task<bool> DeleteAsync({{ primary_key_clr_type }} id, CancellationToken ct = default) =>
+        DeleteCoreAsync(id.ToString(), ct);
+}

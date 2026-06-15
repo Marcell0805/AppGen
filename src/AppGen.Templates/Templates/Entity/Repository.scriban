@@ -13,6 +13,9 @@ public class {{ entity_name }}Repository(ApplicationDbContext db) : I{{ entity_n
     public async Task<{{ entity_name }}?> GetByIdAsync({{ primary_key_clr_type }} id, CancellationToken ct = default) =>
         await db.{{ entity_plural }}.AsNoTracking().FirstOrDefaultAsync(e => e.{{ primary_key_name }} == id, ct);
 
+    public async Task<{{ entity_name }}?> GetTrackedByIdAsync({{ primary_key_clr_type }} id, CancellationToken ct = default) =>
+        await db.{{ entity_plural }}.FirstOrDefaultAsync(e => e.{{ primary_key_name }} == id, ct);
+
     public async Task<{{ entity_name }}> AddAsync({{ entity_name }} entity, CancellationToken ct = default)
     {
         db.{{ entity_plural }}.Add(entity);

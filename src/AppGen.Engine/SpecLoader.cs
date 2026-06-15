@@ -30,7 +30,8 @@ public static class SpecLoader
         string applicationName,
         string? rootNamespace,
         DatabaseProvider database,
-        UiTarget uiTargets = UiTarget.None)
+        UiTarget uiTargets = UiTarget.None,
+        ProjectSetupSpec? setup = null)
     {
         var normalizedName = NamingHelper.NormalizeAppName(applicationName);
         var normalizedNamespace = NamingHelper.NormalizeAppName(rootNamespace ?? normalizedName);
@@ -41,6 +42,7 @@ public static class SpecLoader
             RootNamespace = normalizedNamespace,
             Database = database,
             UiTargets = uiTargets,
+            Setup = setup ?? NamingHelper.DefaultSetup(database),
             Entities = []
         };
     }

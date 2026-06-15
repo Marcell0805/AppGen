@@ -1,4 +1,5 @@
-﻿using AppGen.Core.Models;
+﻿using AppGen.Core;
+using AppGen.Core.Models;
 using AppGen.Engine;
 using System.CommandLine;
 
@@ -9,7 +10,7 @@ var appNameArg = new Argument<string>("name", "Application name (e.g. InventoryS
 var outputOpt = new Option<string>("--output", () => ".", "Output directory");
 var namespaceOpt = new Option<string?>("--namespace", "Root namespace (defaults to app name)");
 var databaseOpt = new Option<string>("--database", () => "SqlServer", "SqlServer or Oracle");
-var uiOpt = new Option<string?>("--ui", "Optional UI targets: BlazorWeb (comma-separated)");
+var uiOpt = new Option<string?>("--ui", "Optional UI targets: MvcWeb (comma-separated)");
 
 createCmd.AddArgument(appNameArg);
 createCmd.AddOption(outputOpt);
@@ -20,7 +21,8 @@ createCmd.SetHandler(async (name, output, ns, db, ui) =>
 {
     var database = Enum.Parse<DatabaseProvider>(db, ignoreCase: true);
     var uiTargets = ParseUiTargets(ui);
-    var spec = SpecLoader.CreateDefault(name, ns, database, uiTargets);
+    var setup = NamingHelper.DefaultSetup(database);
+    var spec = SpecLoader.CreateDefault(name, ns, database, uiTargets, setup);
     var outputDir = Path.GetFullPath(Path.Combine(output, spec.ApplicationName));
     if (Directory.Exists(outputDir) && Directory.EnumerateFileSystemEntries(outputDir).Any())
     {
@@ -31,9 +33,13 @@ createCmd.SetHandler(async (name, output, ns, db, ui) =>
     var renderer = new TemplateRenderer();
     var generator = new SolutionGenerator(renderer);
     await generator.GenerateAsync(spec, outputDir);
+    await AppSettingsGenerator.WriteAsync(spec, outputDir);
+    await ReadmeGenerator.WriteAsync(spec, outputDir);
     Console.WriteLine($"Created solution at: {outputDir}");
-    if (uiTargets.HasFlag(UiTarget.BlazorWeb))
-        Console.WriteLine("Included Blazor Web UI project.");
+    if (uiTargets.HasFlag(UiTarget.MvcWeb))
+        Console.WriteLine("Included MVC Web UI project.");
+    if (database == DatabaseProvider.Oracle)
+        Console.WriteLine("Oracle SQL scripts are generated when you add entities.");
     Console.WriteLine($"Next: cd \"{outputDir}\" && dotnet build");
 }, appNameArg, outputOpt, namespaceOpt, databaseOpt, uiOpt);
 
@@ -48,13 +54,14 @@ addCmd.SetHandler(async (entityName, project) =>
 {
     var projectDir = Path.GetFullPath(project);
     var spec = await SpecLoader.LoadAsync(projectDir);
+    var keyName = NamingHelper.ToKeyPropertyName(entityName);
 
     var entity = new EntitySpec
     {
         Name = entityName,
         Properties =
         [
-            new PropertySpec { Name = "Id", ClrType = "long", IsKey = true },
+            new PropertySpec { Name = keyName, ClrType = "long", IsKey = true },
             new PropertySpec { Name = "Name", ClrType = "string", IsNullable = true }
         ]
     };
@@ -66,7 +73,7 @@ addCmd.SetHandler(async (entityName, project) =>
             Name = "Product",
             Properties =
             [
-                new PropertySpec { Name = "Id", ClrType = "long", IsKey = true },
+                new PropertySpec { Name = NamingHelper.ToKeyPropertyName("Product"), ClrType = "long", IsKey = true },
                 new PropertySpec { Name = "Name", ClrType = "string" },
                 new PropertySpec { Name = "Price", ClrType = "decimal" },
                 new PropertySpec { Name = "SupplierId", ClrType = "long" }
@@ -80,7 +87,11 @@ addCmd.SetHandler(async (entityName, project) =>
     await generator.GenerateAsync(spec, entity, projectDir);
     var updated = await SpecLoader.LoadAsync(projectDir);
     await uiGenerator.GenerateAsync(updated, entity, projectDir);
+    await OracleScriptGenerator.WriteAsync(updated, projectDir);
+    await ReadmeGenerator.WriteAsync(updated, projectDir);
     Console.WriteLine($"Added entity '{entityName}' to {projectDir}");
+    if (updated.Database == DatabaseProvider.Oracle)
+        Console.WriteLine("Updated scripts/oracle/ SQL scripts.");
     Console.WriteLine("Run: dotnet build");
 }, entityNameArg, projectOpt);
 
@@ -97,6 +108,11 @@ static UiTarget ParseUiTargets(string? raw)
 
     var value = UiTarget.None;
     foreach (var part in raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-        value |= Enum.Parse<UiTarget>(part, ignoreCase: true);
+    {
+        if (string.Equals(part, "BlazorWeb", StringComparison.OrdinalIgnoreCase))
+            value |= UiTarget.MvcWeb;
+        else
+            value |= Enum.Parse<UiTarget>(part, ignoreCase: true);
+    }
     return value;
 }

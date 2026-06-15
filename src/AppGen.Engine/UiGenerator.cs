@@ -1,4 +1,3 @@
-using AppGen.Core;
 using AppGen.Core.Models;
 using AppGen.Templates;
 
@@ -6,20 +5,22 @@ namespace AppGen.Engine;
 
 public sealed class UiGenerator(TemplateRenderer renderer)
 {
-    private static readonly (string Template, Func<SolutionSpec, EntitySpec, string> Output)[] BlazorEntityFiles =
+    private static readonly (string Template, Func<SolutionSpec, EntitySpec, string> Output)[] MvcEntityFiles =
     [
-        ("Ui/Blazor/EntityListPage.scriban", (s, e) => $"src/{s.WebProject}/Pages/{NamingHelper.ToPlural(e.Name)}/Index.razor"),
-        ("Ui/Blazor/EntityEditPage.scriban", (s, e) => $"src/{s.WebProject}/Pages/{NamingHelper.ToPlural(e.Name)}/Edit.razor"),
+        ("Ui/Mvc/EntityService.scriban", (s, e) => $"src/{s.MvcProject}/Services/{e.Name}Service.cs"),
+        ("Ui/Mvc/EntityController.scriban", (s, e) => $"src/{s.MvcProject}/Controllers/{e.Name}Controller.cs"),
+        ("Ui/Mvc/Views/EntityIndex.scriban", (s, e) => $"src/{s.MvcProject}/Views/{e.Name}/Index.cshtml"),
+        ("Ui/Mvc/Views/EntityEdit.scriban", (s, e) => $"src/{s.MvcProject}/Views/{e.Name}/Edit.cshtml"),
     ];
 
     public async Task GenerateAsync(SolutionSpec spec, EntitySpec entity, string projectDirectory, CancellationToken ct = default)
     {
-        if (!spec.UiTargets.HasFlag(UiTarget.BlazorWeb))
+        if (!spec.UiTargets.HasFlag(UiTarget.MvcWeb) || !entity.IncludeInUi)
             return;
 
         var model = EntityGenerator.BuildEntityModel(spec, entity);
 
-        foreach (var (templatePath, outputPathFunc) in BlazorEntityFiles)
+        foreach (var (templatePath, outputPathFunc) in MvcEntityFiles)
         {
             ct.ThrowIfCancellationRequested();
             var content = renderer.Render(TemplateProvider.Load(templatePath), model);
@@ -28,19 +29,20 @@ public sealed class UiGenerator(TemplateRenderer renderer)
             await File.WriteAllTextAsync(fullPath, content, ct);
         }
 
-        var plural = NamingHelper.ToPlural(entity.Name);
-        var href = plural.ToLowerInvariant();
+        var programPath = Path.Combine(projectDirectory, $"src/{spec.MvcProject}/Program.cs");
+        var serviceRegion = RegionMergeHelper.BuildRegion(
+            $"WebService-{entity.Name}",
+            $"builder.Services.AddScoped<I{entity.Name}Service, {entity.Name}Service>();");
+        await RegionMergeHelper.MergeRegionAsync(programPath, serviceRegion,
+            "// <AppGen-WebServices>", "// </AppGen-WebServices>", ct);
+
         var navRegion =
             "<!-- <AppGen-Nav-" + entity.Name + "> -->" + Environment.NewLine +
-            "        <div class=\"nav-item\">" + Environment.NewLine +
-            "            <NavLink class=\"nav-link\" href=\"" + href + "\">" + Environment.NewLine +
-            "                " + plural + Environment.NewLine +
-            "            </NavLink>" + Environment.NewLine +
-            "        </div>" + Environment.NewLine +
+            "                <a class=\"nav-link\" asp-controller=\"" + entity.Name + "\" asp-action=\"Index\">" + entity.Name + "</a>" + Environment.NewLine +
             "<!-- </AppGen-Nav-" + entity.Name + "> -->";
 
-        var navPath = Path.Combine(projectDirectory, $"src/{spec.WebProject}/Shared/NavMenu.razor");
-        await RegionMergeHelper.MergeRegionAsync(navPath, navRegion,
+        var layoutPath = Path.Combine(projectDirectory, $"src/{spec.MvcProject}/Views/Shared/_Layout.cshtml");
+        await RegionMergeHelper.MergeRegionAsync(layoutPath, navRegion,
             "<!-- <AppGen-NavItems> -->", "<!-- </AppGen-NavItems> -->", ct);
     }
 }

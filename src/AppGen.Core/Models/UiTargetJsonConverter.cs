@@ -5,6 +5,14 @@ namespace AppGen.Core.Models;
 
 public sealed class UiTargetJsonConverter : JsonConverter<UiTarget>
 {
+    private static UiTarget ParseUiTargetName(string name)
+    {
+        if (string.Equals(name, "BlazorWeb", StringComparison.OrdinalIgnoreCase))
+            return UiTarget.MvcWeb;
+
+        return Enum.Parse<UiTarget>(name, ignoreCase: true);
+    }
+
     public override UiTarget Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
         if (reader.TokenType == JsonTokenType.Null)
@@ -15,7 +23,7 @@ public sealed class UiTargetJsonConverter : JsonConverter<UiTarget>
             var single = reader.GetString();
             return string.IsNullOrWhiteSpace(single)
                 ? UiTarget.None
-                : Enum.Parse<UiTarget>(single, ignoreCase: true);
+                : ParseUiTargetName(single);
         }
 
         if (reader.TokenType != JsonTokenType.StartArray)
@@ -31,7 +39,7 @@ public sealed class UiTargetJsonConverter : JsonConverter<UiTarget>
             var name = reader.GetString();
             if (string.IsNullOrWhiteSpace(name))
                 continue;
-            value |= Enum.Parse<UiTarget>(name, ignoreCase: true);
+            value |= ParseUiTargetName(name);
         }
 
         return value;

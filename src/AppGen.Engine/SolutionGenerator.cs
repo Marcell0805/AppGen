@@ -12,8 +12,6 @@ public sealed class SolutionGenerator(TemplateRenderer renderer)
         ("Solution/gitignore.scriban", _ => ".gitignore"),
         ("Solution/api/Program.scriban", s => $"src/{s.ApiProject}/Program.cs"),
         ("Solution/api/csproj.scriban", s => $"src/{s.ApiProject}/{s.ApiProject}.csproj"),
-        ("Solution/api/appsettings.json.scriban", s => $"src/{s.ApiProject}/appsettings.json"),
-        ("Solution/api/appsettings.Development.json.scriban", s => $"src/{s.ApiProject}/appsettings.Development.json"),
         ("Solution/api/Properties/launchSettings.scriban", s => $"src/{s.ApiProject}/Properties/launchSettings.json"),
         ("Solution/api/Controllers/HealthController.scriban", s => $"src/{s.ApiProject}/Controllers/HealthController.cs"),
         ("Solution/application/csproj.scriban", s => $"src/{s.ApplicationProject}/{s.ApplicationProject}.csproj"),
@@ -31,21 +29,21 @@ public sealed class SolutionGenerator(TemplateRenderer renderer)
         ("Solution/appgen.json.scriban", _ => "appgen.json"),
     ];
 
-    private static readonly (string Template, Func<SolutionSpec, string> Output)[] BlazorWebFiles =
+    private static readonly (string Template, Func<SolutionSpec, string> Output)[] MvcWebFiles =
     [
-        ("Solution/web/csproj.scriban", s => $"src/{s.WebProject}/{s.WebProject}.csproj"),
-        ("Solution/web/Program.scriban", s => $"src/{s.WebProject}/Program.cs"),
-        ("Solution/web/App.scriban", s => $"src/{s.WebProject}/App.razor"),
-        ("Solution/web/_Imports.scriban", s => $"src/{s.WebProject}/_Imports.razor"),
-        ("Solution/web/appsettings.json.scriban", s => $"src/{s.WebProject}/appsettings.json"),
-        ("Solution/web/appsettings.Development.json.scriban", s => $"src/{s.WebProject}/appsettings.Development.json"),
-        ("Solution/web/Properties/launchSettings.scriban", s => $"src/{s.WebProject}/Properties/launchSettings.json"),
-        ("Solution/web/Pages/_Host.scriban", s => $"src/{s.WebProject}/Pages/_Host.cshtml"),
-        ("Solution/web/Pages/_Layout.scriban", s => $"src/{s.WebProject}/Pages/_Layout.cshtml"),
-        ("Solution/web/Shared/MainLayout.scriban", s => $"src/{s.WebProject}/Shared/MainLayout.razor"),
-        ("Solution/web/Shared/NavMenu.scriban", s => $"src/{s.WebProject}/Shared/NavMenu.razor"),
-        ("Solution/web/wwwroot/css/site.scriban", s => $"src/{s.WebProject}/wwwroot/css/site.css"),
-        ("Solution/web/Pages/Index.scriban", s => $"src/{s.WebProject}/Pages/Index.razor"),
+        ("Solution/mvc/csproj.scriban", s => $"src/{s.MvcProject}/{s.MvcProject}.csproj"),
+        ("Solution/mvc/Program.scriban", s => $"src/{s.MvcProject}/Program.cs"),
+        ("Solution/mvc/Properties/launchSettings.scriban", s => $"src/{s.MvcProject}/Properties/launchSettings.json"),
+        ("Solution/mvc/Controllers/HomeController.scriban", s => $"src/{s.MvcProject}/Controllers/HomeController.cs"),
+        ("Solution/mvc/Services/EntityWebServiceBase.scriban", s => $"src/{s.MvcProject}/Services/EntityWebServiceBase.cs"),
+        ("Solution/mvc/Views/_ViewImports.scriban", s => $"src/{s.MvcProject}/Views/_ViewImports.cshtml"),
+        ("Solution/mvc/Views/_ViewStart.scriban", s => $"src/{s.MvcProject}/Views/_ViewStart.cshtml"),
+        ("Solution/mvc/Views/Shared/_Layout.scriban", s => $"src/{s.MvcProject}/Views/Shared/_Layout.cshtml"),
+        ("Solution/mvc/Views/Home/Index.scriban", s => $"src/{s.MvcProject}/Views/Home/Index.cshtml"),
+        ("Solution/mvc/wwwroot/css/site.scriban", s => $"src/{s.MvcProject}/wwwroot/css/site.css"),
+        ("Solution/solution.slnLaunch.scriban", s => $"{s.ApplicationName}.slnLaunch"),
+        ("Solution/vscode/launch.scriban", _ => ".vscode/launch.json"),
+        ("Solution/vscode/tasks.scriban", _ => ".vscode/tasks.json"),
     ];
 
     public async Task GenerateAsync(SolutionSpec spec, string outputDirectory, CancellationToken ct = default)
@@ -59,9 +57,9 @@ public sealed class SolutionGenerator(TemplateRenderer renderer)
             await WriteTemplateAsync(renderer, templatePath, outputPathFunc(spec), outputDirectory, model, ct);
         }
 
-        if (spec.UiTargets.HasFlag(UiTarget.BlazorWeb))
+        if (spec.UiTargets.HasFlag(UiTarget.MvcWeb))
         {
-            foreach (var (templatePath, outputPathFunc) in BlazorWebFiles)
+            foreach (var (templatePath, outputPathFunc) in MvcWebFiles)
             {
                 ct.ThrowIfCancellationRequested();
                 await WriteTemplateAsync(renderer, templatePath, outputPathFunc(spec), outputDirectory, model, ct);
@@ -97,8 +95,21 @@ public sealed class SolutionGenerator(TemplateRenderer renderer)
             database = spec.Database.ToString(),
             use_oracle = spec.Database == DatabaseProvider.Oracle,
             use_sqlserver = spec.Database == DatabaseProvider.SqlServer,
-            include_blazor_web = spec.UiTargets.HasFlag(UiTarget.BlazorWeb),
+            include_mvc_web = spec.UiTargets.HasFlag(UiTarget.MvcWeb),
             ui_targets = uiTargetNames,
+            setup = new
+            {
+                active_connection_name = spec.Setup.ActiveConnectionName,
+                ensure_created_in_development = spec.Setup.EnsureCreatedInDevelopment,
+                oracle_schema_prefix = spec.Setup.OracleSchemaPrefix,
+                config_entries = spec.Setup.ConfigEntries.Select(e => new
+                {
+                    name = e.Name,
+                    kind = e.Kind.ToString(),
+                    key = e.Key,
+                    value = e.Value
+                }).ToList()
+            },
             oracle_package = "Oracle.EntityFrameworkCore",
             oracle_version = "8.23.60",
             sqlserver_package = "Microsoft.EntityFrameworkCore.SqlServer",

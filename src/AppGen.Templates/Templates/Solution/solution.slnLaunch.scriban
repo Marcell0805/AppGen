@@ -1,0 +1,27 @@
+[
+  {
+    "Name": "API + MVC",
+    "Projects": [
+      {
+        "Path": "src\\{{ app_name }}.API\\{{ app_name }}.API.csproj",
+        "Action": "Start",
+        "DebugTarget": "https"
+      },
+      {
+        "Path": "src\\{{ app_name }}.MVC\\{{ app_name }}.MVC.csproj",
+        "Action": "Start",
+        "DebugTarget": "https"
+      }
+    ]
+  },
+  {
+    "Name": "API only",
+    "Projects": [
+      {
+        "Path": "src\\{{ app_name }}.API\\{{ app_name }}.API.csproj",
+        "Action": "Start",
+        "DebugTarget": "https"
+      }
+    ]
+  }
+]

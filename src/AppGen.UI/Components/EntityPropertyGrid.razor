@@ -1,3 +1,4 @@
+@using AppGen.Core
 @using AppGen.UI.Models
 
 @if (Entity is null)
@@ -15,6 +16,7 @@ else
             <input class="form-control form-control-sm"
                    @bind="context.Name"
                    @bind:event="oninput"
+                   @onfocusout="() => OnPropertyNameChanged(context)"
                    placeholder="Property name" />
         </TemplateColumn>
         <TemplateColumn Title="Type">
@@ -30,6 +32,18 @@ else
                    checked="@context.IsKey"
                    @onchange="e => OnKeyChanged(context, e)" />
         </TemplateColumn>
+        <TemplateColumn Title="FK →">
+            <select class="form-select form-select-sm"
+                    value="@(context.ForeignKeyEntity ?? "")"
+                    disabled="@context.IsKey"
+                    @onchange="e => OnForeignKeyChanged(context, e)">
+                <option value="">—</option>
+                @foreach (var other in ForeignKeyEntityOptions(context))
+                {
+                    <option value="@other">@other</option>
+                }
+            </select>
+        </TemplateColumn>
         <TemplateColumn Title="Nullable">
             <input type="checkbox" @bind="context.IsNullable" />
         </TemplateColumn>
@@ -43,13 +57,26 @@ else
 
 @code {
     [Parameter] public EntityDraft? Entity { get; set; }
+    [Parameter] public IReadOnlyList<EntityDraft> AllEntities { get; set; } = [];
     [Parameter] public IReadOnlyList<string> ClrTypes { get; set; } = [];
     [Parameter] public EventCallback OnChanged { get; set; }
+
+    private IEnumerable<string> ForeignKeyEntityOptions(PropertyRow row)
+    {
+        if (Entity is null) yield break;
+
+        foreach (var e in AllEntities)
+        {
+            if (e.Name.Equals(Entity.Name, StringComparison.OrdinalIgnoreCase))
+                continue;
+            yield return e.Name;
+        }
+    }
 
     private void AddRow()
     {
         if (Entity is null) return;
-        Entity.Properties.Add(PropertyRow.FromDefaults(string.Empty, "string"));
+        Entity.Properties.Add(PropertyRow.FromDefaults(string.Empty, "long"));
         NotifyChanged();
     }
 
@@ -67,12 +94,39 @@ else
         if (isKey)
         {
             foreach (var p in Entity.Properties)
+            {
                 p.IsKey = ReferenceEquals(p, row);
+                if (p.IsKey)
+                    p.ForeignKeyEntity = null;
+            }
         }
         else
         {
             row.IsKey = false;
         }
+        NotifyChanged();
+    }
+
+    private void OnForeignKeyChanged(PropertyRow row, ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString();
+        row.ForeignKeyEntity = string.IsNullOrWhiteSpace(value) ? null : value;
+        NotifyChanged();
+    }
+
+    private void OnPropertyNameChanged(PropertyRow row)
+    {
+        if (Entity is null || row.IsKey || !string.IsNullOrWhiteSpace(row.ForeignKeyEntity))
+            return;
+
+        var inferred = NamingHelper.InferForeignKeyEntity(
+            row.Name.Trim(),
+            Entity.Name,
+            AllEntities.Select(e => e.Name));
+
+        if (inferred is not null)
+            row.ForeignKeyEntity = inferred;
+
         NotifyChanged();
     }
 

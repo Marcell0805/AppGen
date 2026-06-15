@@ -26,8 +26,11 @@ public class {{ entity_name }}Service(I{{ entity_name }}Repository repository) :
     {
         var entity = new {{ entity_name }}
         {
-{{ for property in properties }}
+{{ for property in create_properties }}
             {{ property.name }} = request.{{ property.name }},
+{{ end }}
+{{ if include_audit_columns }}
+            CreatedAt = DateTime.UtcNow,
 {{ end }}
         };
         var created = await repository.AddAsync(entity, ct);
@@ -36,12 +39,15 @@ public class {{ entity_name }}Service(I{{ entity_name }}Repository repository) :
 
     public async Task<Response<{{ entity_name }}Response>> UpdateAsync({{ primary_key_clr_type }} id, Update{{ entity_name }}Request request, CancellationToken ct = default)
     {
-        var entity = await repository.GetByIdAsync(id, ct);
+        var entity = await repository.GetTrackedByIdAsync(id, ct);
         if (entity is null)
             return new Response<{{ entity_name }}Response> { Succeeded = false, Message = "Not found", Errors = ["NotFound"] };
 
 {{ for property in non_key_properties }}
         entity.{{ property.name }} = request.{{ property.name }};
+{{ end }}
+{{ if include_audit_columns }}
+        entity.UpdatedAt = DateTime.UtcNow;
 {{ end }}
         var updated = await repository.UpdateAsync(entity, ct);
         return new Response<{{ entity_name }}Response>(Map(updated), "{{ entity_name }} updated.");

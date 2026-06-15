@@ -106,7 +106,7 @@ else if (Model is not null)
             {
                 var create = new Create{{ entity_name }}Request
                 {
-{{ for property in properties }}
+{{ for property in create_properties }}
                     {{ property.name }} = Model.{{ property.name }}{{ if !for.last }},{{ end }}
 {{ end }}
                 };

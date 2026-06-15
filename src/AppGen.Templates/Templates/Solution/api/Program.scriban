@@ -1,6 +1,8 @@
 using {{ root_namespace }}.Application;
 using {{ root_namespace }}.Persistence;
+using {{ root_namespace }}.Persistence.Contexts;
 using Asp.Versioning;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -20,7 +22,7 @@ builder.Services.AddApiVersioning(options =>
 
 builder.Services.AddApplicationServices();
 builder.Services.AddPersistenceServices(builder.Configuration);
-{{ if include_blazor_web }}
+{{ if include_mvc_web }}
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
@@ -37,10 +39,17 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI(options => options.SwaggerEndpoint("/swagger/v1/swagger.json", "{{ app_name }} API v1"));
     app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
+
+    if (app.Configuration.GetValue<bool>("Database:EnsureCreated"))
+    {
+        using var scope = app.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        db.Database.EnsureCreated();
+    }
 }
 
 app.UseHttpsRedirection();
-{{ if include_blazor_web }}
+{{ if include_mvc_web }}
 app.UseCors();
 {{ end }}
 app.UseAuthorization();

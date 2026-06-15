@@ -1,11 +1,20 @@
+using {{ root_namespace }}.Persistence.Contexts;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace {{ root_namespace }}.API.Controllers;
 
 [ApiController]
 [Route("api/v1/[controller]")]
-public class HealthController : ControllerBase
+public class HealthController(ApplicationDbContext db) : ControllerBase
 {
     [HttpGet]
-    public IActionResult Get() => Ok(new { status = "healthy", application = "{{ app_name }}" });
+    public async Task<IActionResult> Get(CancellationToken ct)
+    {
+        var canConnect = await db.Database.CanConnectAsync(ct);
+        if (!canConnect)
+            return StatusCode(503, new { status = "unhealthy", application = "{{ app_name }}", database = "unreachable" });
+
+        return Ok(new { status = "healthy", application = "{{ app_name }}", database = "connected" });
+    }
 }

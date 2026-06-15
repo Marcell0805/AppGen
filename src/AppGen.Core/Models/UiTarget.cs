@@ -4,6 +4,6 @@ namespace AppGen.Core.Models;
 public enum UiTarget
 {
     None = 0,
-    BlazorWeb = 1,
+    MvcWeb = 1,
     WinForms = 2
 }

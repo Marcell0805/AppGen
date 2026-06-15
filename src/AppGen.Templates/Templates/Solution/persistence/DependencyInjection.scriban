@@ -11,12 +11,16 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddPersistenceServices(this IServiceCollection services, IConfiguration configuration)
     {
+        var connectionName = configuration["Database:ActiveConnection"] ?? "Dev";
+        var connectionString = configuration.GetConnectionString(connectionName)
+            ?? throw new InvalidOperationException($"Connection string '{connectionName}' is not configured.");
+
         services.AddDbContext<ApplicationDbContext>(options =>
         {
 {{ if use_oracle }}
-            options.UseOracle(configuration.GetConnectionString("DefaultConnection"));
+            options.UseOracle(connectionString);
 {{ else }}
-            options.UseSqlServer(configuration.GetConnectionString("DefaultConnection"));
+            options.UseSqlServer(connectionString);
 {{ end }}
         });
 

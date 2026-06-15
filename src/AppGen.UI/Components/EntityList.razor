@@ -25,6 +25,18 @@
                 </button>
             </TemplateColumn>
             <PropertyColumn Property="@(e => e.Properties.Count)" Title="Properties" />
+            <TemplateColumn Title="UI">
+                <input type="checkbox"
+                       checked="@context.IncludeInUi"
+                       title="Generate MVC pages for this entity"
+                       @onchange="e => OnIncludeInUiChanged(context, e)" />
+            </TemplateColumn>
+            <TemplateColumn Title="Audit">
+                <input type="checkbox"
+                       checked="@context.IncludeAuditColumns"
+                       title="Add CreatedAt and UpdatedAt columns"
+                       @onchange="e => OnIncludeAuditChanged(context, e)" />
+            </TemplateColumn>
             <TemplateColumn Title="Actions">
                 <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => DuplicateEntity(context)">Duplicate</button>
                 <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => RemoveEntity(context)">Remove</button>
@@ -46,6 +58,16 @@
 
     private async Task SelectEntity(EntityDraft entity) =>
         await SelectedEntityChanged.InvokeAsync(entity);
+
+    private void OnIncludeInUiChanged(EntityDraft entity, ChangeEventArgs e)
+    {
+        entity.IncludeInUi = e.Value is true;
+    }
+
+    private void OnIncludeAuditChanged(EntityDraft entity, ChangeEventArgs e)
+    {
+        entity.IncludeAuditColumns = e.Value is true;
+    }
 
     private async Task AddEntity()
     {

@@ -6,6 +6,7 @@ public interface I{{ entity_name }}Repository
 {
     Task<List<{{ entity_name }}>> GetAllAsync(CancellationToken ct = default);
     Task<{{ entity_name }}?> GetByIdAsync({{ primary_key_clr_type }} id, CancellationToken ct = default);
+    Task<{{ entity_name }}?> GetTrackedByIdAsync({{ primary_key_clr_type }} id, CancellationToken ct = default);
     Task<{{ entity_name }}> AddAsync({{ entity_name }} entity, CancellationToken ct = default);
     Task<{{ entity_name }}> UpdateAsync({{ entity_name }} entity, CancellationToken ct = default);
     Task<bool> DeleteAsync({{ primary_key_clr_type }} id, CancellationToken ct = default);

@@ -6,6 +6,7 @@ public sealed class PropertyRow
     public string ClrType { get; set; } = "string";
     public bool IsKey { get; set; }
     public bool IsNullable { get; set; }
+    public string? ForeignKeyEntity { get; set; }
 
     public static PropertyRow FromDefaults(string name, string clrType, bool isKey = false, bool isNullable = false) =>
         new() { Name = name, ClrType = clrType, IsKey = isKey, IsNullable = isNullable };

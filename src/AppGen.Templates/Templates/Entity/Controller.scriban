@@ -10,7 +10,7 @@ namespace {{ root_namespace }}.API.Controllers.V1;
 [ApiController]
 [Route("api/v1/[controller]")]
 [ApiVersion("1.0")]
-public class {{ entity_plural }}Controller(I{{ entity_name }}Service service) : ControllerBase
+public class {{ entity_name }}Controller(I{{ entity_name }}Service service) : ControllerBase
 {
     [HttpGet]
     [ProducesResponseType(typeof(Response<List<{{ entity_name }}Response>>), StatusCodes.Status200OK)]

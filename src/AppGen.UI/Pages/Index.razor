@@ -1,15 +1,17 @@
 ﻿@page "/"
+@using AppGen.Core
 @using AppGen.Core.Models
 @using AppGen.UI.Models
 @using AppGen.UI.Services
 @inject AppGenerationService Generator
 @inject OutputFolderService FolderService
+@inject IWebHostEnvironment HostEnvironment
 @inject IJSRuntime Js
 
 <PageTitle>AppGen</PageTitle>
 
 <h1>AppGen</h1>
-<p class="subtitle">Generate a layered ASP.NET Core API solution with optional Blazor Web UI.</p>
+<p class="subtitle">Generate a layered ASP.NET Core API solution with optional MVC Web UI.</p>
 
 <div class="wizard">
     <fieldset class="panel">
@@ -22,21 +24,27 @@
             <input @bind="RootNamespace" placeholder="Defaults to app name" />
 
             <label>Database</label>
-            <select @bind="Database">
+            <select @bind="Database" @bind:after="OnDatabaseChanged">
                 <option value="@DatabaseProvider.SqlServer">SqlServer</option>
                 <option value="@DatabaseProvider.Oracle">Oracle</option>
             </select>
 
             <label>Output folder</label>
-            <input @bind="OutputRoot" placeholder="Must be empty — existing files block generate" />
+            <input @bind="OutputRoot" placeholder="Generated apps go in a subfolder here (e.g. output/InventorySystem)" />
         </div>
     </fieldset>
+
+    <ConfigSettingsPanel Database="Database"
+                         ConfigEntries="ConfigEntries"
+                         @bind-ActiveConnectionName="ActiveConnectionName"
+                         @bind-OracleSchemaPrefix="OracleSchemaPrefix"
+                         @bind-EnsureCreatedInDevelopment="EnsureCreatedInDevelopment" />
 
     <fieldset class="panel">
         <legend>Client UI (optional)</legend>
         <label class="checkbox-row">
-            <input type="checkbox" checked="@IncludeBlazorWeb" @onchange="OnBlazorWebChanged" />
-            Blazor Web — entity list and edit pages (calls API via HttpClient)
+            <input type="checkbox" checked="@IncludeMvcWeb" @onchange="OnMvcWebChanged" />
+            MVC Web — entity list and edit pages (calls API via HttpClient)
         </label>
         <label class="checkbox-row muted">
             <input type="checkbox" disabled />
@@ -52,6 +60,7 @@
     <fieldset class="panel">
         <legend>Properties</legend>
         <EntityPropertyGrid Entity="SelectedEntity"
+                            AllEntities="Entities"
                             ClrTypes="ClrTypes"
                             OnChanged="StateHasChanged" />
     </fieldset>
@@ -87,10 +96,13 @@
     private string ApplicationName { get; set; } = "InventorySystem";
     private string? RootNamespace { get; set; }
     private DatabaseProvider Database { get; set; } = DatabaseProvider.SqlServer;
-    private string OutputRoot { get; set; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "AppGenOutput");
+    private string OutputRoot { get; set; } = string.Empty;
 
-    private bool IncludeBlazorWeb { get; set; }
+    private bool IncludeMvcWeb { get; set; } = true;
+    private List<ConfigEntryRow> ConfigEntries { get; } = [new ConfigEntryRow { Name = "Dev", Kind = ConfigEntryKind.ConnectionString, Value = NamingHelper.DefaultDevConnection(DatabaseProvider.SqlServer).Value }];
+    private string ActiveConnectionName { get; set; } = "Dev";
+    private string? OracleSchemaPrefix { get; set; }
+    private bool EnsureCreatedInDevelopment { get; set; } = true;
     private List<EntityDraft> Entities { get; } = [];
     private EntityDraft? SelectedEntity { get; set; }
 
@@ -106,6 +118,11 @@
         !string.IsNullOrWhiteSpace(ApplicationName) &&
         !string.IsNullOrWhiteSpace(OutputRoot);
 
+    protected override void OnInitialized()
+    {
+        OutputRoot = FolderService.GetDefaultOutputRoot(HostEnvironment.ContentRootPath);
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
@@ -117,7 +134,7 @@
                 ApplicationName = settings.ApplicationName;
             if (!string.IsNullOrWhiteSpace(settings.OutputRoot))
                 OutputRoot = settings.OutputRoot;
-            IncludeBlazorWeb = settings.IncludeBlazorWeb;
+            IncludeMvcWeb = settings.IncludeMvcWeb;
             StateHasChanged();
         }
         catch
@@ -126,8 +143,38 @@
         }
     }
 
-    private void OnBlazorWebChanged(ChangeEventArgs e) =>
-        IncludeBlazorWeb = e.Value is true;
+    private void OnDatabaseChanged()
+    {
+        var setup = NamingHelper.DefaultSetup(Database);
+        ConfigEntries.Clear();
+        foreach (var entry in setup.ConfigEntries)
+        {
+            ConfigEntries.Add(new ConfigEntryRow
+            {
+                Name = entry.Name,
+                Kind = entry.Kind,
+                Key = entry.Key,
+                Value = entry.Value
+            });
+        }
+        ActiveConnectionName = setup.ActiveConnectionName;
+        OracleSchemaPrefix = setup.OracleSchemaPrefix;
+        EnsureCreatedInDevelopment = setup.EnsureCreatedInDevelopment;
+    }
+
+    private ProjectSetupSpec BuildSetup() => new()
+    {
+        ActiveConnectionName = ActiveConnectionName,
+        EnsureCreatedInDevelopment = EnsureCreatedInDevelopment,
+        OracleSchemaPrefix = OracleSchemaPrefix,
+        ConfigEntries = ConfigEntries
+            .Where(c => !string.IsNullOrWhiteSpace(c.Name))
+            .Select(c => c.ToSpec())
+            .ToList()
+    };
+
+    private void OnMvcWebChanged(ChangeEventArgs e) =>
+        IncludeMvcWeb = e.Value is true;
 
     private Task OnEntitySelected(EntityDraft? entity)
     {
@@ -143,6 +190,8 @@
 
     private string? ValidateEntities()
     {
+        var allNames = Entities.Select(e => e.Name).ToList();
+
         foreach (var entity in Entities)
         {
             var names = entity.Properties
@@ -159,6 +208,13 @@
 
             if (names.Count == 0)
                 return $"Entity {entity.Name} must have at least one property.";
+
+            var spec = entity.ToSpec(allNames);
+            foreach (var property in spec.Properties.Where(p => p.ForeignKeyEntity is not null))
+            {
+                if (!allNames.Any(n => n.Equals(property.ForeignKeyEntity, StringComparison.OrdinalIgnoreCase)))
+                    return $"Entity {entity.Name}: FK '{property.Name}' references unknown entity '{property.ForeignKeyEntity}'.";
+            }
         }
 
         return null;
@@ -182,14 +238,16 @@
 
         try
         {
-            var uiTargets = IncludeBlazorWeb ? UiTarget.BlazorWeb : UiTarget.None;
-            var entities = Entities.Select(e => e.ToSpec()).ToList();
+            var uiTargets = IncludeMvcWeb ? UiTarget.MvcWeb : UiTarget.None;
+            var allNames = Entities.Select(e => e.Name).ToList();
+            var entities = Entities.Select(e => e.ToSpec(allNames)).ToList();
             var result = await Generator.GenerateAsync(
                 ApplicationName.Trim(),
                 string.IsNullOrWhiteSpace(RootNamespace) ? null : RootNamespace.Trim(),
                 Database,
                 uiTargets,
                 OutputRoot.Trim(),
+                BuildSetup(),
                 entities);
 
             StatusMessage = result.Message;
@@ -202,7 +260,7 @@
                 {
                     ApplicationName = ApplicationName,
                     OutputRoot = OutputRoot,
-                    IncludeBlazorWeb = IncludeBlazorWeb
+                    IncludeMvcWeb = IncludeMvcWeb
                 });
             }
         }
@@ -243,6 +301,6 @@
     {
         public string? ApplicationName { get; set; }
         public string? OutputRoot { get; set; }
-        public bool IncludeBlazorWeb { get; set; }
+        public bool IncludeMvcWeb { get; set; }
     }
 }

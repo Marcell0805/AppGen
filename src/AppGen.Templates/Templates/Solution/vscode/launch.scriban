@@ -1,0 +1,52 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "{{ app_name }}.API",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/{{ app_name }}.API/bin/Debug/net8.0/{{ app_name }}.API.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/src/{{ app_name }}.API",
+      "stopAtEntry": false,
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "https://localhost:5001;http://localhost:5000"
+      },
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "\\bNow listening on:\\s+(https?://\\S+)"
+      }
+    },
+    {
+      "name": "{{ app_name }}.MVC",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/{{ app_name }}.MVC/bin/Debug/net8.0/{{ app_name }}.MVC.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/src/{{ app_name }}.MVC",
+      "stopAtEntry": false,
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "https://localhost:5101;http://localhost:5100"
+      },
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "\\bNow listening on:\\s+(https?://\\S+)",
+        "uriFormat": "https://localhost:5101"
+      }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "API + MVC",
+      "configurations": [
+        "{{ app_name }}.API",
+        "{{ app_name }}.MVC"
+      ],
+      "stopAll": true
+    }
+  ]
+}

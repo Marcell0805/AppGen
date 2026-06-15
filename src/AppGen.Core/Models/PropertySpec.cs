@@ -7,4 +7,6 @@ public sealed class PropertySpec
     public bool IsNullable { get; init; }
     public bool IsKey { get; init; }
     public string? ColumnName { get; init; }
+    /// <summary>Name of the entity this property references (FK).</summary>
+    public string? ForeignKeyEntity { get; init; }
 }

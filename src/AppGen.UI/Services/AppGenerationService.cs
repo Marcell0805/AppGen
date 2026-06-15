@@ -14,6 +14,7 @@ public sealed class AppGenerationService(
         DatabaseProvider database,
         UiTarget uiTargets,
         string outputRootDirectory,
+        ProjectSetupSpec setup,
         IReadOnlyList<EntitySpec> entities,
         CancellationToken ct = default)
     {
@@ -23,7 +24,7 @@ public sealed class AppGenerationService(
         if (string.IsNullOrWhiteSpace(outputRootDirectory))
             return GenerationResult.Fail("Output folder is required.");
 
-        var spec = SpecLoader.CreateDefault(applicationName, rootNamespace, database, uiTargets);
+        var spec = SpecLoader.CreateDefault(applicationName, rootNamespace, database, uiTargets, setup);
         var outputDir = Path.GetFullPath(Path.Combine(outputRootDirectory, spec.ApplicationName));
         Directory.CreateDirectory(outputDir);
 
@@ -31,6 +32,7 @@ public sealed class AppGenerationService(
             return GenerationResult.Fail($"Output directory is not empty: {outputDir}");
 
         await solutionGenerator.GenerateAsync(spec, outputDir, ct);
+        await AppSettingsGenerator.WriteAsync(spec, outputDir, ct);
 
         var loadedSpec = await SpecLoader.LoadAsync(outputDir, ct);
         foreach (var entity in entities)
@@ -41,11 +43,18 @@ public sealed class AppGenerationService(
             await uiGenerator.GenerateAsync(loadedSpec, entity, outputDir, ct);
         }
 
-        var uiNote = uiTargets.HasFlag(UiTarget.BlazorWeb)
-            ? " Blazor Web UI included — run the API and Web projects."
+        await OracleScriptGenerator.WriteAsync(loadedSpec, outputDir, ct);
+        await ReadmeGenerator.WriteAsync(loadedSpec, outputDir, ct);
+
+        var uiNote = uiTargets.HasFlag(UiTarget.MvcWeb)
+            ? " MVC Web UI included — run the API and MVC projects."
             : string.Empty;
 
-        return GenerationResult.Ok(outputDir, $"Generated successfully.{uiNote}");
+        var scriptNote = database == DatabaseProvider.Oracle && loadedSpec.Entities.Count > 0
+            ? " Oracle SQL scripts in scripts/oracle/."
+            : string.Empty;
+
+        return GenerationResult.Ok(outputDir, $"Generated successfully.{uiNote}{scriptNote}");
     }
 }
 

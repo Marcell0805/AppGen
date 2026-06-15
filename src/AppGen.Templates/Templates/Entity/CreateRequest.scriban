@@ -2,7 +2,7 @@ namespace {{ root_namespace }}.Shared.Requests;
 
 public class Create{{ entity_name }}Request
 {
-{{ for property in properties }}
+{{ for property in create_properties }}
     public {{ property.clr_type }} {{ property.name }} { get; set; }{{ if property.clr_type == "string" }} = string.Empty;{{ end }}
 {{ end }}
 }

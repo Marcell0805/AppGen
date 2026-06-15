@@ -4,7 +4,7 @@ namespace AppGen.Core.Models;
 
 public sealed class SolutionSpec
 {
-    public const int CurrentSchemaVersion = 2;
+    public const int CurrentSchemaVersion = 3;
 
     public int SchemaVersion { get; init; } = CurrentSchemaVersion;
     public required string ApplicationName { get; init; }
@@ -15,6 +15,8 @@ public sealed class SolutionSpec
     public UiTarget UiTargets { get; init; } = UiTarget.None;
 
     public List<EntitySpec> Entities { get; init; } = [];
+
+    public ProjectSetupSpec Setup { get; init; } = new();
 
     [JsonIgnore]
     public string ApiProject => $"{ApplicationName}.API";
@@ -35,5 +37,5 @@ public sealed class SolutionSpec
     public string TestsProject => $"{ApplicationName}.Tests";
 
     [JsonIgnore]
-    public string WebProject => $"{ApplicationName}.Web";
+    public string MvcProject => $"{ApplicationName}.MVC";
 }

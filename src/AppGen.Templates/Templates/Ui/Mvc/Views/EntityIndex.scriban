@@ -1,0 +1,41 @@
+@model List<{{ root_namespace }}.Shared.Responses.{{ entity_name }}Response>
+@{
+    ViewData["Title"] = "{{ entity_name }}";
+}
+
+<h1>{{ entity_name }}</h1>
+
+<p>
+    <a class="btn btn-primary" asp-action="Create">Create new</a>
+</p>
+
+@if (Model.Count == 0)
+{
+    <p>No records found.</p>
+}
+else
+{
+    <table class="data-table">
+        <thead>
+            <tr>
+{{ for property in properties }}
+                <th>{{ property.name }}</th>
+{{ end }}
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model)
+            {
+                <tr>
+{{ for property in properties }}
+                    <td>@item.{{ property.name }}</td>
+{{ end }}
+                    <td>
+                        <a asp-action="Edit" asp-route-id="@item.{{ primary_key_name }}">Edit</a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}

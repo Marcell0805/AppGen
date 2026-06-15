@@ -19,7 +19,7 @@ public sealed class EntityGenerator(TemplateRenderer renderer)
         ("Entity/CreateRequest.scriban", (s, e) => $"src/{s.SharedProject}/Requests/Create{e.Name}Request.cs"),
         ("Entity/UpdateRequest.scriban", (s, e) => $"src/{s.SharedProject}/Requests/Update{e.Name}Request.cs"),
         ("Entity/Response.scriban", (s, e) => $"src/{s.SharedProject}/Responses/{e.Name}Response.cs"),
-        ("Entity/Controller.scriban", (s, e) => $"src/{s.ApiProject}/Controllers/V1/{NamingHelper.ToPlural(e.Name)}Controller.cs"),
+        ("Entity/Controller.scriban", (s, e) => $"src/{s.ApiProject}/Controllers/V1/{e.Name}Controller.cs"),
     ];
 
     public async Task GenerateAsync(SolutionSpec spec, EntitySpec entity, string projectDirectory, CancellationToken ct = default)
@@ -46,9 +46,8 @@ public sealed class EntityGenerator(TemplateRenderer renderer)
     private async Task MergePersistenceAsync(SolutionSpec spec, EntitySpec entity, string dir, CancellationToken ct)
     {
         var dbContextPath = Path.Combine(dir, $"src/{spec.PersistenceProject}/Contexts/ApplicationDbContext.cs");
-        var plural = NamingHelper.ToPlural(entity.Name);
         await RegionMergeHelper.MergeRegionAsync(dbContextPath,
-            RegionMergeHelper.BuildRegion($"DbSet-{entity.Name}", $"    public DbSet<{entity.Name}> {plural} => Set<{entity.Name}>();"),
+            RegionMergeHelper.BuildRegion($"DbSet-{entity.Name}", $"    public DbSet<{entity.Name}> {entity.Name} => Set<{entity.Name}>();"),
             "// <AppGen-DbSets>", "// </AppGen-DbSets>", ct);
         await RegionMergeHelper.MergeRegionAsync(dbContextPath,
             RegionMergeHelper.BuildRegion($"Config-{entity.Name}", $"        modelBuilder.ApplyConfiguration(new {entity.Name}Configuration());"),
@@ -81,6 +80,7 @@ public sealed class EntityGenerator(TemplateRenderer renderer)
             RootNamespace = spec.RootNamespace,
             Database = spec.Database,
             UiTargets = spec.UiTargets,
+            Setup = spec.Setup,
             Entities = spec.Entities.Concat([entity]).ToList()
         };
 
@@ -95,9 +95,10 @@ public sealed class EntityGenerator(TemplateRenderer renderer)
 
     internal static object BuildEntityModel(SolutionSpec spec, EntitySpec entity)
     {
-        var keys = entity.Properties.Where(p => p.IsKey).ToList();
+        var expandedProperties = ExpandEntityProperties(entity);
+        var keys = expandedProperties.Where(p => p.IsKey).ToList();
         if (keys.Count == 0)
-            keys = [new PropertySpec { Name = "Id", ClrType = "long", IsKey = true }];
+            keys = [new PropertySpec { Name = NamingHelper.ToKeyPropertyName(entity.Name), ClrType = "long", IsKey = true }];
 
         var primaryKey = keys[0];
         var pkRouteConstraint = primaryKey.ClrType switch
@@ -106,13 +107,29 @@ public sealed class EntityGenerator(TemplateRenderer renderer)
             "Guid" => "guid",
             _ => "long"
         };
+
+        var oracleSchema = spec.Database == DatabaseProvider.Oracle && !string.IsNullOrWhiteSpace(spec.Setup.OracleSchemaPrefix)
+            ? NamingHelper.ToOracleSchema(spec.Setup.OracleSchemaPrefix)
+            : null;
+        var oracleTableOnly = oracleSchema is not null
+            ? NamingHelper.ToOracleTableNameOnly(spec.Setup.OracleSchemaPrefix!, entity.Name)
+            : null;
+
+        var foreignKeyProperties = BuildForeignKeyProperties(spec, entity);
+        var foreignKeyServices = foreignKeyProperties
+            .DistinctBy(fk => fk.ReferencedEntity)
+            .ToList();
+
         return new
         {
             app_name = spec.ApplicationName,
             root_namespace = spec.RootNamespace,
+            use_oracle = spec.Database == DatabaseProvider.Oracle,
+            oracle_schema = oracleSchema,
+            oracle_table_name_only = oracleTableOnly,
             entity_name = entity.Name,
-            entity_plural = NamingHelper.ToPlural(entity.Name),
-            entity_plural_lower = NamingHelper.ToPlural(entity.Name).ToLowerInvariant(),
+            entity_plural = entity.Name,
+            entity_plural_lower = entity.Name.ToLowerInvariant(),
             entity_camel = NamingHelper.ToCamelCase(entity.Name),
             primary_key_name = primaryKey.Name,
             primary_key_clr_type = primaryKey.ClrType,
@@ -120,14 +137,19 @@ public sealed class EntityGenerator(TemplateRenderer renderer)
             primary_key_camel = NamingHelper.ToCamelCase(primaryKey.Name),
             table_name = entity.TableName ?? entity.Name,
             schema = entity.Schema,
-            properties = entity.Properties.Select(p => new
+            include_audit_columns = entity.IncludeAuditColumns,
+            properties = expandedProperties.Select(p => new
             {
                 name = p.Name,
                 clr_type = p.IsNullable && p.ClrType != "string" ? p.ClrType + "?" : p.ClrType,
                 type_name = p.ClrType,
-                column_name = p.ColumnName ?? p.Name,
+                column_name = spec.Database == DatabaseProvider.Oracle
+                    ? NamingHelper.ToOracleColumnName(p.ColumnName ?? p.Name)
+                    : (p.ColumnName ?? p.Name),
                 is_key = p.IsKey,
-                is_nullable = p.IsNullable
+                is_nullable = p.IsNullable,
+                has_foreign_key = !p.IsKey && !string.IsNullOrWhiteSpace(p.ForeignKeyEntity),
+                foreign_key_entity = p.ForeignKeyEntity
             }).ToList(),
             key_properties = keys.Select(p => new
             {
@@ -136,12 +158,88 @@ public sealed class EntityGenerator(TemplateRenderer renderer)
                 camel = NamingHelper.ToCamelCase(p.Name)
             }).ToList(),
             has_composite_key = keys.Count > 1,
-            non_key_properties = entity.Properties.Where(p => !p.IsKey).Select(p => new
+            non_key_properties = expandedProperties.Where(p => !p.IsKey).Select(p => new
             {
                 name = p.Name,
                 clr_type = p.IsNullable && p.ClrType != "string" ? p.ClrType + "?" : p.ClrType,
                 camel = NamingHelper.ToCamelCase(p.Name)
-            }).ToList()
+            }).ToList(),
+            create_properties = expandedProperties.Where(p => !p.IsKey && !IsAuditProperty(p.Name)).Select(p => new
+            {
+                name = p.Name,
+                clr_type = p.IsNullable && p.ClrType != "string" ? p.ClrType + "?" : p.ClrType,
+                camel = NamingHelper.ToCamelCase(p.Name)
+            }).ToList(),
+            foreign_key_properties = foreignKeyProperties.Select(fk => new
+            {
+                name = fk.Name,
+                referenced_entity = fk.ReferencedEntity,
+                referenced_key_name = fk.ReferencedKeyName,
+                display_property = fk.DisplayProperty,
+                service_name = fk.ServiceName
+            }).ToList(),
+            foreign_key_services = foreignKeyServices.Select(fk => new
+            {
+                referenced_entity = fk.ReferencedEntity,
+                service_name = fk.ServiceName
+            }).ToList(),
+            has_foreign_keys = foreignKeyProperties.Count > 0
         };
     }
+
+    internal static List<PropertySpec> ExpandEntityProperties(EntitySpec entity)
+    {
+        var list = entity.Properties.ToList();
+        if (entity.IncludeAuditColumns)
+        {
+            if (list.All(p => !p.Name.Equals("CreatedAt", StringComparison.OrdinalIgnoreCase)))
+                list.Add(new PropertySpec { Name = "CreatedAt", ClrType = "DateTime" });
+            if (list.All(p => !p.Name.Equals("UpdatedAt", StringComparison.OrdinalIgnoreCase)))
+                list.Add(new PropertySpec { Name = "UpdatedAt", ClrType = "DateTime", IsNullable = true });
+        }
+        return list;
+    }
+
+    private static bool IsAuditProperty(string name) =>
+        name.Equals("CreatedAt", StringComparison.OrdinalIgnoreCase) ||
+        name.Equals("UpdatedAt", StringComparison.OrdinalIgnoreCase);
+
+    private static List<ForeignKeyModel> BuildForeignKeyProperties(SolutionSpec spec, EntitySpec entity)
+    {
+        var result = new List<ForeignKeyModel>();
+        foreach (var property in entity.Properties.Where(p => !p.IsKey && !string.IsNullOrWhiteSpace(p.ForeignKeyEntity)))
+        {
+            var referenced = spec.Entities.FirstOrDefault(e =>
+                e.Name.Equals(property.ForeignKeyEntity, StringComparison.OrdinalIgnoreCase));
+            if (referenced is null)
+                continue;
+
+            var refKey = referenced.Properties.FirstOrDefault(p => p.IsKey)
+                ?? new PropertySpec
+                {
+                    Name = NamingHelper.ToKeyPropertyName(referenced.Name),
+                    ClrType = "long",
+                    IsKey = true
+                };
+
+            var displayProperty = referenced.Properties
+                .FirstOrDefault(p => !p.IsKey && p.ClrType == "string")?.Name ?? refKey.Name;
+
+            result.Add(new ForeignKeyModel(
+                property.Name,
+                referenced.Name,
+                refKey.Name,
+                displayProperty,
+                NamingHelper.ToCamelCase(referenced.Name) + "Service"));
+        }
+
+        return result;
+    }
+
+    private sealed record ForeignKeyModel(
+        string Name,
+        string ReferencedEntity,
+        string ReferencedKeyName,
+        string DisplayProperty,
+        string ServiceName);
 }
