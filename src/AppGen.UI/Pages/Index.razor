@@ -26,6 +26,7 @@
             <label>Database</label>
             <select @bind="Database" @bind:after="OnDatabaseChanged">
                 <option value="@DatabaseProvider.SqlServer">SqlServer</option>
+                <option value="@DatabaseProvider.PostgreSql">PostgreSQL</option>
                 <option value="@DatabaseProvider.Oracle">Oracle</option>
             </select>
 

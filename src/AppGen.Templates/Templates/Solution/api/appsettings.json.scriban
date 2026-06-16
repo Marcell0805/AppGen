@@ -1,6 +1,6 @@
 {
   "ConnectionStrings": {
-    "DefaultConnection": "{{ if use_oracle }}User Id=app;Password=secret;Data Source=localhost:1521/XEPDB1{{ else }}Server=localhost;Database={{ app_name }};Trusted_Connection=True;TrustServerCertificate=True{{ end }}"
+    "DefaultConnection": "{{ if use_oracle }}User Id=app;Password=secret;Data Source=localhost:1521/XEPDB1{{ else if use_postgresql }}Host=localhost;Port=5432;Database={{ app_name }};Username=postgres;Password=postgres{{ else }}Server=localhost;Database={{ app_name }};Trusted_Connection=True;TrustServerCertificate=True{{ end }}"
   },
   "Logging": {
     "LogLevel": {

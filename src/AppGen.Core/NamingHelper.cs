@@ -50,9 +50,12 @@ public static class NamingHelper
     {
         Name = "Dev",
         Kind = ConfigEntryKind.ConnectionString,
-        Value = database == DatabaseProvider.Oracle
-            ? "User Id=app;Password=secret;Data Source=localhost:1521/XEPDB1"
-            : "Server=localhost;Database=AppGenDb;Trusted_Connection=True;TrustServerCertificate=True"
+        Value = database switch
+        {
+            DatabaseProvider.Oracle => "User Id=app;Password=secret;Data Source=localhost:1521/XEPDB1",
+            DatabaseProvider.PostgreSql => "Host=localhost;Port=5432;Database=AppGenDb;Username=postgres;Password=postgres",
+            _ => "Server=localhost;Database=AppGenDb;Trusted_Connection=True;TrustServerCertificate=True"
+        }
     };
 
     public static ProjectSetupSpec DefaultSetup(DatabaseProvider database) => new()

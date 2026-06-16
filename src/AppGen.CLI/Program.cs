@@ -9,7 +9,7 @@ var createCmd = new Command("create", "Scaffold a new API solution");
 var appNameArg = new Argument<string>("name", "Application name (e.g. InventorySystem)");
 var outputOpt = new Option<string>("--output", () => ".", "Output directory");
 var namespaceOpt = new Option<string?>("--namespace", "Root namespace (defaults to app name)");
-var databaseOpt = new Option<string>("--database", () => "SqlServer", "SqlServer or Oracle");
+var databaseOpt = new Option<string>("--database", () => "SqlServer", "SqlServer, Oracle, or PostgreSql");
 var uiOpt = new Option<string?>("--ui", "Optional UI targets: MvcWeb (comma-separated)");
 
 createCmd.AddArgument(appNameArg);
@@ -19,7 +19,7 @@ createCmd.AddOption(databaseOpt);
 createCmd.AddOption(uiOpt);
 createCmd.SetHandler(async (name, output, ns, db, ui) =>
 {
-    var database = Enum.Parse<DatabaseProvider>(db, ignoreCase: true);
+    var database = ParseDatabaseProvider(db);
     var uiTargets = ParseUiTargets(ui);
     var setup = NamingHelper.DefaultSetup(database);
     var spec = SpecLoader.CreateDefault(name, ns, database, uiTargets, setup);
@@ -40,6 +40,10 @@ createCmd.SetHandler(async (name, output, ns, db, ui) =>
         Console.WriteLine("Included MVC Web UI project.");
     if (database == DatabaseProvider.Oracle)
         Console.WriteLine("Oracle SQL scripts are generated when you add entities.");
+    else if (database == DatabaseProvider.PostgreSql)
+        Console.WriteLine("PostgreSQL via Npgsql — SQL scripts generated when you add entities.");
+    else if (database == DatabaseProvider.SqlServer)
+        Console.WriteLine("SQL Server — SQL scripts generated when you add entities.");
     Console.WriteLine($"Next: cd \"{outputDir}\" && dotnet build");
 }, appNameArg, outputOpt, namespaceOpt, databaseOpt, uiOpt);
 
@@ -87,11 +91,11 @@ addCmd.SetHandler(async (entityName, project) =>
     await generator.GenerateAsync(spec, entity, projectDir);
     var updated = await SpecLoader.LoadAsync(projectDir);
     await uiGenerator.GenerateAsync(updated, entity, projectDir);
-    await OracleScriptGenerator.WriteAsync(updated, projectDir);
+    await DatabaseScriptGenerator.WriteAsync(updated, projectDir);
     await ReadmeGenerator.WriteAsync(updated, projectDir);
     Console.WriteLine($"Added entity '{entityName}' to {projectDir}");
-    if (updated.Database == DatabaseProvider.Oracle)
-        Console.WriteLine("Updated scripts/oracle/ SQL scripts.");
+    if (updated.Entities.Count > 0)
+        Console.WriteLine($"Updated {DatabaseScriptGenerator.ScriptsFolder(updated.Database)} SQL scripts.");
     Console.WriteLine("Run: dotnet build");
 }, entityNameArg, projectOpt);
 
@@ -115,4 +119,13 @@ static UiTarget ParseUiTargets(string? raw)
             value |= Enum.Parse<UiTarget>(part, ignoreCase: true);
     }
     return value;
+}
+
+static DatabaseProvider ParseDatabaseProvider(string raw)
+{
+    if (string.Equals(raw, "Postgres", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(raw, "PostgreSQL", StringComparison.OrdinalIgnoreCase))
+        return DatabaseProvider.PostgreSql;
+
+    return Enum.Parse<DatabaseProvider>(raw, ignoreCase: true);
 }

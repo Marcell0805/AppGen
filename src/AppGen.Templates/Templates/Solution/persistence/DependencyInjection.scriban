@@ -19,6 +19,8 @@ public static class DependencyInjection
         {
 {{ if use_oracle }}
             options.UseOracle(connectionString);
+{{ else if use_postgresql }}
+            options.UseNpgsql(connectionString);
 {{ else }}
             options.UseSqlServer(connectionString);
 {{ end }}

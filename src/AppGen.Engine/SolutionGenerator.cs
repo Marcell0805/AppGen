@@ -95,6 +95,7 @@ public sealed class SolutionGenerator(TemplateRenderer renderer)
             database = spec.Database.ToString(),
             use_oracle = spec.Database == DatabaseProvider.Oracle,
             use_sqlserver = spec.Database == DatabaseProvider.SqlServer,
+            use_postgresql = spec.Database == DatabaseProvider.PostgreSql,
             include_mvc_web = spec.UiTargets.HasFlag(UiTarget.MvcWeb),
             ui_targets = uiTargetNames,
             setup = new
@@ -113,6 +114,7 @@ public sealed class SolutionGenerator(TemplateRenderer renderer)
             oracle_package = "Oracle.EntityFrameworkCore",
             oracle_version = "8.23.60",
             sqlserver_package = "Microsoft.EntityFrameworkCore.SqlServer",
+            postgresql_package = "Npgsql.EntityFrameworkCore.PostgreSQL",
             ef_version = "8.0.11",
             swagger_version = "6.9.0",
             versioning_version = "8.1.0",

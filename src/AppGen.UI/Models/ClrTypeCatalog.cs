@@ -7,7 +7,7 @@ public static class ClrTypeCatalog
     public static IReadOnlyList<string> GetTypes(DatabaseProvider db) =>
         db switch
         {
-            DatabaseProvider.SqlServer or DatabaseProvider.Oracle =>
+            DatabaseProvider.SqlServer or DatabaseProvider.Oracle or DatabaseProvider.PostgreSql =>
             [
                 "string",
                 "long",

@@ -14,6 +14,8 @@
     </PackageReference>
 {{ if use_oracle }}
     <PackageReference Include="{{ oracle_package }}" Version="{{ oracle_version }}" />
+{{ else if use_postgresql }}
+    <PackageReference Include="{{ postgresql_package }}" Version="{{ ef_version }}" />
 {{ else }}
     <PackageReference Include="{{ sqlserver_package }}" Version="{{ ef_version }}" />
 {{ end }}

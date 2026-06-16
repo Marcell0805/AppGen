@@ -14,7 +14,7 @@ It generates a ready-to-run Visual Studio solution (Swagger enabled by default) 
 - **CLI**: `create` a solution and `entity add` to scaffold CRUD
 - **Simple UI**: Blazor Server wizard with QuickGrid entity editor and optional UI target selection
 - **Optional MVC Web client**: generate `{AppName}.MVC` with per-entity list/edit pages (HttpClient → API), PR-style layering
-- **Database providers**: SQL Server + Oracle (template switch)
+- **Database providers**: SQL Server, PostgreSQL, and Oracle — each can emit `scripts/{provider}/` create + seed SQL when entities are added
 - **Swagger-first**: generated APIs open Swagger on run; `/` redirects to `/swagger` in Development
 - **Regeneration-safe**: generator inserts its changes into marked regions in shared files
 
@@ -56,7 +56,7 @@ src/
 
 | Command | Description |
 |---------|-------------|
-| `appgen create <Name> --output <path> [--database SqlServer\|Oracle] [--ui MvcWeb]` | Scaffold solution (optional MVC Web UI) |
+| `appgen create <Name> --output <path> [--database SqlServer\|PostgreSql\|Oracle] [--ui MvcWeb]` | Scaffold solution (optional MVC Web UI) |
 | `appgen entity add <Name> --project <path>` | Add CRUD slice for an entity |
 
 ## Sample output

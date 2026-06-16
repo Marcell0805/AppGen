@@ -59,7 +59,19 @@
     @if (Database == DatabaseProvider.Oracle)
     {
         <p class="muted" style="margin-top: 0.75rem;">
-            Oracle projects include <code>scripts/oracle/001-create-tables.sql</code> and <code>002-seed-data.sql</code>.
+            Oracle projects include <code>scripts/oracle/001-create-tables.sql</code> and <code>002-seed-data.sql</code> when entities are added.
+        </p>
+    }
+    else if (Database == DatabaseProvider.SqlServer)
+    {
+        <p class="muted" style="margin-top: 0.75rem;">
+            SQL Server projects include <code>scripts/sqlserver/001-create-tables.sql</code> and <code>002-seed-data.sql</code> when entities are added.
+        </p>
+    }
+    else if (Database == DatabaseProvider.PostgreSql)
+    {
+        <p class="muted" style="margin-top: 0.75rem;">
+            PostgreSQL projects include <code>scripts/postgresql/001-create-tables.sql</code> and <code>002-seed-data.sql</code> when entities are added.
         </p>
     }
 </fieldset>

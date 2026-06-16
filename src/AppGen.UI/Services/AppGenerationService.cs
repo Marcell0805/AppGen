@@ -43,15 +43,15 @@ public sealed class AppGenerationService(
             await uiGenerator.GenerateAsync(loadedSpec, entity, outputDir, ct);
         }
 
-        await OracleScriptGenerator.WriteAsync(loadedSpec, outputDir, ct);
+        await DatabaseScriptGenerator.WriteAsync(loadedSpec, outputDir, ct);
         await ReadmeGenerator.WriteAsync(loadedSpec, outputDir, ct);
 
         var uiNote = uiTargets.HasFlag(UiTarget.MvcWeb)
             ? " MVC Web UI included — run the API and MVC projects."
             : string.Empty;
 
-        var scriptNote = database == DatabaseProvider.Oracle && loadedSpec.Entities.Count > 0
-            ? " Oracle SQL scripts in scripts/oracle/."
+        var scriptNote = loadedSpec.Entities.Count > 0
+            ? $" SQL scripts in {DatabaseScriptGenerator.ScriptsFolder(database)}."
             : string.Empty;
 
         return GenerationResult.Ok(outputDir, $"Generated successfully.{uiNote}{scriptNote}");
