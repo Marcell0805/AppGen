@@ -4,8 +4,9 @@ namespace AppGen.UI.Models;
 
 public static class ClrTypeCatalog
 {
-    public static IReadOnlyList<string> GetTypes(DatabaseProvider db) =>
-        db switch
+    public static IReadOnlyList<string> GetTypes(DatabaseProvider db)
+    {
+        string[] types = db switch
         {
             DatabaseProvider.SqlServer or DatabaseProvider.Oracle or DatabaseProvider.PostgreSql =>
             [
@@ -20,4 +21,9 @@ public static class ClrTypeCatalog
             ],
             _ => ["string", "long", "int", "decimal", "bool", "DateTime"]
         };
+
+        return types
+            .OrderBy(t => t, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
 }

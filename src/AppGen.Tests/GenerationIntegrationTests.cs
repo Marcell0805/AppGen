@@ -181,6 +181,70 @@ public class GenerationIntegrationTests
     }
 
     [Fact]
+    public async Task Seed_script_foreign_keys_reference_parent_entity_ids()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), "AppGenTests", Guid.NewGuid().ToString("N"));
+        var outputDir = Path.Combine(tempRoot, "SeedFkApp");
+
+        try
+        {
+            var spec = new SolutionSpec
+            {
+                ApplicationName = "SeedFkApp",
+                RootNamespace = "SeedFkApp",
+                Database = DatabaseProvider.PostgreSql,
+                Entities =
+                [
+                    new EntitySpec
+                    {
+                        Name = "ProductLine",
+                        Properties =
+                        [
+                            new PropertySpec { Name = "ProductLine_Id", ClrType = "long", IsKey = true },
+                            new PropertySpec { Name = "Code", ClrType = "string" }
+                        ]
+                    },
+                    new EntitySpec
+                    {
+                        Name = "ImmortalisedEnquiry",
+                        Properties =
+                        [
+                            new PropertySpec { Name = "ImmortalisedEnquiry_Id", ClrType = "long", IsKey = true },
+                            new PropertySpec { Name = "FullName", ClrType = "string" },
+                            new PropertySpec { Name = "ProductLine_Id", ClrType = "long", ForeignKeyEntity = "ProductLine" }
+                        ]
+                    },
+                    new EntitySpec
+                    {
+                        Name = "EnquiryAttachment",
+                        Properties =
+                        [
+                            new PropertySpec { Name = "EnquiryAttachment_Id", ClrType = "long", IsKey = true },
+                            new PropertySpec { Name = "ImmortalisedEnquiry_Id", ClrType = "long", ForeignKeyEntity = "ImmortalisedEnquiry" },
+                            new PropertySpec { Name = "FileName", ClrType = "string" }
+                        ]
+                    }
+                ]
+            };
+
+            await PostgreSqlScriptGenerator.WriteAsync(spec, outputDir);
+            var seed = await File.ReadAllTextAsync(Path.Combine(outputDir, "scripts/postgresql/002-seed-data.sql"));
+
+            Assert.Contains("INSERT INTO \"public\".\"ProductLine\"", seed);
+            Assert.Contains("INSERT INTO \"public\".\"ImmortalisedEnquiry\"", seed);
+            Assert.Contains("INSERT INTO \"public\".\"EnquiryAttachment\"", seed);
+            Assert.Contains("VALUES (1, 'Code sample');", seed);
+            Assert.Contains("VALUES (2, 'FullName sample', 1);", seed);
+            Assert.Contains("VALUES (3, 2, 'FileName sample');", seed);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+                Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
+    [Fact]
     public void Rendered_repository_update_uses_tracked_entity_pattern()
     {
         var spec = new SolutionSpec

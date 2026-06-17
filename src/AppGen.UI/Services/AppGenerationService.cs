@@ -8,7 +8,7 @@ public sealed class AppGenerationService(
     EntityGenerator entityGenerator,
     UiGenerator uiGenerator)
 {
-    public async Task<GenerationResult> GenerateAsync(
+    public Task<GenerationResult> GenerateAsync(
         string applicationName,
         string? rootNamespace,
         DatabaseProvider database,
@@ -16,7 +16,49 @@ public sealed class AppGenerationService(
         string outputRootDirectory,
         ProjectSetupSpec setup,
         IReadOnlyList<EntitySpec> entities,
-        CancellationToken ct = default)
+        bool overwrite = false,
+        CancellationToken ct = default) =>
+        GenerateCoreAsync(
+            applicationName,
+            rootNamespace,
+            database,
+            uiTargets,
+            outputRootDirectory,
+            setup,
+            entities,
+            overwrite,
+            ct);
+
+    public Task<GenerationResult> RegenerateAsync(
+        string applicationName,
+        string? rootNamespace,
+        DatabaseProvider database,
+        UiTarget uiTargets,
+        string outputRootDirectory,
+        ProjectSetupSpec setup,
+        IReadOnlyList<EntitySpec> entities,
+        CancellationToken ct = default) =>
+        GenerateCoreAsync(
+            applicationName,
+            rootNamespace,
+            database,
+            uiTargets,
+            outputRootDirectory,
+            setup,
+            entities,
+            overwrite: true,
+            ct);
+
+    private async Task<GenerationResult> GenerateCoreAsync(
+        string applicationName,
+        string? rootNamespace,
+        DatabaseProvider database,
+        UiTarget uiTargets,
+        string outputRootDirectory,
+        ProjectSetupSpec setup,
+        IReadOnlyList<EntitySpec> entities,
+        bool overwrite,
+        CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(applicationName))
             return GenerationResult.Fail("Application name is required.");
@@ -25,11 +67,16 @@ public sealed class AppGenerationService(
             return GenerationResult.Fail("Output folder is required.");
 
         var spec = SpecLoader.CreateDefault(applicationName, rootNamespace, database, uiTargets, setup);
-        var outputDir = Path.GetFullPath(Path.Combine(outputRootDirectory, spec.ApplicationName));
-        Directory.CreateDirectory(outputDir);
+        var outputDir = GenerationOutputHelper.ResolveOutputDirectory(outputRootDirectory.Trim(), spec.ApplicationName);
+        var exists = GenerationOutputHelper.OutputDirectoryExists(outputDir);
 
-        if (Directory.EnumerateFileSystemEntries(outputDir).Any())
+        if (exists && !overwrite)
             return GenerationResult.Fail($"Output directory is not empty: {outputDir}");
+
+        if (overwrite && exists)
+            GenerationOutputHelper.DeleteOutputDirectory(outputDir);
+
+        Directory.CreateDirectory(outputDir);
 
         await solutionGenerator.GenerateAsync(spec, outputDir, ct);
         await AppSettingsGenerator.WriteAsync(spec, outputDir, ct);
@@ -54,7 +101,8 @@ public sealed class AppGenerationService(
             ? $" SQL scripts in {DatabaseScriptGenerator.ScriptsFolder(database)}."
             : string.Empty;
 
-        return GenerationResult.Ok(outputDir, $"Generated successfully.{uiNote}{scriptNote}");
+        var prefix = overwrite && exists ? "Regenerated successfully." : "Generated successfully.";
+        return GenerationResult.Ok(outputDir, $"{prefix}{uiNote}{scriptNote}");
     }
 }
 

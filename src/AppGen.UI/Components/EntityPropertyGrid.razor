@@ -76,7 +76,7 @@ else
     private void AddRow()
     {
         if (Entity is null) return;
-        Entity.Properties.Add(PropertyRow.FromDefaults(string.Empty, "long"));
+        Entity.Properties.Add(PropertyRow.FromDefaults(string.Empty, "string"));
         NotifyChanged();
     }
 

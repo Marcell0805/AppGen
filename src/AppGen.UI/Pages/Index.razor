@@ -14,6 +14,8 @@
 <p class="subtitle">Generate a layered ASP.NET Core API solution with optional MVC Web UI.</p>
 
 <div class="wizard">
+    <ErrorBoundary @ref="_errorBoundary">
+        <ChildContent>
     <fieldset class="panel">
         <legend>Application</legend>
         <div class="form-grid">
@@ -70,6 +72,18 @@
         <button type="button" class="btn btn-primary" @onclick="Generate" disabled="@(!CanGenerate)">
             @(IsGenerating ? "Generating…" : "Generate")
         </button>
+        @if (CanRegenerate)
+        {
+            <button type="button" class="btn btn-outline-danger" @onclick="ShowRegenConfirm" disabled="@IsGenerating">
+                Regenerate (overwrite)
+            </button>
+        }
+        <button type="button" class="btn btn-outline-secondary" @onclick="SaveDraft" disabled="@IsGenerating">
+            Save draft
+        </button>
+        <button type="button" class="btn btn-outline-secondary" @onclick="LoadDraft" disabled="@IsGenerating">
+            Load draft
+        </button>
     </div>
 
     @if (!string.IsNullOrWhiteSpace(StatusMessage))
@@ -91,7 +105,25 @@
             }
         </div>
     }
+        </ChildContent>
+        <ErrorContent Context="ex">
+            <div class="status-panel status-error">
+                <div><strong>Something went wrong</strong></div>
+                <div>@ex.Message</div>
+                <button type="button" class="btn btn-sm btn-outline-secondary" style="margin-top: 0.75rem;" @onclick="RecoverFromError">
+                    Dismiss and continue
+                </button>
+            </div>
+        </ErrorContent>
+    </ErrorBoundary>
 </div>
+
+<RegenConfirmModal @key="_regenModalKey"
+                   Visible="ShowRegenModal"
+                   ExpectedAppName="@ApplicationName.Trim()"
+                   OutputPath="@SafeOutputPath"
+                   OnCancel="HideRegenConfirm"
+                   OnConfirm="Regenerate" />
 
 @code {
     private string ApplicationName { get; set; } = "InventorySystem";
@@ -108,6 +140,9 @@
     private EntityDraft? SelectedEntity { get; set; }
 
     private bool IsGenerating { get; set; }
+    private bool ShowRegenModal { get; set; }
+    private int _regenModalKey;
+    private ErrorBoundary? _errorBoundary;
     private string StatusMessage { get; set; } = string.Empty;
     private bool IsSuccess { get; set; }
     private string? OutputDirectory { get; set; }
@@ -118,6 +153,52 @@
         !IsGenerating &&
         !string.IsNullOrWhiteSpace(ApplicationName) &&
         !string.IsNullOrWhiteSpace(OutputRoot);
+
+    private string? ResolvedOutputDirectory
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(ApplicationName) || string.IsNullOrWhiteSpace(OutputRoot))
+                return null;
+
+            try
+            {
+                return Path.GetFullPath(Path.Combine(
+                    OutputRoot.Trim(),
+                    NamingHelper.NormalizeAppName(ApplicationName.Trim())));
+            }
+            catch
+            {
+                return null;
+            }
+        }
+    }
+
+    private string SafeOutputPath => ResolvedOutputDirectory ?? string.Empty;
+
+    private bool CanRegenerate
+    {
+        get
+        {
+            if (IsGenerating ||
+                string.IsNullOrWhiteSpace(ApplicationName) ||
+                string.IsNullOrWhiteSpace(OutputRoot))
+                return false;
+
+            var outputDir = ResolvedOutputDirectory;
+            if (outputDir is null || !Directory.Exists(outputDir))
+                return false;
+
+            try
+            {
+                return Directory.EnumerateFileSystemEntries(outputDir).Any();
+            }
+            catch
+            {
+                return false;
+            }
+        }
+    }
 
     protected override void OnInitialized()
     {
@@ -195,6 +276,9 @@
 
         foreach (var entity in Entities)
         {
+            if (!NamingHelper.IsValidClrIdentifier(entity.Name))
+                return $"Entity '{entity.Name}' is not a valid C# name (use letters, digits, underscore; cannot start with a digit).";
+
             var names = entity.Properties
                 .Select(p => p.Name.Trim())
                 .Where(n => n.Length > 0)
@@ -210,6 +294,12 @@
             if (names.Count == 0)
                 return $"Entity {entity.Name} must have at least one property.";
 
+            foreach (var propertyName in names)
+            {
+                if (!NamingHelper.IsValidClrIdentifier(propertyName))
+                    return $"Property '{propertyName}' on entity {entity.Name} is not a valid C# name (use letters, digits, underscore; cannot start with a digit).";
+            }
+
             var spec = entity.ToSpec(allNames);
             foreach (var property in spec.Properties.Where(p => p.ForeignKeyEntity is not null))
             {
@@ -221,15 +311,44 @@
         return null;
     }
 
-    private async Task Generate()
+    private async Task Generate() => await RunGenerationAsync(overwrite: false);
+
+    private void ShowRegenConfirm()
+    {
+        _regenModalKey++;
+        ShowRegenModal = true;
+    }
+
+    private void HideRegenConfirm() => ShowRegenModal = false;
+
+    private async Task Regenerate()
     {
         var validationError = ValidateEntities();
         if (validationError is not null)
         {
+            ShowRegenModal = false;
             StatusMessage = validationError;
             IsSuccess = false;
             OutputDirectory = null;
             return;
+        }
+
+        ShowRegenModal = false;
+        await RunGenerationAsync(overwrite: true, validate: false);
+    }
+
+    private async Task RunGenerationAsync(bool overwrite, bool validate = true)
+    {
+        if (validate)
+        {
+            var validationError = ValidateEntities();
+            if (validationError is not null)
+            {
+                StatusMessage = validationError;
+                IsSuccess = false;
+                OutputDirectory = null;
+                return;
+            }
         }
 
         IsGenerating = true;
@@ -242,14 +361,23 @@
             var uiTargets = IncludeMvcWeb ? UiTarget.MvcWeb : UiTarget.None;
             var allNames = Entities.Select(e => e.Name).ToList();
             var entities = Entities.Select(e => e.ToSpec(allNames)).ToList();
-            var result = await Generator.GenerateAsync(
-                ApplicationName.Trim(),
-                string.IsNullOrWhiteSpace(RootNamespace) ? null : RootNamespace.Trim(),
-                Database,
-                uiTargets,
-                OutputRoot.Trim(),
-                BuildSetup(),
-                entities);
+            var result = overwrite
+                ? await Generator.RegenerateAsync(
+                    ApplicationName.Trim(),
+                    string.IsNullOrWhiteSpace(RootNamespace) ? null : RootNamespace.Trim(),
+                    Database,
+                    uiTargets,
+                    OutputRoot.Trim(),
+                    BuildSetup(),
+                    entities)
+                : await Generator.GenerateAsync(
+                    ApplicationName.Trim(),
+                    string.IsNullOrWhiteSpace(RootNamespace) ? null : RootNamespace.Trim(),
+                    Database,
+                    uiTargets,
+                    OutputRoot.Trim(),
+                    BuildSetup(),
+                    entities);
 
             StatusMessage = result.Message;
             IsSuccess = result.Success;
@@ -273,7 +401,15 @@
         finally
         {
             IsGenerating = false;
+            ShowRegenModal = false;
         }
+    }
+
+    private void RecoverFromError()
+    {
+        ShowRegenModal = false;
+        IsGenerating = false;
+        _errorBoundary?.Recover();
     }
 
     private async Task CopyPath()
@@ -296,6 +432,116 @@
             StatusMessage = ex.Message;
             IsSuccess = false;
         }
+    }
+
+    private async Task SaveDraft()
+    {
+        var draft = WizardDraft.FromWizard(
+            ApplicationName,
+            RootNamespace,
+            Database,
+            OutputRoot,
+            IncludeMvcWeb,
+            ActiveConnectionName,
+            OracleSchemaPrefix,
+            EnsureCreatedInDevelopment,
+            ConfigEntries,
+            Entities);
+
+        var fileName = string.IsNullOrWhiteSpace(ApplicationName)
+            ? "appgen-draft.json"
+            : $"{NamingHelper.NormalizeAppName(ApplicationName)}-appgen-draft.json";
+
+        await Js.InvokeVoidAsync("appgen.downloadTextFile", fileName, draft.ToJson(), "application/json");
+        StatusMessage = $"Draft saved as {fileName}.";
+        IsSuccess = true;
+        OutputDirectory = null;
+    }
+
+    private async Task LoadDraft()
+    {
+        try
+        {
+            var json = await Js.InvokeAsync<string?>("appgen.pickTextFile", ".json,application/json");
+            if (string.IsNullOrWhiteSpace(json))
+                return;
+
+            var draft = WizardDraft.TryParse(json);
+            if (draft is null)
+            {
+                StatusMessage = "Could not read draft file. Expected valid AppGen draft JSON.";
+                IsSuccess = false;
+                return;
+            }
+
+            if (draft.SchemaVersion > WizardDraft.CurrentSchemaVersion)
+            {
+                StatusMessage = $"Draft version {draft.SchemaVersion} is newer than this AppGen UI supports.";
+                IsSuccess = false;
+                return;
+            }
+
+            ApplyDraft(draft);
+            StatusMessage = $"Draft loaded ({draft.Entities.Count} entities).";
+            IsSuccess = true;
+            OutputDirectory = null;
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+            IsSuccess = false;
+        }
+    }
+
+    private void ApplyDraft(WizardDraft draft)
+    {
+        ApplicationName = draft.ApplicationName;
+        RootNamespace = draft.RootNamespace;
+        Database = draft.Database;
+        OutputRoot = string.IsNullOrWhiteSpace(draft.OutputRoot)
+            ? FolderService.GetDefaultOutputRoot(HostEnvironment.ContentRootPath)
+            : draft.OutputRoot;
+        IncludeMvcWeb = draft.IncludeMvcWeb;
+        ActiveConnectionName = draft.ActiveConnectionName;
+        OracleSchemaPrefix = draft.OracleSchemaPrefix;
+        EnsureCreatedInDevelopment = draft.EnsureCreatedInDevelopment;
+
+        ConfigEntries.Clear();
+        foreach (var entry in draft.ConfigEntries)
+        {
+            ConfigEntries.Add(new ConfigEntryRow
+            {
+                Name = entry.Name,
+                Kind = entry.Kind,
+                Key = entry.Key,
+                Value = entry.Value
+            });
+        }
+
+        Entities.Clear();
+        foreach (var entityData in draft.Entities)
+        {
+            var entity = new EntityDraft(entityData.Name)
+            {
+                IncludeInUi = entityData.IncludeInUi,
+                IncludeAuditColumns = entityData.IncludeAuditColumns
+            };
+            entity.Properties.Clear();
+            foreach (var property in entityData.Properties)
+            {
+                entity.Properties.Add(new PropertyRow
+                {
+                    Name = property.Name,
+                    ClrType = property.ClrType,
+                    IsKey = property.IsKey,
+                    IsNullable = property.IsNullable,
+                    ForeignKeyEntity = property.ForeignKeyEntity
+                });
+            }
+            Entities.Add(entity);
+        }
+
+        SelectedEntity = Entities.FirstOrDefault();
     }
 
     private sealed class WizardSettings

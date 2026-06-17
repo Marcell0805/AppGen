@@ -11,23 +11,31 @@ var outputOpt = new Option<string>("--output", () => ".", "Output directory");
 var namespaceOpt = new Option<string?>("--namespace", "Root namespace (defaults to app name)");
 var databaseOpt = new Option<string>("--database", () => "SqlServer", "SqlServer, Oracle, or PostgreSql");
 var uiOpt = new Option<string?>("--ui", "Optional UI targets: MvcWeb (comma-separated)");
+var forceOpt = new Option<bool>("--force", "Delete existing output folder and regenerate");
 
 createCmd.AddArgument(appNameArg);
 createCmd.AddOption(outputOpt);
 createCmd.AddOption(namespaceOpt);
 createCmd.AddOption(databaseOpt);
 createCmd.AddOption(uiOpt);
-createCmd.SetHandler(async (name, output, ns, db, ui) =>
+createCmd.AddOption(forceOpt);
+createCmd.SetHandler(async (name, output, ns, db, ui, force) =>
 {
     var database = ParseDatabaseProvider(db);
     var uiTargets = ParseUiTargets(ui);
     var setup = NamingHelper.DefaultSetup(database);
     var spec = SpecLoader.CreateDefault(name, ns, database, uiTargets, setup);
-    var outputDir = Path.GetFullPath(Path.Combine(output, spec.ApplicationName));
-    if (Directory.Exists(outputDir) && Directory.EnumerateFileSystemEntries(outputDir).Any())
+    var outputDir = GenerationOutputHelper.ResolveOutputDirectory(output, spec.ApplicationName);
+    if (GenerationOutputHelper.OutputDirectoryExists(outputDir))
     {
-        Console.Error.WriteLine($"Output directory is not empty: {outputDir}");
-        return;
+        if (!force)
+        {
+            Console.Error.WriteLine($"Output directory is not empty: {outputDir}");
+            Console.Error.WriteLine("Use --force to delete and regenerate.");
+            return;
+        }
+
+        GenerationOutputHelper.DeleteOutputDirectory(outputDir);
     }
 
     var renderer = new TemplateRenderer();
@@ -45,7 +53,7 @@ createCmd.SetHandler(async (name, output, ns, db, ui) =>
     else if (database == DatabaseProvider.SqlServer)
         Console.WriteLine("SQL Server — SQL scripts generated when you add entities.");
     Console.WriteLine($"Next: cd \"{outputDir}\" && dotnet build");
-}, appNameArg, outputOpt, namespaceOpt, databaseOpt, uiOpt);
+}, appNameArg, outputOpt, namespaceOpt, databaseOpt, uiOpt, forceOpt);
 
 var entityCmd = new Command("entity", "Entity operations");
 var addCmd = new Command("add", "Add an entity and generate CRUD artifacts");

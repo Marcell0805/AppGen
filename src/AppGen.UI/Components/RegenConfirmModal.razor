@@ -1,0 +1,74 @@
+@using AppGen.Core
+
+@if (Visible)
+{
+    <div class="appgen-overlay" @onclick="Cancel">
+        <div class="appgen-overlay-dialog panel"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="regen-title"
+             @onclick:stopPropagation="true">
+            <h2 id="regen-title" class="appgen-overlay-title">Regenerate and overwrite?</h2>
+            <p class="appgen-overlay-warning">
+                This will <strong>delete and recreate</strong> the entire generated solution folder.
+                Any manual changes in that folder will be <strong>lost</strong>.
+            </p>
+            <p class="muted appgen-overlay-path"><code>@OutputPath</code></p>
+
+            <label class="checkbox-row">
+                <input type="checkbox" @bind="Acknowledged" />
+                I understand all code in this folder will be replaced
+            </label>
+
+            <div class="form-grid" style="margin-top: 0.75rem;">
+                <label>Type app name to confirm</label>
+                <input @bind="ConfirmName" placeholder="@ExpectedAppName" />
+            </div>
+
+            <div class="appgen-overlay-actions">
+                <button type="button" class="btn btn-outline-secondary" @onclick="Cancel">Cancel</button>
+                <button type="button"
+                        class="btn btn-danger"
+                        disabled="@(!CanConfirm)"
+                        @onclick="Confirm">
+                    Regenerate
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public string ExpectedAppName { get; set; } = string.Empty;
+    [Parameter] public string OutputPath { get; set; } = string.Empty;
+    [Parameter] public EventCallback OnCancel { get; set; }
+    [Parameter] public EventCallback OnConfirm { get; set; }
+
+    private bool Acknowledged { get; set; }
+    private string ConfirmName { get; set; } = string.Empty;
+    private bool _wasVisible;
+
+    private bool CanConfirm =>
+        Acknowledged &&
+        ConfirmName.Trim().Equals(ExpectedAppName.Trim(), StringComparison.OrdinalIgnoreCase);
+
+    protected override void OnParametersSet()
+    {
+        if (Visible && !_wasVisible)
+        {
+            Acknowledged = false;
+            ConfirmName = string.Empty;
+        }
+
+        _wasVisible = Visible;
+    }
+
+    private async Task Cancel() => await OnCancel.InvokeAsync();
+
+    private async Task Confirm()
+    {
+        if (!CanConfirm) return;
+        await OnConfirm.InvokeAsync();
+    }
+}

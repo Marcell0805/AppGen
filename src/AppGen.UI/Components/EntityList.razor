@@ -18,11 +18,12 @@
     {
         <QuickGrid TGridItem="EntityDraft" Items="@Entities.AsQueryable()" Class="entity-grid">
             <TemplateColumn Title="Entity">
-                <button type="button"
-                        class="entity-select @(IsSelected(context) ? "selected" : "")"
-                        @onclick="() => SelectEntity(context)">
-                    @context.Name
-                </button>
+                <input class="form-control form-control-sm entity-name-input @(IsSelected(context) ? "selected" : "")"
+                       @bind="context.Name"
+                       @bind:event="oninput"
+                       @onfocus="() => OnEntityNameFocus(context)"
+                       @onfocusout="() => OnEntityNameBlur(context)"
+                       placeholder="Entity name" />
             </TemplateColumn>
             <PropertyColumn Property="@(e => e.Properties.Count)" Title="Properties" />
             <TemplateColumn Title="UI">
@@ -52,12 +53,37 @@
     [Parameter] public EventCallback<string> OnStatus { get; set; }
 
     private string NewEntityName { get; set; } = string.Empty;
+    private readonly Dictionary<EntityDraft, string> _nameOnFocus = new(ReferenceEqualityComparer.Instance);
 
     private bool IsSelected(EntityDraft entity) =>
         SelectedEntity is not null && ReferenceEquals(SelectedEntity, entity);
 
     private async Task SelectEntity(EntityDraft entity) =>
         await SelectedEntityChanged.InvokeAsync(entity);
+
+    private async Task OnEntityNameFocus(EntityDraft entity)
+    {
+        _nameOnFocus[entity] = entity.Name;
+        await SelectEntity(entity);
+    }
+
+    private async Task OnEntityNameBlur(EntityDraft entity)
+    {
+        if (!_nameOnFocus.TryGetValue(entity, out var originalName))
+            return;
+
+        _nameOnFocus.Remove(entity);
+
+        var error = EntityRenameHelper.TryRename(Entities, entity, entity.Name);
+        if (error is not null)
+        {
+            entity.Name = originalName;
+            await OnStatus.InvokeAsync(error);
+            return;
+        }
+
+        await SelectedEntityChanged.InvokeAsync(entity);
+    }
 
     private void OnIncludeInUiChanged(EntityDraft entity, ChangeEventArgs e)
     {

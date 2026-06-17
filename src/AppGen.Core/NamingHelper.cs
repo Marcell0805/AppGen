@@ -26,6 +26,18 @@ public static class NamingHelper
     public static string ToCamelCase(string name) =>
         string.IsNullOrEmpty(name) ? name : char.ToLowerInvariant(name[0]) + name[1..];
 
+    public static bool IsValidClrIdentifier(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return false;
+
+        var trimmed = name.Trim();
+        if (!char.IsLetter(trimmed[0]) && trimmed[0] != '_')
+            return false;
+
+        return trimmed.All(c => char.IsLetterOrDigit(c) || c == '_');
+    }
+
     public static string ToKeyPropertyName(string entityName) =>
         $"{entityName}_Id";
 

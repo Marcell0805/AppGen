@@ -73,13 +73,13 @@ public static class SqlServerScriptGenerator
         sb.AppendLine("-- Simple sample data. Adjust or re-run after clearing tables.");
         sb.AppendLine();
 
-        long id = 1;
+        var entitySeedIds = SeedScriptHelpers.AssignEntitySeedIds(spec);
         foreach (var entity in spec.Entities)
         {
             var table = QualifiedTable(entity, spec.Database);
             var props = EntityGenerator.ExpandEntityProperties(entity);
             var columns = string.Join(", ", props.Select(p => Bracket(ColumnName(p))));
-            var values = string.Join(", ", props.Select(p => SampleValue(p, ref id)));
+            var values = string.Join(", ", props.Select(p => SampleValue(entity, p, spec, entitySeedIds)));
             sb.AppendLine($"INSERT INTO {table} ({columns}) VALUES ({values});");
             sb.AppendLine();
         }
@@ -108,13 +108,18 @@ public static class SqlServerScriptGenerator
         _ => "NVARCHAR(MAX)"
     };
 
-    private static string SampleValue(PropertySpec p, ref long seedId)
+    private static string SampleValue(
+        EntitySpec entity,
+        PropertySpec p,
+        SolutionSpec spec,
+        IReadOnlyDictionary<string, long> entitySeedIds)
     {
         if (p.IsKey)
-            return (seedId++).ToString();
+            return SeedScriptHelpers.KeySampleValue(entity, entitySeedIds);
 
-        if (!string.IsNullOrWhiteSpace(p.ForeignKeyEntity))
-            return "1";
+        var fkValue = SeedScriptHelpers.ForeignKeySampleValue(spec, p, entitySeedIds);
+        if (fkValue is not null)
+            return fkValue;
 
         return p.ClrType switch
         {
