@@ -17,6 +17,7 @@ public sealed class GeneratorOptions
 {
     public bool Force { get; init; }
     public string? EntityName { get; init; }
+    public IReadOnlyList<string>? EntityNames { get; init; }
 }
 
 public sealed record GeneratorTargetResult(bool Success, string Message, string? OutputPath)

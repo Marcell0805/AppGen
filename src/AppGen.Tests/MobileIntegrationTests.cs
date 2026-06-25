@@ -7,6 +7,72 @@ namespace AppGen.Tests;
 public class MobileIntegrationTests
 {
   [Fact]
+  public async Task Mobile_generate_produces_flutter_tree_for_all_ui_entities()
+  {
+    var tempRoot = Path.Combine(Path.GetTempPath(), "AppGenTests", Guid.NewGuid().ToString("N"));
+    var outputDir = Path.Combine(tempRoot, "MobileApp");
+
+    try
+    {
+      var spec = SpecLoader.CreateDefault("MobileApp", null, DatabaseProvider.SqlServer);
+      spec = new SolutionSpec
+      {
+        SchemaVersion = spec.SchemaVersion,
+        ApplicationName = spec.ApplicationName,
+        RootNamespace = spec.RootNamespace,
+        Database = spec.Database,
+        Setup = spec.Setup,
+        Entities =
+        [
+          new EntitySpec
+          {
+            Name = "Widget",
+            IncludeInUi = true,
+            Properties =
+            [
+              new PropertySpec { Name = "Widget_Id", ClrType = "long", IsKey = true },
+              new PropertySpec { Name = "Name", ClrType = "string" }
+            ]
+          },
+          new EntitySpec
+          {
+            Name = "Gadget",
+            IncludeInUi = true,
+            Properties =
+            [
+              new PropertySpec { Name = "Gadget_Id", ClrType = "long", IsKey = true },
+              new PropertySpec { Name = "Name", ClrType = "string" }
+            ]
+          }
+        ]
+      };
+
+      Directory.CreateDirectory(outputDir);
+      await ProjectSpecWriter.WriteAsync(spec, outputDir);
+
+      var renderer = new TemplateRenderer();
+      var generator = new MobileApplicationGenerator(new FlutterGenerator(renderer));
+      var result = await generator.GenerateAsync(spec, outputDir, new GeneratorOptions());
+
+      Assert.True(result.Success, result.Message);
+      Assert.True(File.Exists(Path.Combine(outputDir, "mobile", "flutter", "lib", "features", "widget", "models", "widget_model.dart")));
+      Assert.True(File.Exists(Path.Combine(outputDir, "mobile", "flutter", "lib", "features", "gadget", "models", "gadget_model.dart")));
+
+      var router = await File.ReadAllTextAsync(Path.Combine(outputDir, "mobile", "flutter", "lib", "app", "router.dart"));
+      Assert.Contains("/widget", router);
+      Assert.Contains("/gadget", router);
+
+      var reloaded = await SpecLoader.LoadAsync(outputDir);
+      Assert.Equal(["Widget", "Gadget"], reloaded.Generation!.Mobile!.Entities);
+    }
+    finally
+    {
+      if (Directory.Exists(tempRoot))
+        Directory.Delete(tempRoot, recursive: true);
+    }
+  }
+
+  [Fact]
   public async Task Mobile_generate_produces_flutter_tree_for_entity()
   {
     var tempRoot = Path.Combine(Path.GetTempPath(), "AppGenTests", Guid.NewGuid().ToString("N"));

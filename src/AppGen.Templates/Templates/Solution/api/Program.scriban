@@ -22,15 +22,24 @@ builder.Services.AddApiVersioning(options =>
 
 builder.Services.AddApplicationServices();
 builder.Services.AddPersistenceServices(builder.Configuration);
-{{ if include_mvc_web }}
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
-        policy.WithOrigins("https://localhost:5101", "http://localhost:5100")
-            .AllowAnyHeader()
-            .AllowAnyMethod());
+    {
+        if (builder.Environment.IsDevelopment())
+        {
+            policy.SetIsOriginAllowed(_ => true)
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+        }
+        else if ({{ include_mvc_web }})
+        {
+            policy.WithOrigins("https://localhost:5101", "http://localhost:5100")
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+        }
+    });
 });
-{{ end }}
 
 var app = builder.Build();
 
@@ -48,10 +57,9 @@ if (app.Environment.IsDevelopment())
     }
 }
 
-app.UseHttpsRedirection();
-{{ if include_mvc_web }}
 app.UseCors();
-{{ end }}
+if (!app.Environment.IsDevelopment())
+    app.UseHttpsRedirection();
 app.UseAuthorization();
-app.MapControllers();
+app.MapControllers().RequireCors();
 app.Run();

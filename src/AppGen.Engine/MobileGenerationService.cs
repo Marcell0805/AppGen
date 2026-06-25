@@ -8,7 +8,7 @@ public sealed class MobileGenerationService(MobileApplicationGenerator mobileGen
     public async Task<MobileGenerationResult> GenerateAsync(
         SolutionSpec spec,
         string outputRootDirectory,
-        string? entityName = null,
+        IReadOnlyList<string>? entityNames = null,
         string? packageName = null,
         string? apiBaseUrl = null,
         CancellationToken ct = default)
@@ -60,7 +60,7 @@ public sealed class MobileGenerationService(MobileApplicationGenerator mobileGen
         var result = await mobileGenerator.GenerateAsync(
             normalized,
             outputDir,
-            new GeneratorOptions { EntityName = entityName },
+            new GeneratorOptions { EntityNames = entityNames },
             ct);
 
         return result.Success

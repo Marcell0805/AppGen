@@ -137,7 +137,7 @@ promoteCmd.SetHandler(async (project, force) =>
 var mobileCmd = new Command("mobile", "Mobile app operations");
 var mobileCreateCmd = new Command("create", "Generate Flutter POC from appgen.json");
 var mobileProjectOpt = new Option<string>("--project", () => ".", "Path to project root");
-var mobileEntityOpt = new Option<string?>("--entity", "Entity to scaffold (defaults to first UI entity)");
+var mobileEntityOpt = new Option<string?>("--entity", "Single entity to scaffold (defaults to all UI entities)");
 var mobileForceOpt = new Option<bool>("--force", "Overwrite existing mobile/flutter output");
 
 mobileCreateCmd.AddOption(mobileProjectOpt);

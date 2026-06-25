@@ -102,6 +102,28 @@ a, .btn-link {
     margin-bottom: 8px;
 }
 
+.entity-checklist {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 12px;
+    border: 1px solid var(--ag-border);
+    border-radius: 6px;
+    background: var(--ag-bg);
+}
+
+.entity-checklist .check-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin: 0;
+    font-weight: normal;
+}
+
+.panel-inset {
+    grid-column: 2;
+}
+
 .muted {
     opacity: 0.65;
 }
