@@ -48,7 +48,9 @@ public class {{ entity_name }}Configuration : IEntityTypeConfiguration<{{ entity
 
             .HasColumnName("{{ property.column_name }}"){{ if !property.is_nullable }}
 
-            .IsRequired(){{ end }};
+            .IsRequired(){{ end }}{{ if property.is_identity_type }}
+
+            .UseIdentityColumn(){{ end }};
 
 {{ end }}
 

@@ -20,6 +20,7 @@ builder.Services.AddSingleton<MobileGenerationService>();
 builder.Services.AddSingleton<DocumentationApplicationGenerator>();
 builder.Services.AddSingleton<ProjectPromoter>();
 builder.Services.AddSingleton<AppGenerationService>();
+builder.Services.AddSingleton<ProjectGenerationService>();
 builder.Services.AddSingleton<OutputFolderService>();
 builder.Services.AddScoped<WizardStateService>();
 builder.Services.AddSingleton<ManifestSaveService>();

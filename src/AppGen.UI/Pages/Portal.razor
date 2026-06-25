@@ -114,7 +114,7 @@
                 return null;
             try
             {
-                return Path.GetFullPath(Path.Combine(OutputRoot.Trim(), NamingHelper.NormalizeAppName(ApplicationName.Trim())));
+                return ProjectOutputPaths.DocumentationDirectory(OutputRoot, ApplicationName);
             }
             catch
             {

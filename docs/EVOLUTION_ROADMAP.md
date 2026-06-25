@@ -2,30 +2,40 @@
 
 ## Implementation status (2026-06-25)
 
-Thin-slice work is **complete**. Use this section as the changelog for what landed in the repo.
+Thin-slice work is **complete**. Phase 2 (shared Project tab) and Phase 3 (Flutter CRUD) are **done**. Use this section as the changelog for what landed in the repo.
 
 | Area | Status | Notes |
 |------|--------|-------|
 | **0. Roadmap in repo** | Done | This file + README link |
-| **A. Nav rename** | Done | Documentation (`/documentation`, `/portal` redirect), Web (`/`, `/web`), Mobile (`/mobile`) |
+| **A. Nav rename** | Done | Documentation (`/documentation`, `/portal` redirect), Web (`/web`), Mobile (`/mobile`), **Project** (`/`, `/project`) |
 | **A2. UI branding** | Done | Inter font, slate sidebar, CSS tokens, logo/favicon, `PageHeader`, stacked-layers icon. **AppGen** is the product name; **Application factory** is the tagline under the logo (not a replacement title) |
 | **B. Schema v5** | Done | `ApplicationTargets`, `GenerationMetadata`, `SpecNormalizer`, v3–v4 load compat |
 | **C. Generator plugins** | Done | `IApplicationGenerator`; `DocumentationApplicationGenerator`, `MobileApplicationGenerator` |
-| **D. Flutter POC** | Done | `FlutterGenerator` + Scriban templates under `Templates/Mobile/flutter/` |
+| **D. Flutter CRUD** | Done | `FlutterGenerator` + Scriban templates — list, detail, create/edit form, delete per entity; `go_router` nested routes |
 | **E. Mobile tab UI** | Done | Entity picker, package name, API URL, Generate / Load project |
 | **F. CLI** | Done | `appgen mobile create --project <path> [--entity X] [--force]` |
-| **G. Tests** | Done | 12 tests pass — portal, mobile, v5 round-trip, v3 normalize |
+| **G. Tests** | Done | Portal, mobile CRUD, v5 round-trip, v3 normalize, generation output paths |
 | **H. Shared entity workflow** | Done | `WizardStateService` (Web ↔ Mobile session state), **Save manifest** (`appgen.json` without full API generate), **Load draft** on Mobile |
+| **I. Project tab (Phase 2)** | Done | `Project.razor` hub, `ProjectWorkspace` shared entity editor, layer toggles, **Generate all**, per-layer output folders (`{AppName} Doc/Web/Mobile`) |
 
-### Shared entity workflow (post–thin-slice)
+### Shared entity workflow (Phase 2)
 
-Web and Mobile tabs now share entity definitions without requiring a full Web **Generate**:
+Web, Mobile, and **Project** tabs share entity definitions via `WizardStateService`:
 
-1. Define entities on **Web** → switch to **Mobile** (entities auto-sync via scoped `WizardStateService`), or
-2. Click **Save manifest** on Web → writes `appgen.json` to the output folder only, or
-3. **Save draft** / **Load draft** (JSON file) — available on both Web and Mobile
+1. Define entities on **Project** (or Web) → enable Documentation / Web / Mobile layers → **Generate all**, or
+2. Click **Save manifest** → writes `appgen.json` to the hub folder (`output/{AppName}/`), or
+3. **Save draft** / **Load draft** (JSON file) — available on Project, Web, and Mobile
 
-**Not yet done** (see long-term phases below): dedicated Project tab, single shared entity editor component, `WebApplicationGenerator` adapter, full Flutter CRUD, per-target incremental sync.
+**Layer output folders** (avoids overwrite clashes when generating multiple targets):
+
+| Layer | Folder |
+|-------|--------|
+| Hub (manifest) | `output/{AppName}/` |
+| Documentation | `output/{AppName} Doc/` |
+| Web | `output/{AppName} Web/` |
+| Mobile | `output/{AppName} Mobile/` |
+
+**Not yet done** (see long-term phases below): JWT auth scaffold, offline cache, per-target incremental sync, OpenAPI client gen.
 
 ---
 
@@ -142,8 +152,8 @@ This enables your future â€œUpdate Mobile onlyâ€ sync story.
 
 | Phase | Flutter output | Skip for now |
 |-------|----------------|--------------|
-| **POC (next)** | `pubspec.yaml`, folder structure, 1 entity model, Dio service, Riverpod provider, list screen, `main.dart` + routes stub | Auth, offline, CRUD forms, refresh tokens |
-| **v1** | Full CRUD screens per entity, `go_router` routes, theme scaffold | Isar, biometrics |
+| **POC (done)** | `pubspec.yaml`, folder structure, entity model, Dio service, Riverpod provider, list screen, `main.dart` + routes | — |
+| **v1 (done — Phase 3)** | Full CRUD screens per entity, `go_router` routes, theme scaffold | Isar, biometrics |
 | **v2** | JWT login flow, secure storage, interceptors | MAUI, React Native |
 
 Default stack for POC (sensible, popular, matches your proposal):
@@ -303,14 +313,14 @@ In [`AppGen.Core`](src\AppGen.Core):
 
 **UI change shipped:** `WizardStateService` + **Save manifest** on Web and Mobile; Mobile shows shared entities from Web session. Full shared entity editor component deferred to Phase 2.
 
-### C. Flutter POC generator ✅
+### C. Flutter generator ✅
 
 New in [`AppGen.Engine`](src\AppGen.Engine):
 
 - `FlutterGenerator` implementing `IApplicationGenerator`
 - Scriban templates under `AppGen.Templates/Templates/Mobile/flutter/`
 
-**POC output** (`mobile/flutter/`):
+**Output** (`mobile/flutter/`):
 
 ```
 pubspec.yaml
@@ -321,11 +331,15 @@ lib/features/{entity}/models/{entity}_model.dart
 lib/features/{entity}/services/{entity}_service.dart
 lib/features/{entity}/providers/{entity}_provider.dart
 lib/features/{entity}/screens/{entity}_list_screen.dart
+lib/features/{entity}/screens/{entity}_detail_screen.dart
+lib/features/{entity}/screens/{entity}_form_screen.dart
 lib/app/router.dart
 lib/app/theme.dart
 ```
 
-Generate for **first entity with `IncludeInUi`** (or user-selected entity on Mobile tab).
+Generate for **all entities with `IncludeInUi`** (or user-selected entity on Mobile tab).
+
+**Phase 3 CRUD** (current): per entity — list with pull-to-refresh and FAB, detail with delete, create/edit form, Dio `getById` / `create` / `update` / `delete`, `go_router` routes (`/{entity}`, `/{entity}/new`, `/{entity}/:id`, `/{entity}/:id/edit`).
 
 ### D. Mobile tab UI ✅
 
@@ -375,11 +389,11 @@ flowchart LR
 
 | Phase | Focus |
 |-------|--------|
-| 1 (next) | ~~Rename nav, UI branding, targets model, Flutter POC~~ **Done** |
-| 2 | Dedicated **Project** tab with single entity editor; layer checkboxes; one **Generate All** |
-| 3 | Full Flutter CRUD + navigation per entity |
+| 1 | ~~Rename nav, UI branding, targets model, Flutter POC~~ **Done** |
+| 2 | ~~Dedicated **Project** tab with single entity editor; layer checkboxes; one **Generate All**~~ **Done** |
+| 3 | ~~Full Flutter CRUD + navigation per entity~~ **Done** |
 | 4 | JWT auth scaffold + optional SQLite cache |
-| 5 | Per-target incremental sync (`entity add` â†’ update mobile) |
+| 5 | Per-target incremental sync (`entity add` → update mobile) |
 | 6 | MAUI, CI/CD templates, OpenAPI client gen |
 
 ---

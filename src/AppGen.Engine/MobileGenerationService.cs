@@ -16,9 +16,10 @@ public sealed class MobileGenerationService(MobileApplicationGenerator mobileGen
         if (string.IsNullOrWhiteSpace(outputRootDirectory))
             return MobileGenerationResult.Fail("Output folder is required.");
 
-        var outputDir = GenerationOutputHelper.ResolveOutputDirectory(
+        var outputDir = GenerationOutputHelper.ResolveLayerDirectory(
             outputRootDirectory.Trim(),
-            spec.ApplicationName);
+            spec.ApplicationName,
+            ProjectOutputLayer.Mobile);
 
         var normalized = SpecNormalizer.Normalize(spec);
         var mobile = normalized.Targets?.Mobile ?? SpecNormalizer.BuildTargetsFromLegacy(normalized).Mobile;

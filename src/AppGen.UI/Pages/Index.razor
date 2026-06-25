@@ -1,5 +1,4 @@
-﻿@page "/"
-@page "/web"
+﻿@page "/web"
 @using AppGen.Core
 @using AppGen.Core.Models
 @using AppGen.UI.Models
@@ -9,7 +8,6 @@
 @inject ProjectPromoter Promoter
 @inject OutputFolderService FolderService
 @inject WizardStateService WizardState
-@inject ManifestSaveService ManifestSave
 @inject IWebHostEnvironment HostEnvironment
 @inject IJSRuntime Js
 @implements IDisposable
@@ -19,28 +17,27 @@
 <PageHeader Title="Web"
             Subtitle="Generate the server stack: API, application layers, persistence, and optional MVC admin UI." />
 
+@if (!WizardState.HasData)
+{
+    <p class="muted">Define your project and entities on the <a href="project">Project</a> tab first.</p>
+}
+else
+{
+    <p class="status-inline">@WizardState.EntityNames.Count entities from Project: @string.Join(", ", WizardState.EntityNames)</p>
+}
+
 <div class="wizard">
     <ErrorBoundary @ref="_errorBoundary">
         <ChildContent>
     <fieldset class="panel">
-        <legend>Application</legend>
+        <legend>Project</legend>
         <div class="form-grid">
             <label>App name</label>
-            <input @bind="ApplicationName" />
-
-            <label>Root namespace</label>
-            <input @bind="RootNamespace" placeholder="Defaults to app name" />
-
-            <label>Database</label>
-            <select @bind="Database" @bind:after="OnDatabaseChanged">
-                <option value="@DatabaseProvider.SqlServer">SqlServer</option>
-                <option value="@DatabaseProvider.PostgreSql">PostgreSQL</option>
-                <option value="@DatabaseProvider.Oracle">Oracle</option>
-            </select>
-
+            <input value="@ApplicationName" readonly class="readonly-field" />
             <label>Output folder</label>
-            <input @bind="OutputRoot" placeholder="Generated apps go in a subfolder here (e.g. output/InventorySystem)" />
+            <input value="@OutputRoot" readonly class="readonly-field" />
         </div>
+        <p class="hint">Edit on the <a href="project">Project</a> tab. Web output: <code>{AppName} Web</code></p>
     </fieldset>
 
     <ConfigSettingsPanel Database="Database"
@@ -48,6 +45,18 @@
                          @bind-ActiveConnectionName="ActiveConnectionName"
                          @bind-OracleSchemaPrefix="OracleSchemaPrefix"
                          @bind-EnsureCreatedInDevelopment="EnsureCreatedInDevelopment" />
+
+    <fieldset class="panel">
+        <legend>Database</legend>
+        <div class="form-grid">
+            <label>Provider</label>
+            <select @bind="Database" @bind:after="OnDatabaseChanged">
+                <option value="@DatabaseProvider.SqlServer">SqlServer</option>
+                <option value="@DatabaseProvider.PostgreSql">PostgreSQL</option>
+                <option value="@DatabaseProvider.Oracle">Oracle</option>
+            </select>
+        </div>
+    </fieldset>
 
     <fieldset class="panel">
         <legend>Client UI (optional)</legend>
@@ -59,19 +68,6 @@
             <input type="checkbox" disabled />
             WinForms — coming in a later phase
         </label>
-    </fieldset>
-
-    <EntityList Entities="Entities"
-                SelectedEntity="SelectedEntity"
-                SelectedEntityChanged="OnEntitySelected"
-                OnStatus="SetStatus" />
-
-    <fieldset class="panel">
-        <legend>Properties</legend>
-        <EntityPropertyGrid Entity="SelectedEntity"
-                            AllEntities="Entities"
-                            ClrTypes="ClrTypes"
-                            OnChanged="StateHasChanged" />
     </fieldset>
 
     <div class="actions">
@@ -86,9 +82,6 @@
         }
         <button type="button" class="btn btn-outline-secondary" @onclick="LoadProject" disabled="@IsGenerating">
             Load project
-        </button>
-        <button type="button" class="btn btn-outline-secondary" @onclick="SaveManifest" disabled="@(!CanSaveManifest)">
-            Save manifest
         </button>
         <button type="button" class="btn btn-outline-secondary" @onclick="PromoteToApi" disabled="@(!CanPromote)">
             @(IsPromoting ? "Promoting…" : "Promote to API")
@@ -141,7 +134,7 @@
                    OnConfirm="Regenerate" />
 
 @code {
-    private string ApplicationName { get; set; } = "InventorySystem";
+    private string ApplicationName { get; set; } = string.Empty;
     private string? RootNamespace { get; set; }
     private DatabaseProvider Database { get; set; } = DatabaseProvider.SqlServer;
     private string OutputRoot { get; set; } = string.Empty;
@@ -151,8 +144,6 @@
     private string ActiveConnectionName { get; set; } = "Dev";
     private string? OracleSchemaPrefix { get; set; }
     private bool EnsureCreatedInDevelopment { get; set; } = true;
-    private List<EntityDraft> Entities { get; } = [];
-    private EntityDraft? SelectedEntity { get; set; }
 
     private bool IsGenerating { get; set; }
     private bool IsPromoting { get; set; }
@@ -163,14 +154,18 @@
     private bool IsSuccess { get; set; }
     private string? OutputDirectory { get; set; }
 
-    private IReadOnlyList<string> ClrTypes => ClrTypeCatalog.GetTypes(Database);
+    private IReadOnlyList<EntityDraft> Entities =>
+        WizardState.Current is { } draft
+            ? WizardEntityHelper.ToEntityDrafts(draft.Entities)
+            : [];
 
     private bool CanGenerate =>
         !IsGenerating &&
+        WizardState.HasData &&
         !string.IsNullOrWhiteSpace(ApplicationName) &&
         !string.IsNullOrWhiteSpace(OutputRoot);
 
-    private string? ResolvedOutputDirectory
+    private string? ResolvedWebDirectory
     {
         get
         {
@@ -179,9 +174,7 @@
 
             try
             {
-                return Path.GetFullPath(Path.Combine(
-                    OutputRoot.Trim(),
-                    NamingHelper.NormalizeAppName(ApplicationName.Trim())));
+                return ProjectOutputPaths.WebDirectory(OutputRoot, ApplicationName);
             }
             catch
             {
@@ -190,7 +183,10 @@
         }
     }
 
-    private string SafeOutputPath => ResolvedOutputDirectory ?? string.Empty;
+    private string? ResolvedOutputDirectory =>
+        ProjectOutputPaths.FindManifestDirectory(OutputRoot, ApplicationName, ProjectOutputLayer.Web);
+
+    private string SafeOutputPath => ResolvedWebDirectory ?? string.Empty;
 
     private bool CanRegenerate
     {
@@ -201,7 +197,7 @@
                 string.IsNullOrWhiteSpace(OutputRoot))
                 return false;
 
-            var outputDir = ResolvedOutputDirectory;
+            var outputDir = ResolvedWebDirectory;
             if (outputDir is null || !Directory.Exists(outputDir))
                 return false;
 
@@ -221,20 +217,51 @@
         !IsPromoting &&
         !string.IsNullOrWhiteSpace(ApplicationName) &&
         !string.IsNullOrWhiteSpace(OutputRoot) &&
-        ResolvedOutputDirectory is not null &&
-        File.Exists(Path.Combine(ResolvedOutputDirectory, "appgen.json"));
-
-    private bool CanSaveManifest =>
-        !IsGenerating &&
-        !string.IsNullOrWhiteSpace(ApplicationName) &&
-        !string.IsNullOrWhiteSpace(OutputRoot) &&
-        Entities.Count > 0;
+        ResolvedWebDirectory is not null &&
+        File.Exists(Path.Combine(ResolvedWebDirectory, "appgen.json"));
 
     protected override void OnInitialized()
     {
         OutputRoot = FolderService.GetDefaultOutputRoot(HostEnvironment.ContentRootPath);
-        if (WizardState.Current is { } shared && Entities.Count == 0 && shared.Entities.Count > 0)
-            ApplyDraft(shared);
+        WizardState.Changed += OnWizardStateChanged;
+        ApplySharedState();
+    }
+
+    private void OnWizardStateChanged() => InvokeAsync(() =>
+    {
+        ApplySharedState();
+        StateHasChanged();
+    });
+
+    private void ApplySharedState()
+    {
+        if (WizardState.Current is not { } draft)
+            return;
+
+        ApplicationName = draft.ApplicationName;
+        RootNamespace = draft.RootNamespace;
+        if (!string.IsNullOrWhiteSpace(draft.OutputRoot))
+            OutputRoot = draft.OutputRoot;
+        Database = draft.Database;
+        IncludeMvcWeb = draft.IncludeMvcWeb;
+        ActiveConnectionName = draft.ActiveConnectionName;
+        OracleSchemaPrefix = draft.OracleSchemaPrefix;
+        EnsureCreatedInDevelopment = draft.EnsureCreatedInDevelopment;
+
+        if (draft.ConfigEntries.Count > 0)
+        {
+            ConfigEntries.Clear();
+            foreach (var entry in draft.ConfigEntries)
+            {
+                ConfigEntries.Add(new ConfigEntryRow
+                {
+                    Name = entry.Name,
+                    Kind = entry.Kind,
+                    Key = entry.Key,
+                    Value = entry.Value
+                });
+            }
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -274,6 +301,7 @@
         ActiveConnectionName = setup.ActiveConnectionName;
         OracleSchemaPrefix = setup.OracleSchemaPrefix;
         EnsureCreatedInDevelopment = setup.EnsureCreatedInDevelopment;
+        SyncSharedState();
     }
 
     private ProjectSetupSpec BuildSetup() => new()
@@ -287,61 +315,14 @@
             .ToList()
     };
 
-    private void OnMvcWebChanged(ChangeEventArgs e) =>
+    private void OnMvcWebChanged(ChangeEventArgs e)
+    {
         IncludeMvcWeb = e.Value is true;
-
-    private Task OnEntitySelected(EntityDraft? entity)
-    {
-        SelectedEntity = entity;
-        return Task.CompletedTask;
+        SyncSharedState();
     }
 
-    private void SetStatus(string message)
-    {
-        StatusMessage = message;
-        IsSuccess = false;
-    }
-
-    private string? ValidateEntities()
-    {
-        var allNames = Entities.Select(e => e.Name).ToList();
-
-        foreach (var entity in Entities)
-        {
-            if (!NamingHelper.IsValidClrIdentifier(entity.Name))
-                return $"Entity '{entity.Name}' is not a valid C# name (use letters, digits, underscore; cannot start with a digit).";
-
-            var names = entity.Properties
-                .Select(p => p.Name.Trim())
-                .Where(n => n.Length > 0)
-                .ToList();
-
-            if (names.Distinct(StringComparer.OrdinalIgnoreCase).Count() != names.Count)
-                return $"Duplicate property names on entity {entity.Name}.";
-
-            var keyCount = entity.Properties.Count(p => p.IsKey);
-            if (keyCount != 1)
-                return $"Entity {entity.Name} must have exactly one key property.";
-
-            if (names.Count == 0)
-                return $"Entity {entity.Name} must have at least one property.";
-
-            foreach (var propertyName in names)
-            {
-                if (!NamingHelper.IsValidClrIdentifier(propertyName))
-                    return $"Property '{propertyName}' on entity {entity.Name} is not a valid C# name (use letters, digits, underscore; cannot start with a digit).";
-            }
-
-            var spec = entity.ToSpec(allNames);
-            foreach (var property in spec.Properties.Where(p => p.ForeignKeyEntity is not null))
-            {
-                if (!allNames.Any(n => n.Equals(property.ForeignKeyEntity, StringComparison.OrdinalIgnoreCase)))
-                    return $"Entity {entity.Name}: FK '{property.Name}' references unknown entity '{property.ForeignKeyEntity}'.";
-            }
-        }
-
-        return null;
-    }
+    private string? ValidateEntities() =>
+        EntityValidation.ValidateEntities(Entities.ToList());
 
     private async Task Generate() => await RunGenerationAsync(overwrite: false);
 
@@ -472,7 +453,7 @@
         var dir = ResolvedOutputDirectory;
         if (dir is null || !File.Exists(Path.Combine(dir, "appgen.json")))
         {
-            StatusMessage = "appgen.json not found in the output project folder.";
+            StatusMessage = "appgen.json not found. Expected under {AppName} Web or legacy {AppName} folder.";
             IsSuccess = false;
             return;
         }
@@ -501,12 +482,50 @@
             }
 
             if (spec.Entities.Count > 0)
-                ProjectManifestMapper.ApplyEntitiesToDrafts(Entities, spec.Entities);
+            {
+                var entityDrafts = new List<EntityDraft>();
+                ProjectManifestMapper.ApplyEntitiesToDrafts(entityDrafts, spec.Entities);
+                WizardState.Update(WizardDraft.FromWizard(
+                    ApplicationName,
+                    RootNamespace,
+                    Database,
+                    OutputRoot,
+                    IncludeMvcWeb,
+                    ActiveConnectionName,
+                    OracleSchemaPrefix,
+                    EnsureCreatedInDevelopment,
+                    ConfigEntries,
+                    entityDrafts,
+                    spec.Targets?.Documentation.Enabled ?? false,
+                    spec.Targets?.Web.Enabled ?? true,
+                    spec.Targets?.Mobile.Enabled ?? false,
+                    spec.Targets?.Mobile.PackageName,
+                    spec.Targets?.Mobile.ApiBaseUrl));
+            }
             else
-                ProjectManifestMapper.ApplySketchesToEntities(Entities, spec.EntitySketches);
+            {
+                var entityDrafts = new List<EntityDraft>();
+                ProjectManifestMapper.ApplySketchesToEntities(entityDrafts, spec.EntitySketches);
+                WizardState.Update(WizardDraft.FromWizard(
+                    ApplicationName,
+                    RootNamespace,
+                    Database,
+                    OutputRoot,
+                    IncludeMvcWeb,
+                    ActiveConnectionName,
+                    OracleSchemaPrefix,
+                    EnsureCreatedInDevelopment,
+                    ConfigEntries,
+                    entityDrafts,
+                    spec.Targets?.Documentation.Enabled ?? false,
+                    spec.Targets?.Web.Enabled ?? true,
+                    spec.Targets?.Mobile.Enabled ?? false,
+                    spec.Targets?.Mobile.PackageName,
+                    spec.Targets?.Mobile.ApiBaseUrl));
+            }
 
-            SelectedEntity = Entities.FirstOrDefault();
-            StatusMessage = $"Loaded project from appgen.json ({Entities.Count} entities, {spec.EntitySketches.Count} sketches).";
+            ApplySharedState();
+            StatusMessage = $"Loaded project from appgen.json ({WizardState.EntityNames.Count} entities).";
             IsSuccess = true;
             OutputDirectory = dir;
             SyncSharedState();
@@ -520,7 +539,7 @@
 
     private async Task PromoteToApi()
     {
-        var dir = ResolvedOutputDirectory;
+        var dir = ResolvedWebDirectory;
         if (dir is null)
         {
             StatusMessage = "Output folder is invalid.";
@@ -627,7 +646,6 @@
             StatusMessage = $"Draft loaded ({draft.Entities.Count} entities).";
             IsSuccess = true;
             OutputDirectory = null;
-            SyncSharedState();
         }
         catch (Exception ex)
         {
@@ -638,90 +656,13 @@
 
     private void ApplyDraft(WizardDraft draft)
     {
-        ApplicationName = draft.ApplicationName;
-        RootNamespace = draft.RootNamespace;
-        Database = draft.Database;
-        OutputRoot = string.IsNullOrWhiteSpace(draft.OutputRoot)
-            ? FolderService.GetDefaultOutputRoot(HostEnvironment.ContentRootPath)
-            : draft.OutputRoot;
-        IncludeMvcWeb = draft.IncludeMvcWeb;
-        ActiveConnectionName = draft.ActiveConnectionName;
-        OracleSchemaPrefix = draft.OracleSchemaPrefix;
-        EnsureCreatedInDevelopment = draft.EnsureCreatedInDevelopment;
-
-        ConfigEntries.Clear();
-        foreach (var entry in draft.ConfigEntries)
-        {
-            ConfigEntries.Add(new ConfigEntryRow
-            {
-                Name = entry.Name,
-                Kind = entry.Kind,
-                Key = entry.Key,
-                Value = entry.Value
-            });
-        }
-
-        Entities.Clear();
-        foreach (var entityData in draft.Entities)
-        {
-            var entity = new EntityDraft(entityData.Name)
-            {
-                IncludeInUi = entityData.IncludeInUi,
-                IncludeAuditColumns = entityData.IncludeAuditColumns
-            };
-            entity.Properties.Clear();
-            foreach (var property in entityData.Properties)
-            {
-                entity.Properties.Add(new PropertyRow
-                {
-                    Name = property.Name,
-                    ClrType = property.ClrType,
-                    IsKey = property.IsKey,
-                    IsNullable = property.IsNullable,
-                    ForeignKeyEntity = property.ForeignKeyEntity
-                });
-            }
-            Entities.Add(entity);
-        }
-
-        SelectedEntity = Entities.FirstOrDefault();
-    }
-
-    private async Task SaveManifest()
-    {
-        var validationError = ValidateEntities();
-        if (validationError is not null)
-        {
-            StatusMessage = validationError;
-            IsSuccess = false;
-            return;
-        }
-
-        var dir = ResolvedOutputDirectory;
-        if (dir is null)
-        {
-            StatusMessage = "Output folder is invalid.";
-            IsSuccess = false;
-            return;
-        }
-
-        try
-        {
-            SyncSharedState();
-            var result = await ManifestSave.SaveAsync(WizardState.ToSolutionSpec(), dir);
-            StatusMessage = result.Message;
-            IsSuccess = result.Success;
-            OutputDirectory = result.ProjectDirectory;
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = ex.Message;
-            IsSuccess = false;
-        }
+        WizardState.Update(draft);
+        ApplySharedState();
     }
 
     private void SyncSharedState()
     {
+        var current = WizardState.Current;
         WizardState.Update(WizardDraft.FromWizard(
             ApplicationName,
             RootNamespace,
@@ -732,10 +673,19 @@
             OracleSchemaPrefix,
             EnsureCreatedInDevelopment,
             ConfigEntries,
-            Entities));
+            WizardEntityHelper.ToEntityDrafts(current?.Entities ?? []),
+            current?.EnableDocumentation ?? false,
+            current?.EnableWeb ?? true,
+            current?.EnableMobile ?? false,
+            current?.MobilePackageName,
+            current?.MobileApiBaseUrl));
     }
 
-    public void Dispose() => SyncSharedState();
+    public void Dispose()
+    {
+        WizardState.Changed -= OnWizardStateChanged;
+        SyncSharedState();
+    }
 
     private sealed class WizardSettings
     {

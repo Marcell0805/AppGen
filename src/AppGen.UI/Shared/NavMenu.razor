@@ -1,5 +1,5 @@
 ﻿<div class="top-row ps-3 navbar navbar-dark appgen-brand-row">
-    <a class="navbar-brand appgen-brand" href="/web">
+    <a class="navbar-brand appgen-brand" href="/project">
         <img src="assets/logo-icon.svg" alt="" class="brand-icon" />
         <span class="brand-lockup">
             <span class="brand-text">AppGen</span>
@@ -14,12 +14,17 @@
 <div class="@NavMenuCssClass" @onclick="ToggleNavMenu">
     <nav class="flex-column appgen-nav">
         <div class="nav-item px-3">
+            <NavLink class="nav-link" href="project" Match="NavLinkMatch.All">
+                <span class="nav-icon" aria-hidden="true">@((MarkupString)ProjectIcon)</span> Project
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
             <NavLink class="nav-link" href="documentation">
                 <span class="nav-icon" aria-hidden="true">@((MarkupString)DocIcon)</span> Documentation
             </NavLink>
         </div>
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="web" Match="NavLinkMatch.Prefix">
+            <NavLink class="nav-link" href="web">
                 <span class="nav-icon" aria-hidden="true">@((MarkupString)WebIcon)</span> Web
             </NavLink>
         </div>
@@ -37,6 +42,8 @@
     private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
 
     private void ToggleNavMenu() => collapseNavMenu = !collapseNavMenu;
+
+    private const string ProjectIcon = """<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h18M3 12h18M3 17h18"/></svg>""";
 
     private const string DocIcon = """<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>""";
 

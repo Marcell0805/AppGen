@@ -310,3 +310,9 @@ a, .btn-link {
     background-color: #dc3545;
     border-color: #dc3545;
 }
+
+.readonly-field {
+    background: var(--ag-bg);
+    color: var(--ag-text-muted);
+    cursor: not-allowed;
+}

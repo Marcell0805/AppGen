@@ -43,6 +43,8 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
             await WriteTemplateAsync("Mobile/flutter/entity_service.dart.scriban", flutterRoot, $"lib/features/{entitySnake}/services/{entitySnake}_service.dart", model, ct);
             await WriteTemplateAsync("Mobile/flutter/entity_provider.dart.scriban", flutterRoot, $"lib/features/{entitySnake}/providers/{entitySnake}_provider.dart", model, ct);
             await WriteTemplateAsync("Mobile/flutter/entity_list_screen.dart.scriban", flutterRoot, $"lib/features/{entitySnake}/screens/{entitySnake}_list_screen.dart", model, ct);
+            await WriteTemplateAsync("Mobile/flutter/entity_detail_screen.dart.scriban", flutterRoot, $"lib/features/{entitySnake}/screens/{entitySnake}_detail_screen.dart", model, ct);
+            await WriteTemplateAsync("Mobile/flutter/entity_form_screen.dart.scriban", flutterRoot, $"lib/features/{entitySnake}/screens/{entitySnake}_form_screen.dart", model, ct);
         }
 
         var legacyTargets = SpecNormalizer.BuildTargetsFromLegacy(spec);
@@ -116,10 +118,15 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
                 : mobile.PackageName,
             api_base_url = mobile.ApiBaseUrl,
             first_entity_snake = firstSnake,
-            entities = entities.Select(e => new
+            entities = entities.Select(e =>
             {
-                entity_name = e.Name,
-                entity_snake = ToSnakeCase(e.Name)
+                var keyProp = e.Properties.FirstOrDefault(p => p.IsKey);
+                return new
+                {
+                    entity_name = e.Name,
+                    entity_snake = ToSnakeCase(e.Name),
+                    key_dart_type = keyProp is null ? "int" : ToDartType(keyProp.ClrType)
+                };
             }).ToList()
         };
     }
@@ -131,9 +138,18 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
         var dartProps = entity.Properties.Select(p => new
         {
             name = ToDartFieldName(p.Name),
+            label = p.Name,
             dart_type = ToDartType(p.ClrType),
             json_key = ToJsonKey(p.Name),
             is_key = p.IsKey
+        }).ToList();
+
+        var editableProps = entity.Properties.Where(p => !p.IsKey).Select(p => new
+        {
+            name = ToDartFieldName(p.Name),
+            label = p.Name,
+            dart_type = ToDartType(p.ClrType),
+            json_key = ToJsonKey(p.Name)
         }).ToList();
 
         return new
@@ -152,6 +168,9 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
             key_dart_type = keyProp is null ? "int" : ToDartType(keyProp.ClrType),
             has_display_field = displayProp is not null,
             display_field = displayProp is null ? "" : ToDartFieldName(displayProp.Name),
+            key_json_key = keyProp is null ? "id" : ToJsonKey(keyProp.Name),
+            has_editable_properties = editableProps.Count > 0,
+            editable_properties = editableProps,
             properties = dartProps
         };
     }
@@ -234,8 +253,8 @@ public sealed class MobileApplicationGenerator(FlutterGenerator flutterGenerator
 
             var names = string.Join(", ", entities.Select(e => e.Name));
             var message = entities.Count == 1
-                ? $"Flutter POC generated for entity '{entities[0].Name}'."
-                : $"Flutter POC generated for {entities.Count} entities: {names}.";
+                ? $"Flutter CRUD generated for entity '{entities[0].Name}'."
+                : $"Flutter CRUD generated for {entities.Count} entities: {names}.";
 
             if (!string.IsNullOrWhiteSpace(scaffold.Message))
                 message += " " + scaffold.Message;

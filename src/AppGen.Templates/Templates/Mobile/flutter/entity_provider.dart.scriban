@@ -7,3 +7,8 @@ final {{ entity_snake }}ListProvider = FutureProvider<List<{{ entity_name }}Mode
   final service = ref.watch({{ entity_snake }}ServiceProvider);
   return service.getAll();
 });
+
+final {{ entity_snake }}DetailProvider = FutureProvider.family<{{ entity_name }}Model, {{ key_dart_type }}>((ref, id) async {
+  final service = ref.watch({{ entity_snake }}ServiceProvider);
+  return service.getById(id);
+});

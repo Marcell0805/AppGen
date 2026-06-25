@@ -6,7 +6,7 @@ namespace AppGen.UI.Models;
 
 public sealed class WizardDraft
 {
-    public const int CurrentSchemaVersion = 1;
+    public const int CurrentSchemaVersion = 2;
 
     public int SchemaVersion { get; init; } = CurrentSchemaVersion;
     public DateTime SavedAt { get; init; } = DateTime.UtcNow;
@@ -15,6 +15,11 @@ public sealed class WizardDraft
     public DatabaseProvider Database { get; init; } = DatabaseProvider.SqlServer;
     public string OutputRoot { get; init; } = string.Empty;
     public bool IncludeMvcWeb { get; init; } = true;
+    public bool EnableDocumentation { get; init; }
+    public bool EnableWeb { get; init; } = true;
+    public bool EnableMobile { get; init; }
+    public string MobilePackageName { get; init; } = string.Empty;
+    public string MobileApiBaseUrl { get; init; } = "http://localhost:5000";
     public string ActiveConnectionName { get; init; } = "Dev";
     public string? OracleSchemaPrefix { get; init; }
     public bool EnsureCreatedInDevelopment { get; init; } = true;
@@ -77,13 +82,23 @@ public sealed class WizardDraft
         string? oracleSchemaPrefix,
         bool ensureCreatedInDevelopment,
         IEnumerable<ConfigEntryRow> configEntries,
-        IEnumerable<EntityDraft> entities) => new()
+        IEnumerable<EntityDraft> entities,
+        bool enableDocumentation = false,
+        bool enableWeb = true,
+        bool enableMobile = false,
+        string? mobilePackageName = null,
+        string? mobileApiBaseUrl = null) => new()
     {
         ApplicationName = applicationName,
         RootNamespace = rootNamespace,
         Database = database,
         OutputRoot = outputRoot,
         IncludeMvcWeb = includeMvcWeb,
+        EnableDocumentation = enableDocumentation,
+        EnableWeb = enableWeb,
+        EnableMobile = enableMobile,
+        MobilePackageName = mobilePackageName ?? string.Empty,
+        MobileApiBaseUrl = string.IsNullOrWhiteSpace(mobileApiBaseUrl) ? "http://localhost:5000" : mobileApiBaseUrl,
         ActiveConnectionName = activeConnectionName,
         OracleSchemaPrefix = oracleSchemaPrefix,
         EnsureCreatedInDevelopment = ensureCreatedInDevelopment,

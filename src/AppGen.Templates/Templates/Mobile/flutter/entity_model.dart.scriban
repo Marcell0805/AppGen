@@ -13,6 +13,12 @@ class {{ entity_name }}Model {
     );
   }
 
+  Map<String, dynamic> toWriteJson() => {
+{{ for p in editable_properties }}
+    '{{ p.json_key }}': {{ p.name }},
+{{ end }}
+  };
+
 {{ for p in properties }}
   final {{ p.dart_type }} {{ p.name }};
 {{ end }}

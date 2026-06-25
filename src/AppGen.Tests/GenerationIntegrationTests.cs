@@ -51,6 +51,10 @@ public class GenerationIntegrationTests
             var repositoryContent = await File.ReadAllTextAsync(repositoryPath);
             Assert.Contains("GetTrackedByIdAsync", repositoryContent);
 
+            var configurationPath = Path.Combine(outputDir, "src/CrudTestApp.Persistence/Configurations/ProductConfiguration.cs");
+            var configurationContent = await File.ReadAllTextAsync(configurationPath);
+            Assert.Contains("UseIdentityColumn()", configurationContent);
+
             var servicePath = Path.Combine(outputDir, "src/CrudTestApp.Application/Services/ProductService.cs");
             var serviceContent = await File.ReadAllTextAsync(servicePath);
             Assert.Contains("GetTrackedByIdAsync", serviceContent);

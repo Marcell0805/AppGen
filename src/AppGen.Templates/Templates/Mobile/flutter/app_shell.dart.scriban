@@ -17,7 +17,9 @@ class AppShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final location = GoRouterState.of(context).uri.path;
-    final selectedIndex = _destinations.indexWhere((d) => d.path == location);
+    final selectedIndex = _destinations.indexWhere(
+      (d) => location == d.path || location.startsWith('${d.path}/'),
+    );
     final safeIndex = selectedIndex < 0 ? 0 : selectedIndex;
     final title = safeIndex < _destinations.length
         ? _destinations[safeIndex].label

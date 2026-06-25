@@ -3,9 +3,9 @@
 @using AppGen.Core.Models
 @using AppGen.Engine
 @using AppGen.UI.Models
+@using AppGen.Engine
 @using AppGen.UI.Services
 @inject MobileGenerationService MobileService
-@inject ManifestSaveService ManifestSave
 @inject OutputFolderService FolderService
 @inject WizardStateService WizardState
 @inject IWebHostEnvironment HostEnvironment
@@ -15,39 +15,44 @@
 <PageTitle>AppGen — Mobile</PageTitle>
 
 <PageHeader Title="Mobile"
-            Subtitle="Generate a Flutter proof-of-concept from entities defined on the Web tab or saved manifest."
+            Subtitle="Generate a Flutter proof-of-concept from entities defined on the Project tab or saved manifest."
             Badge="Flutter POC" />
 
 <div class="wizard">
     @if (WizardState.HasData)
     {
-        <p class="status-inline status-success">Using @WizardState.EntityNames.Count shared entities from the Web tab.</p>
+        <p class="status-inline status-success">Using @WizardState.EntityNames.Count shared entities from the Project tab.</p>
     }
     else
     {
-        <p class="muted">Define entities on the <a href="web">Web</a> tab, click <strong>Save manifest</strong>, or load a draft here.</p>
+        <p class="muted">Define entities on the <a href="project">Project</a> tab, click <strong>Save manifest</strong> there, or load a draft here.</p>
     }
 
     <fieldset class="panel">
-        <legend>Application</legend>
+        <legend>Project</legend>
         <div class="form-grid">
             <label>Application name</label>
-            <input @bind="ApplicationName" />
+            <input value="@ApplicationName" readonly class="readonly-field" />
+            <label>Output folder</label>
+            <input value="@OutputRoot" readonly class="readonly-field" />
+        </div>
+        <p class="hint">Edit on the <a href="project">Project</a> tab. Mobile output: <code>{AppName} Mobile/mobile/flutter/</code></p>
+    </fieldset>
 
+    <fieldset class="panel">
+        <legend>Mobile options</legend>
+        <div class="form-grid">
             <label>Package name</label>
-            <input @bind="PackageName" placeholder="com.myapp.app" />
+            <input @bind="PackageName" @bind:after="SyncMobileSettings" placeholder="com.myapp.app" />
 
             <label>API base URL</label>
-            <input @bind="ApiBaseUrl" />
-
-            <label>Output folder</label>
-            <input @bind="OutputRoot" />
+            <input @bind="ApiBaseUrl" @bind:after="SyncMobileSettings" />
 
             <label>Entities</label>
             <div class="entity-checklist panel-inset">
                 @if (EntityNames.Count == 0)
                 {
-                    <p class="muted">No entities — click <strong>Load project</strong> or define entities on the Web tab.</p>
+                    <p class="muted">No entities — click <strong>Load project</strong> or define entities on the Project tab.</p>
                 }
                 else
                 {
@@ -71,7 +76,6 @@
     <div class="actions">
         <button type="button" class="btn btn-outline-secondary" @onclick="() => LoadProject()" disabled="@IsWorking">Load project</button>
         <button type="button" class="btn btn-outline-secondary" @onclick="LoadDraft" disabled="@IsWorking">Load draft</button>
-        <button type="button" class="btn btn-outline-secondary" @onclick="SaveManifest" disabled="@(!CanSaveManifest)">Save manifest</button>
         <button type="button" class="btn btn-primary" @onclick="GenerateMobile" disabled="@(!CanGenerate)">
             @(IsWorking ? "Generating…" : $"Generate mobile ({SelectedEntityNames.Count})")
         </button>
@@ -112,15 +116,10 @@
 
     private bool CanGenerate =>
         !IsWorking &&
+        WizardState.HasData &&
         !string.IsNullOrWhiteSpace(ApplicationName) &&
         !string.IsNullOrWhiteSpace(OutputRoot) &&
         SelectedEntityNames.Count > 0;
-
-    private bool CanSaveManifest =>
-        !IsWorking &&
-        !string.IsNullOrWhiteSpace(ApplicationName) &&
-        !string.IsNullOrWhiteSpace(OutputRoot) &&
-        EntityNames.Count > 0;
 
     protected override async Task OnInitializedAsync()
     {
@@ -129,7 +128,7 @@
         WizardState.Changed += OnWizardStateChanged;
         ApplySharedState();
 
-        var dir = ResolvedOutputDirectory;
+        var dir = ResolvedManifestDirectory;
         if (!_manifestLoaded && dir is not null && File.Exists(Path.Combine(dir, "appgen.json")) && !WizardState.HasData)
             await LoadProject(silent: true);
     }
@@ -150,10 +149,46 @@
         if (!string.IsNullOrWhiteSpace(draft.OutputRoot))
             OutputRoot = draft.OutputRoot;
 
-        PackageName = $"com.{ApplicationName.ToLowerInvariant()}.app";
+        if (!string.IsNullOrWhiteSpace(draft.MobilePackageName))
+            PackageName = draft.MobilePackageName;
+        else
+            PackageName = $"com.{ApplicationName.ToLowerInvariant()}.app";
+
+        if (!string.IsNullOrWhiteSpace(draft.MobileApiBaseUrl))
+            ApiBaseUrl = draft.MobileApiBaseUrl;
+
         EntityNames.Clear();
         EntityNames.AddRange(draft.Entities.Select(e => e.Name));
         SelectAllEntities();
+    }
+
+    private void SyncMobileSettings()
+    {
+        if (WizardState.Current is not { } draft)
+            return;
+
+        WizardState.Update(WizardDraft.FromWizard(
+            draft.ApplicationName,
+            draft.RootNamespace,
+            draft.Database,
+            draft.OutputRoot,
+            draft.IncludeMvcWeb,
+            draft.ActiveConnectionName,
+            draft.OracleSchemaPrefix,
+            draft.EnsureCreatedInDevelopment,
+            draft.ConfigEntries.Select(e => new ConfigEntryRow
+            {
+                Name = e.Name,
+                Kind = e.Kind,
+                Key = e.Key,
+                Value = e.Value
+            }),
+            WizardEntityHelper.ToEntityDrafts(draft.Entities),
+            draft.EnableDocumentation,
+            draft.EnableWeb,
+            draft.EnableMobile,
+            PackageName,
+            ApiBaseUrl));
     }
 
     private void SelectAllEntities()
@@ -177,13 +212,15 @@
             SelectedEntityNames.Clear();
     }
 
-    private string? ResolvedOutputDirectory
+    private string? ResolvedMobileDirectory
     {
         get
         {
+            if (string.IsNullOrWhiteSpace(ApplicationName) || string.IsNullOrWhiteSpace(OutputRoot))
+                return null;
             try
             {
-                return Path.GetFullPath(Path.Combine(OutputRoot.Trim(), NamingHelper.NormalizeAppName(ApplicationName.Trim())));
+                return ProjectOutputPaths.MobileDirectory(OutputRoot, ApplicationName);
             }
             catch
             {
@@ -192,9 +229,12 @@
         }
     }
 
+    private string? ResolvedManifestDirectory =>
+        ProjectOutputPaths.FindManifestDirectory(OutputRoot, ApplicationName, ProjectOutputLayer.Mobile);
+
     private async Task LoadProject(bool silent = false)
     {
-        var dir = ResolvedOutputDirectory;
+        var dir = ResolvedManifestDirectory;
         if (dir is null || !File.Exists(Path.Combine(dir, "appgen.json")))
         {
             if (!silent)
@@ -261,46 +301,16 @@
         }
     }
 
-    private async Task SaveManifest()
-    {
-        var dir = ResolvedOutputDirectory;
-        if (dir is null)
-        {
-            StatusMessage = "Output folder is invalid.";
-            IsSuccess = false;
-            return;
-        }
-
-        if (!WizardState.HasData)
-        {
-            StatusMessage = "No entities to save. Load a draft or define entities on the Web tab first.";
-            IsSuccess = false;
-            return;
-        }
-
-        try
-        {
-            var result = await ManifestSave.SaveAsync(WizardState.ToSolutionSpec(), dir);
-            StatusMessage = result.Message;
-            IsSuccess = result.Success;
-            OutputDirectory = result.ProjectDirectory;
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = ex.Message;
-            IsSuccess = false;
-        }
-    }
-
     private async Task GenerateMobile()
     {
+        SyncMobileSettings();
         IsWorking = true;
         StatusMessage = string.Empty;
         IsSuccess = false;
         try
         {
             SolutionSpec spec;
-            var dir = ResolvedOutputDirectory;
+            var dir = ResolvedManifestDirectory;
             if (dir is not null && File.Exists(Path.Combine(dir, "appgen.json")))
                 spec = await SpecLoader.LoadAsync(dir);
             else if (WizardState.HasData)
@@ -345,7 +355,7 @@
 
             StatusMessage = result.Message;
             IsSuccess = result.Success;
-            OutputDirectory = result.OutputDirectory;
+            OutputDirectory = ResolvedMobileDirectory ?? result.OutputDirectory;
         }
         catch (Exception ex)
         {
@@ -378,9 +388,18 @@
                 Key = e.Key,
                 Value = e.Value
             }),
-            entities));
+            entities,
+            spec.Targets?.Documentation.Enabled ?? false,
+            spec.Targets?.Web.Enabled ?? true,
+            spec.Targets?.Mobile.Enabled ?? false,
+            PackageName,
+            ApiBaseUrl));
     }
 
-    public void Dispose() => WizardState.Changed -= OnWizardStateChanged;
+    public void Dispose()
+    {
+        SyncMobileSettings();
+        WizardState.Changed -= OnWizardStateChanged;
+    }
 }
 

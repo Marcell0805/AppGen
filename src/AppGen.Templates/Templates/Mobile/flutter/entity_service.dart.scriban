@@ -28,6 +28,28 @@ class {{ entity_name }}Service {
         : data as Map<String, dynamic>;
     return {{ entity_name }}Model.fromJson(map);
   }
+
+  Future<{{ entity_name }}Model> create(Map<String, dynamic> body) async {
+    final response = await _dio.post('/api/v1/{{ entity_name }}', data: body);
+    final data = response.data;
+    final map = data is Map && data['data'] != null
+        ? data['data'] as Map<String, dynamic>
+        : data as Map<String, dynamic>;
+    return {{ entity_name }}Model.fromJson(map);
+  }
+
+  Future<{{ entity_name }}Model> update({{ key_dart_type }} id, Map<String, dynamic> body) async {
+    final response = await _dio.put('/api/v1/{{ entity_name }}/$id', data: body);
+    final data = response.data;
+    final map = data is Map && data['data'] != null
+        ? data['data'] as Map<String, dynamic>
+        : data as Map<String, dynamic>;
+    return {{ entity_name }}Model.fromJson(map);
+  }
+
+  Future<void> delete({{ key_dart_type }} id) async {
+    await _dio.delete('/api/v1/{{ entity_name }}/$id');
+  }
 }
 
 final {{ entity_snake }}ServiceProvider = Provider<{{ entity_name }}Service>((ref) {

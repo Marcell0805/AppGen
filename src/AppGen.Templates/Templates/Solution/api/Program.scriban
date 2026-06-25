@@ -38,6 +38,17 @@ builder.Services.AddCors(options =>
                 .AllowAnyHeader()
                 .AllowAnyMethod();
         }
+        else
+        {
+            policy.SetIsOriginAllowed(static origin =>
+            {
+                if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+                    return false;
+                return uri.IsLoopback;
+            })
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+        }
     });
 });
 

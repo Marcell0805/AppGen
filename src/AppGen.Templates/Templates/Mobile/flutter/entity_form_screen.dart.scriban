@@ -1,0 +1,167 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../app/app_colors.dart';
+import '../../../core/widgets/app_widgets.dart';
+import '../models/{{ entity_snake }}_model.dart';
+import '../providers/{{ entity_snake }}_provider.dart';
+import '../services/{{ entity_snake }}_service.dart';
+
+class {{ entity_name }}FormScreen extends ConsumerStatefulWidget {
+  const {{ entity_name }}FormScreen({super.key, this.id});
+
+  final {{ key_dart_type }}? id;
+
+  @override
+  ConsumerState<{{ entity_name }}FormScreen> createState() => _{{ entity_name }}FormScreenState();
+}
+
+class _{{ entity_name }}FormScreenState extends ConsumerState<{{ entity_name }}FormScreen> {
+  final _formKey = GlobalKey<FormState>();
+{{ for p in editable_properties }}
+  {{ if p.dart_type == "bool" }}
+  bool _{{ p.name }} = false;
+  {{ else }}
+  late final TextEditingController _{{ p.name }}Controller;
+  {{ end }}
+{{ end }}
+  bool _initialized = false;
+  bool _saving = false;
+
+  bool get _isEdit => widget.id != null;
+
+  @override
+  void initState() {
+    super.initState();
+{{ for p in editable_properties }}
+    {{ if p.dart_type != "bool" }}
+    _{{ p.name }}Controller = TextEditingController();
+    {{ end }}
+{{ end }}
+  }
+
+  @override
+  void dispose() {
+{{ for p in editable_properties }}
+    {{ if p.dart_type != "bool" }}
+    _{{ p.name }}Controller.dispose();
+    {{ end }}
+{{ end }}
+    super.dispose();
+  }
+
+  void _applyModel({{ entity_name }}Model model) {
+    if (_initialized) return;
+{{ for p in editable_properties }}
+    {{ if p.dart_type == "bool" }}
+    _{{ p.name }} = model.{{ p.name }};
+    {{ else if p.dart_type == "DateTime" }}
+    _{{ p.name }}Controller.text = model.{{ p.name }}.toIso8601String();
+    {{ else }}
+    _{{ p.name }}Controller.text = model.{{ p.name }}.toString();
+    {{ end }}
+{{ end }}
+    _initialized = true;
+  }
+
+  Map<String, dynamic> _buildPayload() => {
+{{ for p in editable_properties }}
+    {{ if p.dart_type == "bool" }}
+    '{{ p.json_key }}': _{{ p.name }},
+    {{ else if p.dart_type == "int" }}
+    '{{ p.json_key }}': int.parse(_{{ p.name }}Controller.text.trim()),
+    {{ else if p.dart_type == "double" }}
+    '{{ p.json_key }}': double.parse(_{{ p.name }}Controller.text.trim()),
+    {{ else if p.dart_type == "DateTime" }}
+    '{{ p.json_key }}': _{{ p.name }}Controller.text.trim(),
+    {{ else }}
+    '{{ p.json_key }}': _{{ p.name }}Controller.text.trim(),
+    {{ end }}
+{{ end }}
+  };
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _saving = true);
+    try {
+      final service = ref.read({{ entity_snake }}ServiceProvider);
+      final body = _buildPayload();
+      if (_isEdit) {
+        await service.update(widget.id!, body);
+        ref.invalidate({{ entity_snake }}DetailProvider(widget.id!));
+      } else {
+        await service.create(body);
+      }
+      ref.invalidate({{ entity_snake }}ListProvider);
+      if (mounted) context.go('/{{ entity_snake }}');
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.toString()), backgroundColor: AppColors.error),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isEdit) {
+      final asyncItem = ref.watch({{ entity_snake }}DetailProvider(widget.id!));
+      return asyncItem.when(
+        data: (item) {
+          _applyModel(item);
+          return _buildForm(context);
+        },
+        loading: () => const AppLoadingState(message: 'Loading {{ entity_name }}…'),
+        error: (error, _) => AppErrorState(message: error.toString()),
+      );
+    }
+
+    return _buildForm(context);
+  }
+
+  Widget _buildForm(BuildContext context) {
+    return Form(
+      key: _formKey,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        children: [
+{{ for p in editable_properties }}
+          {{ if p.dart_type == "bool" }}
+          SwitchListTile(
+            title: const Text('{{ p.label }}'),
+            value: _{{ p.name }},
+            onChanged: (value) => setState(() => _{{ p.name }} = value),
+          ),
+          {{ else }}
+          TextFormField(
+            controller: _{{ p.name }}Controller,
+            decoration: const InputDecoration(labelText: '{{ p.label }}'),
+            {{ if p.dart_type == "int" || p.dart_type == "double" }}
+            keyboardType: const TextInputType.numberWithOptions(decimal: {{ if p.dart_type == "double" }}true{{ else }}false{{ end }}),
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) return 'Required';
+              if ({{ if p.dart_type == "double" }}double.tryParse(value.trim()) == null{{ else }}int.tryParse(value.trim()) == null{{ end }}) return 'Enter a valid number';
+              return null;
+            },
+            {{ else }}
+            validator: (value) => value == null || value.trim().isEmpty ? 'Required' : null,
+            {{ end }}
+          ),
+          const SizedBox(height: 12),
+          {{ end }}
+{{ end }}
+          const SizedBox(height: 8),
+          FilledButton(
+            onPressed: _saving ? null : _save,
+            child: Text(_saving ? 'Saving…' : (_isEdit ? 'Save changes' : 'Create {{ entity_name }}')),
+          ),
+        ],
+      ),
+    );
+  }
+}

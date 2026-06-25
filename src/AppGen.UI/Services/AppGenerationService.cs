@@ -67,7 +67,10 @@ public sealed class AppGenerationService(
             return GenerationResult.Fail("Output folder is required.");
 
         var spec = SpecLoader.CreateDefault(applicationName, rootNamespace, database, uiTargets, setup);
-        var outputDir = GenerationOutputHelper.ResolveOutputDirectory(outputRootDirectory.Trim(), spec.ApplicationName);
+        var outputDir = GenerationOutputHelper.ResolveLayerDirectory(
+            outputRootDirectory.Trim(),
+            spec.ApplicationName,
+            ProjectOutputLayer.Web);
         var exists = GenerationOutputHelper.OutputDirectoryExists(outputDir);
 
         if (exists && !overwrite)

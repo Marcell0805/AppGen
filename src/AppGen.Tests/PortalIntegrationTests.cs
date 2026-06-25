@@ -14,7 +14,7 @@ public class PortalIntegrationTests
     public async Task Portal_generate_produces_expected_folder_structure()
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), "AppGenTests", Guid.NewGuid().ToString("N"));
-        var outputDir = Path.Combine(tempRoot, "PortalTestApp");
+        var outputDir = GenerationOutputHelper.ResolveLayerDirectory(tempRoot, "PortalTestApp", ProjectOutputLayer.Documentation);
 
         try
         {
@@ -68,7 +68,7 @@ public class PortalIntegrationTests
             var spec = SpecLoader.CreatePortalDefault("ImportTestApp", null);
             var renderer = new TemplateRenderer();
             var service = new PortalGenerationService(new PortalGenerator(renderer));
-            var outputDir = Path.Combine(tempRoot, "ImportTestApp");
+            var outputDir = GenerationOutputHelper.ResolveLayerDirectory(tempRoot, "ImportTestApp", ProjectOutputLayer.Documentation);
             await service.GenerateAsync(spec, tempRoot);
 
             var visionPath = Path.Combine(outputDir, "portal", "data", "vision.json");
@@ -91,7 +91,7 @@ public class PortalIntegrationTests
     public async Task Promote_generates_buildable_solution_from_manifest()
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), "AppGenTests", Guid.NewGuid().ToString("N"));
-        var outputDir = Path.Combine(tempRoot, "PromoteTestApp");
+        var outputDir = GenerationOutputHelper.ResolveLayerDirectory(tempRoot, "PromoteTestApp", ProjectOutputLayer.Documentation);
 
         try
         {

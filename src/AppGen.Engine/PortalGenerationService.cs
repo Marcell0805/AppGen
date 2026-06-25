@@ -17,9 +17,10 @@ public sealed class PortalGenerationService(PortalGenerator portalGenerator)
         if (string.IsNullOrWhiteSpace(outputRootDirectory))
             return PortalGenerationResult.Fail("Output folder is required.");
 
-        var outputDir = GenerationOutputHelper.ResolveOutputDirectory(
+        var outputDir = GenerationOutputHelper.ResolveLayerDirectory(
             outputRootDirectory.Trim(),
-            spec.ApplicationName);
+            spec.ApplicationName,
+            ProjectOutputLayer.Documentation);
 
         var exists = GenerationOutputHelper.OutputDirectoryExists(outputDir);
         if (exists && !overwrite && File.Exists(Path.Combine(outputDir, "portal", "index.html")))

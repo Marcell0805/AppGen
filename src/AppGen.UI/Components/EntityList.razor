@@ -51,6 +51,7 @@
     [Parameter] public EntityDraft? SelectedEntity { get; set; }
     [Parameter] public EventCallback<EntityDraft?> SelectedEntityChanged { get; set; }
     [Parameter] public EventCallback<string> OnStatus { get; set; }
+    [Parameter] public EventCallback OnChanged { get; set; }
 
     private string NewEntityName { get; set; } = string.Empty;
     private readonly Dictionary<EntityDraft, string> _nameOnFocus = new(ReferenceEqualityComparer.Instance);
@@ -83,16 +84,25 @@
         }
 
         await SelectedEntityChanged.InvokeAsync(entity);
+        await NotifyChangedAsync();
+    }
+
+    private async Task NotifyChangedAsync()
+    {
+        if (OnChanged.HasDelegate)
+            await OnChanged.InvokeAsync();
     }
 
     private void OnIncludeInUiChanged(EntityDraft entity, ChangeEventArgs e)
     {
         entity.IncludeInUi = e.Value is true;
+        _ = NotifyChangedAsync();
     }
 
     private void OnIncludeAuditChanged(EntityDraft entity, ChangeEventArgs e)
     {
         entity.IncludeAuditColumns = e.Value is true;
+        _ = NotifyChangedAsync();
     }
 
     private async Task AddEntity()
@@ -110,6 +120,7 @@
         Entities.Add(draft);
         NewEntityName = string.Empty;
         await SelectedEntityChanged.InvokeAsync(draft);
+        await NotifyChangedAsync();
     }
 
     private async Task OnEntityNameKeyDown(KeyboardEventArgs e)
@@ -123,6 +134,7 @@
         Entities.Remove(entity);
         if (IsSelected(entity))
             await SelectedEntityChanged.InvokeAsync(Entities.FirstOrDefault());
+        await NotifyChangedAsync();
     }
 
     private async Task DuplicateEntity(EntityDraft entity)
@@ -136,5 +148,6 @@
         var copy = entity.Duplicate(name);
         Entities.Add(copy);
         await SelectedEntityChanged.InvokeAsync(copy);
+        await NotifyChangedAsync();
     }
 }

@@ -5,9 +5,6 @@ using AppGen.UI.Models;
 
 namespace AppGen.UI.Services;
 
-/// <summary>
-/// Per-session shared state so Web and Mobile tabs see the same entity definitions.
-/// </summary>
 public sealed class WizardStateService
 {
     public event Action? Changed;
@@ -56,22 +53,68 @@ public sealed class WizardStateService
 
         var appName = NamingHelper.NormalizeAppName(_draft.ApplicationName);
         var rootNs = NamingHelper.NormalizeAppName(_draft.RootNamespace ?? _draft.ApplicationName);
+        var packageName = string.IsNullOrWhiteSpace(_draft.MobilePackageName)
+            ? $"com.{appName.ToLowerInvariant()}.app"
+            : _draft.MobilePackageName.Trim();
+
+        var legacy = new SolutionSpec
+        {
+            ApplicationName = appName,
+            RootNamespace = rootNs,
+            Phase = ProjectPhase.Solution
+        };
+
+        var targets = SpecNormalizer.BuildTargetsFromLegacy(legacy);
+        targets = new ApplicationTargets
+        {
+            Documentation = new DocumentationTargetSpec
+            {
+                Enabled = _draft.EnableDocumentation,
+                Preset = targets.Documentation.Preset
+            },
+            Web = new WebTargetSpec { Enabled = _draft.EnableWeb },
+            Mobile = new MobileTargetSpec
+            {
+                Enabled = _draft.EnableMobile,
+                Framework = targets.Mobile.Framework,
+                PackageName = packageName,
+                ApiBaseUrl = _draft.MobileApiBaseUrl,
+                StateManagement = targets.Mobile.StateManagement
+            }
+        };
+
+        PortalSpec? portal = null;
+        var sketches = entities.Select(e => new EntitySketch
+        {
+            Name = e.Name,
+            Status = "draft",
+            Description = $"{e.Name} entity"
+        }).ToList();
+
+        if (_draft.EnableDocumentation)
+        {
+            var portalDefault = SpecLoader.CreatePortalDefault(
+                appName,
+                rootNs,
+                _draft.Database,
+                uiTargets,
+                setup: setup,
+                entitySketches: sketches);
+            portal = portalDefault.Portal;
+        }
 
         return new SolutionSpec
         {
             SchemaVersion = SolutionSpec.CurrentSchemaVersion,
             ApplicationName = appName,
             RootNamespace = rootNs,
-            Phase = ProjectPhase.Solution,
+            Phase = _draft.EnableDocumentation && !_draft.EnableWeb ? ProjectPhase.Portal : ProjectPhase.Solution,
+            Portal = portal,
+            EntitySketches = sketches,
+            Targets = targets,
             Database = _draft.Database,
             UiTargets = uiTargets,
             Setup = setup,
-            Targets = SpecNormalizer.BuildTargetsFromLegacy(new SolutionSpec
-            {
-                ApplicationName = appName,
-                RootNamespace = rootNs,
-                Phase = ProjectPhase.Solution
-            }),
             Entities = entities
         };
     }

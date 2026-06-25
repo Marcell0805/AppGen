@@ -151,8 +151,9 @@ public sealed class EntityGenerator(TemplateRenderer renderer)
                 column_name = spec.Database == DatabaseProvider.Oracle
                     ? NamingHelper.ToOracleColumnName(p.ColumnName ?? p.Name)
                     : (p.ColumnName ?? p.Name),
-                is_key = p.IsKey,
-                is_nullable = p.IsNullable,
+            is_key = p.IsKey,
+            is_nullable = p.IsNullable,
+            is_identity_type = keys.Count == 1 && p.IsKey && (p.ClrType == "int" || p.ClrType == "long"),
                 has_foreign_key = !p.IsKey && !string.IsNullOrWhiteSpace(p.ForeignKeyEntity),
                 foreign_key_entity = p.ForeignKeyEntity
             }).ToList(),
