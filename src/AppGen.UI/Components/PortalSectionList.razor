@@ -1,0 +1,127 @@
+@using AppGen.UI.Models
+
+<fieldset class="panel">
+    <legend>Sections</legend>
+    @if (Sections.Count == 0)
+    {
+        <p class="muted">No sections yet. Add a section to build portal navigation.</p>
+    }
+    <div class="entity-add-row">
+        <input @bind="_newSectionTitle" placeholder="New section title" class="entity-name-input" />
+        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="AddSection">Add section</button>
+    </div>
+    <ul class="entity-list">
+        @foreach (var portalSection in Sections)
+        {
+            <li class="@(portalSection == SelectedSection ? "selected" : null)">
+                <button type="button" class="entity-list-btn" @onclick="() => SelectSection(portalSection)">
+                    @portalSection.Title <span class="muted">(@portalSection.Status)</span>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => RemoveSection(portalSection)">Remove</button>
+            </li>
+        }
+    </ul>
+    @if (SelectedSection is not null)
+    {
+        <div class="form-grid" style="margin-top: 12px;">
+            <label>Id</label>
+            <input @bind="SelectedSection.Id" />
+
+            <label>Title</label>
+            <input @bind="SelectedSection.Title" />
+
+            <label>Status</label>
+            <select @bind="SelectedSection.Status">
+                <option value="live">live</option>
+                <option value="in_progress">in_progress</option>
+                <option value="planned">planned</option>
+            </select>
+
+            <label>Summary</label>
+            <textarea @bind="SelectedSection.Summary" rows="2"></textarea>
+        </div>
+
+        <div style="margin-top: 12px;">
+            <strong>Blocks</strong>
+            <div class="entity-add-row">
+                <input @bind="_newBlockHeading" placeholder="Block heading" />
+                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="AddBlock">Add block</button>
+            </div>
+            @foreach (var block in SelectedSection.Blocks)
+            {
+                <div class="panel" style="margin-top: 8px;">
+                    <div class="form-grid">
+                        <label>Block id</label>
+                        <input @bind="block.Id" />
+                        <label>Heading</label>
+                        <input @bind="block.Heading" />
+                        <label>Content</label>
+                        <textarea @bind="block.Content" rows="2"></textarea>
+                        <label>Bullets</label>
+                        <textarea value="@string.Join(Environment.NewLine, block.Bullets)"
+                                  @onchange="e => SetBullets(block, e.Value?.ToString())"
+                                  rows="4"
+                                  placeholder="One bullet per line"></textarea>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => RemoveBlock(block)">Remove block</button>
+                </div>
+            }
+        </div>
+    }
+</fieldset>
+
+@code {
+    [Parameter] public List<PortalSectionDraft> Sections { get; set; } = [];
+    [Parameter] public PortalSectionDraft? SelectedSection { get; set; }
+    [Parameter] public EventCallback<PortalSectionDraft?> SelectedSectionChanged { get; set; }
+
+    private string _newSectionTitle = string.Empty;
+    private string _newBlockHeading = string.Empty;
+
+    private async Task SelectSection(PortalSectionDraft section) =>
+        await SelectedSectionChanged.InvokeAsync(section);
+
+    private async Task AddSection()
+    {
+        if (string.IsNullOrWhiteSpace(_newSectionTitle)) return;
+        var id = Slugify(_newSectionTitle);
+        var section = new PortalSectionDraft { Id = id, Title = _newSectionTitle.Trim(), Status = "planned" };
+        Sections.Add(section);
+        _newSectionTitle = string.Empty;
+        await SelectedSectionChanged.InvokeAsync(section);
+    }
+
+    private async Task RemoveSection(PortalSectionDraft section)
+    {
+        Sections.Remove(section);
+        if (SelectedSection == section)
+            await SelectedSectionChanged.InvokeAsync(Sections.FirstOrDefault());
+    }
+
+    private void AddBlock()
+    {
+        if (SelectedSection is null) return;
+        SelectedSection.Blocks.Add(new PortalBlockDraft
+        {
+            Id = Slugify(_newBlockHeading),
+            Heading = string.IsNullOrWhiteSpace(_newBlockHeading) ? "Details" : _newBlockHeading.Trim()
+        });
+        _newBlockHeading = string.Empty;
+    }
+
+    private void RemoveBlock(PortalBlockDraft block) => SelectedSection?.Blocks.Remove(block);
+
+    private static void SetBullets(PortalBlockDraft block, string? text)
+    {
+        block.Bullets.Clear();
+        if (string.IsNullOrWhiteSpace(text)) return;
+        foreach (var line in text.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
+            block.Bullets.Add(line.Trim());
+    }
+
+    private static string Slugify(string value) =>
+        new string(value.Trim().ToLowerInvariant()
+            .Select(c => char.IsLetterOrDigit(c) ? c : '-')
+            .ToArray())
+            .Trim('-');
+}

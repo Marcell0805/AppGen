@@ -1,0 +1,10 @@
+import 'package:flutter/material.dart';
+
+ThemeData buildAppTheme() {
+  const primary = Color(0xFF3B82F6);
+  return ThemeData(
+    colorScheme: ColorScheme.fromSeed(seedColor: primary, brightness: Brightness.light),
+    useMaterial3: true,
+    appBarTheme: const AppBarTheme(centerTitle: false, elevation: 0),
+  );
+}

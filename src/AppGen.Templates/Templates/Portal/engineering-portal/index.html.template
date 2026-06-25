@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DeltaCore Engineering Portal</title>
+  <link rel="stylesheet" href="css/portal.css">
+  <style>html:not(.auth-ok) body > :not(#auth-gate) { display: none; }</style>
+  <script src="js/auth.js"></script>
+</head>
+<body data-nav-scope="landing">
+  <div class="landing">
+    <img class="landing-logo" src="assets/logo.svg" alt="DeltaCore">
+    <h1>DELTACORE ENGINEERING PORTAL</h1>
+    <p class="subtitle">Mission Control for architecture, standards and platform knowledge</p>
+
+    <div class="landing-search-wrap no-print">
+      <input type="search" id="landing-search" class="landing-search" placeholder="Search portal… (Ctrl+K)" readonly>
+    </div>
+
+    <ol class="landing-nav" data-portal-landing-nav></ol>
+
+    <p class="landing-tagline" data-portal-tagline>Augment existing telemetry — do not replace it.</p>
+
+    <p class="site-footer no-print" style="margin-top:2rem">
+      Documentation only — product source is private.
+      <br>
+      <a href="https://github.com/Marcell0805/DeltaCore-Portal" target="_blank" rel="noopener">Public portal repo</a>
+    </p>
+  </div>
+
+  <script src="js/vendor/fuse.min.js"></script>
+  <script src="js/portal-data.js"></script>
+  <script src="js/search-index.js"></script>
+  <script src="js/portal.js"></script>
+  <script src="js/search.js"></script>
+</body>
+</html>

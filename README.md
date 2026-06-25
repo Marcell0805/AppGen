@@ -12,6 +12,8 @@ It generates a ready-to-run Visual Studio solution (Swagger enabled by default) 
 
 - **Standalone**: no dependency on other repos or private packages
 - **CLI**: `create` a solution and `entity add` to scaffold CRUD
+- **Portal generator**: static documentation sites (engineering-portal preset) with `appgen.json` manifest
+- **Promote to API**: scaffold `src/` from a portal-first project when the design is validated
 - **Simple UI**: Blazor Server wizard with QuickGrid entity editor and optional UI target selection
 - **Optional MVC Web client**: generate `{AppName}.MVC` with per-entity list/edit pages (HttpClient → API), PR-style layering
 - **Database providers**: SQL Server, PostgreSQL, and Oracle — each can emit `scripts/{provider}/` create + seed SQL when entities are added
@@ -34,7 +36,33 @@ cd AppGen
 dotnet run --project src/AppGen.UI --urls "http://localhost:5099"
 ```
 
-Open `http://localhost:5099` and click **Generate**. By default, solutions are written to `AppGen/output/{AppName}/` (same repo as the generator).
+Open `http://localhost:5099` — use **Documentation**, **Web**, or **Mobile** in the sidebar.
+
+## Evolution roadmap
+
+See [docs/EVOLUTION_ROADMAP.md](docs/EVOLUTION_ROADMAP.md) for the Application Factory vision (shared manifest, Flutter, UI branding, and phased delivery).
+
+## Documentation workflow
+
+```powershell
+# Phase 1 — static portal for sharing
+dotnet run --project src/AppGen.CLI -- portal create DeltaCore --output output
+
+# Edit portal/data/*.json, then import changes back into the manifest
+dotnet run --project src/AppGen.CLI -- portal import --project output/DeltaCore
+
+# Phase 2 — promote to API (refine entities in the API tab or appgen.json first)
+dotnet run --project src/AppGen.CLI -- promote --project output/DeltaCore
+```
+
+Generated layout (portal-first project):
+
+```
+DeltaCore/
+├── appgen.json          # manifest (portal + entitySketches + entities)
+├── portal/              # static site (GitHub Pages / Live Server)
+└── src/                 # API solution (after promote)
+```
 
 ## Generated layout
 
@@ -56,7 +84,11 @@ src/
 
 | Command | Description |
 |---------|-------------|
-| `appgen create <Name> --output <path> [--database SqlServer\|PostgreSql\|Oracle] [--ui MvcWeb]` | Scaffold solution (optional MVC Web UI) |
+| `appgen mobile create --project <path> [--entity Product]` | Generate Flutter POC under `mobile/flutter/` |
+| `appgen portal create <Name> --output <path> [--preset engineering-portal]` | Scaffold static portal + appgen.json manifest |
+| `appgen portal import --project <path>` | Merge portal/data edits into appgen.json |
+| `appgen promote --project <path> [--force]` | Generate API solution from manifest |
+| `appgen create <Name> --output <path> [--database SqlServer\|PostgreSql\|Oracle] [--ui MvcWeb]` | Scaffold solution (API-only) |
 | `appgen entity add <Name> --project <path>` | Add CRUD slice for an entity |
 
 ## Sample output

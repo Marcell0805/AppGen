@@ -23,7 +23,7 @@ public static class SpecLoader
 
         await using var stream = File.OpenRead(path);
         var spec = await JsonSerializer.DeserializeAsync<SolutionSpec>(stream, Options, ct);
-        return spec ?? throw new InvalidOperationException("Failed to deserialize appgen.json.");
+        return SpecNormalizer.Normalize(spec ?? throw new InvalidOperationException("Failed to deserialize appgen.json."));
     }
 
     public static SolutionSpec CreateDefault(
@@ -40,6 +40,46 @@ public static class SpecLoader
             SchemaVersion = SolutionSpec.CurrentSchemaVersion,
             ApplicationName = normalizedName,
             RootNamespace = normalizedNamespace,
+            Phase = ProjectPhase.Solution,
+            Database = database,
+            UiTargets = uiTargets,
+            Setup = setup ?? NamingHelper.DefaultSetup(database),
+            Entities = []
+        };
+    }
+
+    public static SolutionSpec CreatePortalDefault(
+        string applicationName,
+        string? rootNamespace,
+        DatabaseProvider database = DatabaseProvider.PostgreSql,
+        UiTarget uiTargets = UiTarget.MvcWeb,
+        string preset = "engineering-portal",
+        ProjectSetupSpec? setup = null,
+        IEnumerable<EntitySketch>? entitySketches = null)
+    {
+        var normalizedName = NamingHelper.NormalizeAppName(applicationName);
+        var normalizedNamespace = NamingHelper.NormalizeAppName(rootNamespace ?? normalizedName);
+        var sketches = entitySketches?.ToList() ?? [];
+        var portal = PortalDefaults.CreateDefaultPortal(normalizedName, preset);
+        var sections = portal.Sections.ToList();
+        sections.Add(PortalDefaults.BuildEntitiesSection(normalizedName, sketches));
+        portal = new PortalSpec
+        {
+            Preset = portal.Preset,
+            Settings = portal.Settings,
+            Sections = sections,
+            Nav = PortalDefaults.BuildNav(sections),
+            Features = portal.Features
+        };
+
+        return new()
+        {
+            SchemaVersion = SolutionSpec.CurrentSchemaVersion,
+            ApplicationName = normalizedName,
+            RootNamespace = normalizedNamespace,
+            Phase = ProjectPhase.Portal,
+            Portal = portal,
+            EntitySketches = sketches,
             Database = database,
             UiTargets = uiTargets,
             Setup = setup ?? NamingHelper.DefaultSetup(database),

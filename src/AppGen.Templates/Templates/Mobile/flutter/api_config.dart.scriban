@@ -1,0 +1,4 @@
+class ApiConfig {
+  static const String baseUrl = '{{ api_base_url }}';
+  static const String apiPrefix = '/api/v1';
+}

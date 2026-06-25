@@ -1,0 +1,9 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../models/{{ entity_snake }}_model.dart';
+import '../services/{{ entity_snake }}_service.dart';
+
+final {{ entity_snake }}ListProvider = FutureProvider<List<{{ entity_name }}Model>>((ref) async {
+  final service = ref.watch({{ entity_snake }}ServiceProvider);
+  return service.getAll();
+});

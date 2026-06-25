@@ -1,0 +1,17 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../features/{{ entity_snake }}/screens/{{ entity_snake }}_list_screen.dart';
+
+final appRouterProvider = Provider<GoRouter>((ref) {
+  return GoRouter(
+    initialLocation: '/{{ entity_snake }}',
+    routes: [
+      GoRoute(
+        path: '/{{ entity_snake }}',
+        builder: (context, state) => const {{ entity_name }}ListScreen(),
+      ),
+    ],
+  );
+});

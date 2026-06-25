@@ -1,0 +1,267 @@
+@page "/documentation"
+@page "/portal"
+@using AppGen.Core
+@using AppGen.Core.Models
+@using AppGen.UI.Models
+@using AppGen.Engine
+@using AppGen.UI.Services
+@inject PortalGenerationService PortalService
+@inject OutputFolderService FolderService
+@inject IWebHostEnvironment HostEnvironment
+@inject IJSRuntime Js
+
+<PageTitle>AppGen — Documentation</PageTitle>
+
+<PageHeader Title="Documentation"
+            Subtitle="Generate a shareable static site. Content round-trips through appgen.json and portal/data/*.json." />
+
+<div class="wizard">
+    <fieldset class="panel">
+        <legend>Site</legend>
+        <div class="form-grid">
+            <label>Application name</label>
+            <input @bind="ApplicationName" />
+
+            <label>Portal title</label>
+            <input @bind="PortalName" />
+
+            <label>Tagline</label>
+            <input @bind="Tagline" />
+
+            <label>Home quote</label>
+            <input @bind="HomeQuote" />
+
+            <label>Output folder</label>
+            <input @bind="OutputRoot" placeholder="e.g. output/MyProduct" />
+        </div>
+        <label class="checkbox-row">
+            <input type="checkbox" @bind="PasswordGate" />
+            Password gate
+        </label>
+        <label class="checkbox-row">
+            <input type="checkbox" @bind="SearchEnabled" />
+            Search (Ctrl+K)
+        </label>
+    </fieldset>
+
+    <PortalSectionList Sections="Sections"
+                       SelectedSection="SelectedSection"
+                       SelectedSectionChanged="OnSectionSelected" />
+
+    <EntitySketchList Sketches="EntitySketches" />
+
+    <div class="actions">
+        <button type="button" class="btn btn-primary" @onclick="GeneratePortal" disabled="@(!CanGenerate)">
+            @(IsWorking ? "Generating…" : "Generate portal")
+        </button>
+        <button type="button" class="btn btn-outline-secondary" @onclick="RegeneratePortal" disabled="@(!CanRegenerate)">
+            Regenerate portal
+        </button>
+        <button type="button" class="btn btn-outline-secondary" @onclick="ImportPortal" disabled="@IsWorking">
+            Import from portal folder
+        </button>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(StatusMessage))
+    {
+        <div class="status-panel @(IsSuccess ? "status-success" : "status-error")">
+            <div><strong>Status</strong></div>
+            <div>@StatusMessage</div>
+            @if (!string.IsNullOrWhiteSpace(OutputDirectory))
+            {
+                <div class="output-block">
+                    <code>@OutputDirectory</code>
+                    <div class="output-actions">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CopyPath">Copy path</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="OpenFolder">Open folder</button>
+                    </div>
+                    <div class="hint">Open <code>portal/index.html</code> with Live Server to preview.</div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private string ApplicationName { get; set; } = "MyProduct";
+    private string PortalName { get; set; } = "MyProduct Engineering Portal";
+    private string? Tagline { get; set; } = "Share the vision, architecture and roadmap";
+    private string? HomeQuote { get; set; } = "Built with AppGen.";
+    private string OutputRoot { get; set; } = string.Empty;
+    private bool PasswordGate { get; set; } = true;
+    private bool SearchEnabled { get; set; } = true;
+
+    private List<PortalSectionDraft> Sections { get; } = [];
+    private PortalSectionDraft? SelectedSection { get; set; }
+    private List<EntitySketchDraft> EntitySketches { get; } = [];
+
+    private bool IsWorking { get; set; }
+    private string StatusMessage { get; set; } = string.Empty;
+    private bool IsSuccess { get; set; }
+    private string? OutputDirectory { get; set; }
+
+    private bool CanGenerate =>
+        !IsWorking &&
+        !string.IsNullOrWhiteSpace(ApplicationName) &&
+        !string.IsNullOrWhiteSpace(OutputRoot) &&
+        Sections.Any(s => !string.IsNullOrWhiteSpace(s.Id));
+
+    private string? ResolvedOutputDirectory
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(ApplicationName) || string.IsNullOrWhiteSpace(OutputRoot))
+                return null;
+            try
+            {
+                return Path.GetFullPath(Path.Combine(OutputRoot.Trim(), NamingHelper.NormalizeAppName(ApplicationName.Trim())));
+            }
+            catch
+            {
+                return null;
+            }
+        }
+    }
+
+    private bool CanRegenerate
+    {
+        get
+        {
+            var dir = ResolvedOutputDirectory;
+            return !IsWorking && dir is not null && File.Exists(Path.Combine(dir, "portal", "index.html"));
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        OutputRoot = FolderService.GetDefaultOutputRoot(HostEnvironment.ContentRootPath);
+        if (Sections.Count == 0)
+        {
+            var defaults = SpecLoader.CreatePortalDefault(ApplicationName, null);
+            foreach (var section in defaults.Portal!.Sections.Where(s => s.Id != "entities"))
+                Sections.Add(ProjectManifestMapper.ToSectionDraft(section));
+            SelectedSection = Sections.FirstOrDefault();
+        }
+    }
+
+    private Task OnSectionSelected(PortalSectionDraft? section)
+    {
+        SelectedSection = section;
+        return Task.CompletedTask;
+    }
+
+    private SolutionSpec BuildSpec() => ProjectManifestMapper.ToSpec(
+        ApplicationName.Trim(),
+        ApplicationName.Trim(),
+        DatabaseProvider.PostgreSql,
+        UiTarget.MvcWeb,
+        NamingHelper.DefaultSetup(DatabaseProvider.PostgreSql),
+        PortalName,
+        Tagline,
+        HomeQuote,
+        PasswordGate,
+        SearchEnabled,
+        Sections,
+        EntitySketches);
+
+    private async Task GeneratePortal() => await RunGenerateAsync(overwrite: false);
+
+    private async Task RegeneratePortal() => await RunGenerateAsync(overwrite: true);
+
+    private async Task RunGenerateAsync(bool overwrite)
+    {
+        IsWorking = true;
+        StatusMessage = string.Empty;
+        IsSuccess = false;
+        OutputDirectory = null;
+        try
+        {
+            var result = await PortalService.GenerateAsync(BuildSpec(), OutputRoot.Trim(), overwrite);
+            StatusMessage = result.Message;
+            IsSuccess = result.Success;
+            OutputDirectory = result.OutputDirectory;
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+            IsSuccess = false;
+        }
+        finally
+        {
+            IsWorking = false;
+        }
+    }
+
+    private async Task ImportPortal()
+    {
+        var dir = ResolvedOutputDirectory;
+        if (dir is null || !Directory.Exists(dir))
+        {
+            StatusMessage = "Output project folder does not exist yet. Generate the portal first.";
+            IsSuccess = false;
+            return;
+        }
+
+        IsWorking = true;
+        try
+        {
+            var result = await PortalService.ImportAsync(dir);
+            StatusMessage = result.Message;
+            IsSuccess = result.Success;
+            OutputDirectory = result.OutputDirectory;
+
+            if (result.Success)
+            {
+                var spec = await SpecLoader.LoadAsync(dir);
+                if (spec.Portal is not null)
+                {
+                    Sections.Clear();
+                    foreach (var section in spec.Portal.Sections.Where(s => s.Id != "entities"))
+                        Sections.Add(ProjectManifestMapper.ToSectionDraft(section));
+                    SelectedSection = Sections.FirstOrDefault();
+
+                    EntitySketches.Clear();
+                    foreach (var sketch in spec.EntitySketches)
+                        EntitySketches.Add(ProjectManifestMapper.ToSketchDraft(sketch));
+
+                    PortalName = spec.Portal.Settings.PortalName;
+                    Tagline = spec.Portal.Settings.Tagline;
+                    HomeQuote = spec.Portal.Settings.HomeQuote;
+                    PasswordGate = spec.Portal.Features.PasswordGate;
+                    SearchEnabled = spec.Portal.Features.Search;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+            IsSuccess = false;
+        }
+        finally
+        {
+            IsWorking = false;
+        }
+    }
+
+    private async Task CopyPath()
+    {
+        if (string.IsNullOrWhiteSpace(OutputDirectory)) return;
+        await Js.InvokeVoidAsync("appgen.copyToClipboard", OutputDirectory);
+        StatusMessage = "Path copied to clipboard.";
+        IsSuccess = true;
+    }
+
+    private void OpenFolder()
+    {
+        if (string.IsNullOrWhiteSpace(OutputDirectory)) return;
+        try
+        {
+            FolderService.OpenFolder(OutputDirectory);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+            IsSuccess = false;
+        }
+    }
+}
