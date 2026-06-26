@@ -1,0 +1,25 @@
+class {{ entity_name }}Model {
+  const {{ entity_name }}Model({
+{{ for p in properties }}
+    required this.{{ p.name }},
+{{ end }}
+  });
+
+  factory {{ entity_name }}Model.fromJson(Map<String, dynamic> json) {
+    return {{ entity_name }}Model(
+{{ for p in properties }}
+      {{ p.name }}: {{ if p.dart_type == "int" }}(json['{{ p.json_key }}'] as num).toInt(){{ else if p.dart_type == "double" }}(json['{{ p.json_key }}'] as num).toDouble(){{ else if p.dart_type == "bool" }}json['{{ p.json_key }}'] as bool{{ else if p.dart_type == "DateTime" }}DateTime.parse(json['{{ p.json_key }}'] as String){{ else }}json['{{ p.json_key }}'] as String{{ end }},
+{{ end }}
+    );
+  }
+
+  Map<String, dynamic> toWriteJson() => {
+{{ for p in editable_properties }}
+    '{{ p.json_key }}': {{ p.name }},
+{{ end }}
+  };
+
+{{ for p in properties }}
+  final {{ p.dart_type }} {{ p.name }};
+{{ end }}
+}

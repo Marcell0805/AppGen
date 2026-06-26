@@ -1,0 +1,75 @@
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+import 'app_colors.dart';
+
+ThemeData buildAppTheme() {
+  final base = ThemeData(
+    useMaterial3: true,
+    brightness: Brightness.light,
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: AppColors.accent,
+      brightness: Brightness.light,
+      surface: AppColors.surface,
+    ),
+    scaffoldBackgroundColor: AppColors.background,
+    dividerColor: AppColors.border,
+    textTheme: GoogleFonts.interTextTheme(),
+  );
+
+  return base.copyWith(
+    appBarTheme: AppBarTheme(
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      centerTitle: false,
+      backgroundColor: AppColors.surface,
+      foregroundColor: AppColors.text,
+      surfaceTintColor: Colors.transparent,
+      titleTextStyle: GoogleFonts.inter(
+        fontSize: 18,
+        fontWeight: FontWeight.w600,
+        color: AppColors.text,
+      ),
+    ),
+    cardTheme: CardThemeData(
+      elevation: 0,
+      color: AppColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: AppColors.border),
+      ),
+      margin: EdgeInsets.zero,
+    ),
+    navigationBarTheme: NavigationBarThemeData(
+      elevation: 0,
+      height: 68,
+      backgroundColor: AppColors.surface,
+      indicatorColor: AppColors.accent.withValues(alpha: 0.12),
+      labelTextStyle: WidgetStateProperty.resolveWith((states) {
+        final selected = states.contains(WidgetState.selected);
+        return GoogleFonts.inter(
+          fontSize: 12,
+          fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+          color: selected ? AppColors.accent : AppColors.textMuted,
+        );
+      }),
+      iconTheme: WidgetStateProperty.resolveWith((states) {
+        final selected = states.contains(WidgetState.selected);
+        return IconThemeData(
+          color: selected ? AppColors.accent : AppColors.textMuted,
+          size: 22,
+        );
+      }),
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        backgroundColor: AppColors.accent,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        textStyle: GoogleFonts.inter(fontWeight: FontWeight.w600),
+      ),
+    ),
+    progressIndicatorTheme: const ProgressIndicatorThemeData(color: AppColors.accent),
+  );
+}

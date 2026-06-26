@@ -1,0 +1,50 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import 'app_shell.dart';
+{{ for e in entities }}
+import '../features/{{ e.entity_snake }}/screens/{{ e.entity_snake }}_list_screen.dart';
+import '../features/{{ e.entity_snake }}/screens/{{ e.entity_snake }}_detail_screen.dart';
+import '../features/{{ e.entity_snake }}/screens/{{ e.entity_snake }}_form_screen.dart';
+{{ end }}
+
+final appRouterProvider = Provider<GoRouter>((ref) {
+  return GoRouter(
+    initialLocation: '/{{ first_entity_snake }}',
+    routes: [
+      ShellRoute(
+        builder: (context, state, child) => AppShell(child: child),
+        routes: [
+{{ for e in entities }}
+          GoRoute(
+            path: '/{{ e.entity_snake }}',
+            builder: (context, state) => const {{ e.entity_name }}ListScreen(),
+            routes: [
+              GoRoute(
+                path: 'new',
+                builder: (context, state) => const {{ e.entity_name }}FormScreen(),
+              ),
+              GoRoute(
+                path: ':id',
+                builder: (context, state) {
+                  final id = {{ if e.key_dart_type == "int" }}int.parse(state.pathParameters['id']!){{ else }}state.pathParameters['id']!{{ end }};
+                  return {{ e.entity_name }}DetailScreen(id: id);
+                },
+                routes: [
+                  GoRoute(
+                    path: 'edit',
+                    builder: (context, state) {
+                      final id = {{ if e.key_dart_type == "int" }}int.parse(state.pathParameters['id']!){{ else }}state.pathParameters['id']!{{ end }};
+                      return {{ e.entity_name }}FormScreen(id: id);
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+{{ end }}
+        ],
+      ),
+    ],
+  );
+});

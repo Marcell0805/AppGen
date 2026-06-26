@@ -1,0 +1,405 @@
+@page "/mobile"
+@using AppGen.Core
+@using AppGen.Core.Models
+@using AppGen.Engine
+@using AppGen.UI.Models
+@using AppGen.Engine
+@using AppGen.UI.Services
+@inject MobileGenerationService MobileService
+@inject OutputFolderService FolderService
+@inject WizardStateService WizardState
+@inject IWebHostEnvironment HostEnvironment
+@inject IJSRuntime Js
+@implements IDisposable
+
+<PageTitle>AppGen — Mobile</PageTitle>
+
+<PageHeader Title="Mobile"
+            Subtitle="Generate a Flutter proof-of-concept from entities defined on the Project tab or saved manifest."
+            Badge="Flutter POC" />
+
+<div class="wizard">
+    @if (WizardState.HasData)
+    {
+        <p class="status-inline status-success">Using @WizardState.EntityNames.Count shared entities from the Project tab.</p>
+    }
+    else
+    {
+        <p class="muted">Define entities on the <a href="project">Project</a> tab, click <strong>Save manifest</strong> there, or load a draft here.</p>
+    }
+
+    <fieldset class="panel">
+        <legend>Project</legend>
+        <div class="form-grid">
+            <label>Application name</label>
+            <input value="@ApplicationName" readonly class="readonly-field" />
+            <label>Output folder</label>
+            <input value="@OutputRoot" readonly class="readonly-field" />
+        </div>
+        <p class="hint">Edit on the <a href="project">Project</a> tab. Mobile output: <code>{AppName} Mobile/mobile/flutter/</code></p>
+    </fieldset>
+
+    <fieldset class="panel">
+        <legend>Mobile options</legend>
+        <div class="form-grid">
+            <label>Package name</label>
+            <input @bind="PackageName" @bind:after="SyncMobileSettings" placeholder="com.myapp.app" />
+
+            <label>API base URL</label>
+            <input @bind="ApiBaseUrl" @bind:after="SyncMobileSettings" />
+
+            <label>Entities</label>
+            <div class="entity-checklist panel-inset">
+                @if (EntityNames.Count == 0)
+                {
+                    <p class="muted">No entities — click <strong>Load project</strong> or define entities on the Project tab.</p>
+                }
+                else
+                {
+                    <label class="check-row">
+                        <input type="checkbox" checked="@AllEntitiesSelected" @onchange="ToggleSelectAll" />
+                        <span>Select all (@EntityNames.Count)</span>
+                    </label>
+                    @foreach (var name in EntityNames)
+                    {
+                        <label class="check-row">
+                            <input type="checkbox" checked="@SelectedEntityNames.Contains(name)" @onchange="() => ToggleEntity(name)" />
+                            <span>@name</span>
+                        </label>
+                    }
+                }
+            </div>
+        </div>
+        <p class="hint">State management: Riverpod (POC). Architecture: feature folders with Dio HTTP client. Generate creates list screens and routes for all selected entities.</p>
+    </fieldset>
+
+    <div class="actions">
+        <button type="button" class="btn btn-outline-secondary" @onclick="() => LoadProject()" disabled="@IsWorking">Load project</button>
+        <button type="button" class="btn btn-outline-secondary" @onclick="LoadDraft" disabled="@IsWorking">Load draft</button>
+        <button type="button" class="btn btn-primary" @onclick="GenerateMobile" disabled="@(!CanGenerate)">
+            @(IsWorking ? "Generating…" : $"Generate mobile ({SelectedEntityNames.Count})")
+        </button>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(StatusMessage))
+    {
+        <div class="status-panel @(IsSuccess ? "status-success" : "status-error")">
+            <div><strong>Status</strong></div>
+            <div>@StatusMessage</div>
+            @if (!string.IsNullOrWhiteSpace(OutputDirectory))
+            {
+                <div class="output-block">
+                    <code>@OutputDirectory</code>
+                    <div class="hint">Output: <code>mobile/flutter/</code> — open that folder in VS Code/Cursor and press F5 (<strong>{{ ApplicationName }} (Chrome)</strong>). Platforms and <code>.vscode/launch.json</code> are scaffolded when Flutter SDK is on PATH.</div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private string ApplicationName { get; set; } = "MyProduct";
+    private string PackageName { get; set; } = "com.myproduct.app";
+    private string ApiBaseUrl { get; set; } = "http://localhost:5000";
+    private string OutputRoot { get; set; } = string.Empty;
+    private readonly List<string> EntityNames = [];
+    private readonly HashSet<string> SelectedEntityNames = new(StringComparer.OrdinalIgnoreCase);
+    private bool _manifestLoaded;
+
+    private bool AllEntitiesSelected =>
+        EntityNames.Count > 0 && EntityNames.All(name => SelectedEntityNames.Contains(name));
+
+    private bool IsWorking { get; set; }
+    private string StatusMessage { get; set; } = string.Empty;
+    private bool IsSuccess { get; set; }
+    private string? OutputDirectory { get; set; }
+
+    private bool CanGenerate =>
+        !IsWorking &&
+        WizardState.HasData &&
+        !string.IsNullOrWhiteSpace(ApplicationName) &&
+        !string.IsNullOrWhiteSpace(OutputRoot) &&
+        SelectedEntityNames.Count > 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        OutputRoot = FolderService.GetDefaultOutputRoot(HostEnvironment.ContentRootPath);
+        PackageName = $"com.{ApplicationName.ToLowerInvariant()}.app";
+        WizardState.Changed += OnWizardStateChanged;
+        ApplySharedState();
+
+        var dir = ResolvedManifestDirectory;
+        if (!_manifestLoaded && dir is not null && File.Exists(Path.Combine(dir, "appgen.json")) && !WizardState.HasData)
+            await LoadProject(silent: true);
+    }
+
+    private void OnWizardStateChanged() => InvokeAsync(() =>
+    {
+        ApplySharedState();
+        StateHasChanged();
+    });
+
+    private void ApplySharedState()
+    {
+        if (WizardState.Current is not { } draft)
+            return;
+
+        if (!string.IsNullOrWhiteSpace(draft.ApplicationName))
+            ApplicationName = draft.ApplicationName;
+        if (!string.IsNullOrWhiteSpace(draft.OutputRoot))
+            OutputRoot = draft.OutputRoot;
+
+        if (!string.IsNullOrWhiteSpace(draft.MobilePackageName))
+            PackageName = draft.MobilePackageName;
+        else
+            PackageName = $"com.{ApplicationName.ToLowerInvariant()}.app";
+
+        if (!string.IsNullOrWhiteSpace(draft.MobileApiBaseUrl))
+            ApiBaseUrl = draft.MobileApiBaseUrl;
+
+        EntityNames.Clear();
+        EntityNames.AddRange(draft.Entities.Select(e => e.Name));
+        SelectAllEntities();
+    }
+
+    private void SyncMobileSettings()
+    {
+        if (WizardState.Current is not { } draft)
+            return;
+
+        WizardState.Update(WizardDraft.FromWizard(
+            draft.ApplicationName,
+            draft.RootNamespace,
+            draft.Database,
+            draft.OutputRoot,
+            draft.IncludeMvcWeb,
+            draft.ActiveConnectionName,
+            draft.OracleSchemaPrefix,
+            draft.EnsureCreatedInDevelopment,
+            draft.ConfigEntries.Select(e => new ConfigEntryRow
+            {
+                Name = e.Name,
+                Kind = e.Kind,
+                Key = e.Key,
+                Value = e.Value
+            }),
+            WizardEntityHelper.ToEntityDrafts(draft.Entities),
+            draft.EnableDocumentation,
+            draft.EnableWeb,
+            draft.EnableMobile,
+            PackageName,
+            ApiBaseUrl));
+    }
+
+    private void SelectAllEntities()
+    {
+        SelectedEntityNames.Clear();
+        foreach (var name in EntityNames)
+            SelectedEntityNames.Add(name);
+    }
+
+    private void ToggleEntity(string name)
+    {
+        if (!SelectedEntityNames.Add(name))
+            SelectedEntityNames.Remove(name);
+    }
+
+    private void ToggleSelectAll(ChangeEventArgs args)
+    {
+        if (args.Value is true)
+            SelectAllEntities();
+        else
+            SelectedEntityNames.Clear();
+    }
+
+    private string? ResolvedMobileDirectory
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(ApplicationName) || string.IsNullOrWhiteSpace(OutputRoot))
+                return null;
+            try
+            {
+                return ProjectOutputPaths.MobileDirectory(OutputRoot, ApplicationName);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+    }
+
+    private string? ResolvedManifestDirectory =>
+        ProjectOutputPaths.FindManifestDirectory(OutputRoot, ApplicationName, ProjectOutputLayer.Mobile);
+
+    private async Task LoadProject(bool silent = false)
+    {
+        var dir = ResolvedManifestDirectory;
+        if (dir is null || !File.Exists(Path.Combine(dir, "appgen.json")))
+        {
+            if (!silent)
+            {
+                StatusMessage = "appgen.json not found in the output project folder.";
+                IsSuccess = false;
+            }
+            return;
+        }
+
+        try
+        {
+            var spec = await SpecLoader.LoadAsync(dir);
+            ApplicationName = spec.ApplicationName;
+            ApiBaseUrl = spec.Targets?.Mobile.ApiBaseUrl ?? ApiBaseUrl;
+            PackageName = spec.Targets?.Mobile.PackageName ?? $"com.{spec.ApplicationName.ToLowerInvariant()}.app";
+            EntityNames.Clear();
+            EntityNames.AddRange(spec.Entities.Select(e => e.Name));
+            SelectAllEntities();
+            _manifestLoaded = true;
+            if (!silent)
+            {
+                StatusMessage = $"Loaded {EntityNames.Count} entities from manifest.";
+                IsSuccess = true;
+            }
+            OutputDirectory = dir;
+            UpdateSharedStateFromManifest(spec);
+        }
+        catch (Exception ex)
+        {
+            if (!silent)
+            {
+                StatusMessage = ex.Message;
+                IsSuccess = false;
+            }
+        }
+    }
+
+    private async Task LoadDraft()
+    {
+        try
+        {
+            var json = await Js.InvokeAsync<string?>("appgen.pickTextFile", ".json,application/json");
+            if (string.IsNullOrWhiteSpace(json))
+                return;
+
+            var draft = WizardDraft.TryParse(json);
+            if (draft is null)
+            {
+                StatusMessage = "Could not read draft file. Expected valid AppGen draft JSON.";
+                IsSuccess = false;
+                return;
+            }
+
+            WizardState.Update(draft);
+            ApplySharedState();
+            StatusMessage = $"Draft loaded ({draft.Entities.Count} entities).";
+            IsSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+            IsSuccess = false;
+        }
+    }
+
+    private async Task GenerateMobile()
+    {
+        SyncMobileSettings();
+        IsWorking = true;
+        StatusMessage = string.Empty;
+        IsSuccess = false;
+        try
+        {
+            SolutionSpec spec;
+            var dir = ResolvedManifestDirectory;
+            if (dir is not null && File.Exists(Path.Combine(dir, "appgen.json")))
+                spec = await SpecLoader.LoadAsync(dir);
+            else if (WizardState.HasData)
+                spec = WizardState.ToSolutionSpec();
+            else
+                spec = SpecLoader.CreateDefault(ApplicationName, ApplicationName, DatabaseProvider.SqlServer);
+
+            if (spec.Entities.Count == 0 && SelectedEntityNames.Count > 0)
+            {
+                spec = new SolutionSpec
+                {
+                    SchemaVersion = spec.SchemaVersion,
+                    ApplicationName = spec.ApplicationName,
+                    RootNamespace = spec.RootNamespace,
+                    Phase = spec.Phase,
+                    Portal = spec.Portal,
+                    EntitySketches = spec.EntitySketches,
+                    Targets = spec.Targets,
+                    Generation = spec.Generation,
+                    Database = spec.Database,
+                    UiTargets = spec.UiTargets,
+                    Setup = spec.Setup,
+                    Entities = SelectedEntityNames.Select(name => new EntitySpec
+                    {
+                        Name = name,
+                        IncludeInUi = true,
+                        Properties =
+                        [
+                            new PropertySpec { Name = NamingHelper.ToKeyPropertyName(name), ClrType = "long", IsKey = true },
+                            new PropertySpec { Name = "Name", ClrType = "string" }
+                        ]
+                    }).ToList()
+                };
+            }
+
+            var result = await MobileService.GenerateAsync(
+                spec,
+                OutputRoot.Trim(),
+                SelectedEntityNames.ToList(),
+                PackageName,
+                ApiBaseUrl);
+
+            StatusMessage = result.Message;
+            IsSuccess = result.Success;
+            OutputDirectory = ResolvedMobileDirectory ?? result.OutputDirectory;
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+            IsSuccess = false;
+        }
+        finally
+        {
+            IsWorking = false;
+        }
+    }
+
+    private void UpdateSharedStateFromManifest(SolutionSpec spec)
+    {
+        var entities = new List<EntityDraft>();
+        ProjectManifestMapper.ApplyEntitiesToDrafts(entities, spec.Entities);
+        WizardState.Update(WizardDraft.FromWizard(
+            spec.ApplicationName,
+            spec.RootNamespace,
+            spec.Database,
+            OutputRoot,
+            spec.UiTargets.HasFlag(UiTarget.MvcWeb),
+            spec.Setup.ActiveConnectionName,
+            spec.Setup.OracleSchemaPrefix,
+            spec.Setup.EnsureCreatedInDevelopment,
+            spec.Setup.ConfigEntries.Select(e => new ConfigEntryRow
+            {
+                Name = e.Name,
+                Kind = e.Kind,
+                Key = e.Key,
+                Value = e.Value
+            }),
+            entities,
+            spec.Targets?.Documentation.Enabled ?? false,
+            spec.Targets?.Web.Enabled ?? true,
+            spec.Targets?.Mobile.Enabled ?? false,
+            PackageName,
+            ApiBaseUrl));
+    }
+
+    public void Dispose()
+    {
+        SyncMobileSettings();
+        WizardState.Changed -= OnWizardStateChanged;
+    }
+}
+

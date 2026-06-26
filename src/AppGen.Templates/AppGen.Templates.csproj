@@ -9,7 +9,12 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Templates\**\*.scriban" />
+    <EmbeddedResource Include="Templates\Portal\**\*.css" />
+    <EmbeddedResource Include="Templates\Portal\**\*.js" />
+    <EmbeddedResource Include="Templates\Portal\**\*.svg" />
+    <EmbeddedResource Include="Templates\Portal\**\*.ps1" />
     <None Include="Templates\**\*.scriban" />
+    <None Include="Templates\Portal\**\*" />
     <Compile Remove="Templates\**\**" />
   </ItemGroup>
 

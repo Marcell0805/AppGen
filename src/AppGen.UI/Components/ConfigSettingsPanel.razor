@@ -1,0 +1,103 @@
+@using AppGen.Core.Models
+@using AppGen.UI.Models
+
+<fieldset class="panel">
+    <legend>Configuration</legend>
+
+    <div class="form-grid">
+        <label>Active connection (Development)</label>
+        <select @bind="ActiveConnectionName">
+            @foreach (var name in ConnectionNames)
+            {
+                <option value="@name">@name</option>
+            }
+        </select>
+
+        @if (Database == DatabaseProvider.Oracle)
+        {
+            <label>Oracle schema prefix</label>
+            <input @bind="OracleSchemaPrefix" placeholder="SE → tables like SE.SE_LOT" />
+        }
+
+        <label class="checkbox-row">
+            <input type="checkbox" @bind="EnsureCreatedInDevelopment" />
+            EnsureCreated in Development (creates tables on API startup)
+        </label>
+    </div>
+
+    <div class="property-grid-header" style="margin-top: 1rem;">
+        <strong>Settings</strong> — connection strings and app settings
+    </div>
+
+    <QuickGrid TGridItem="ConfigEntryRow" Items="@ConfigEntries.AsQueryable()" Class="property-grid">
+        <TemplateColumn Title="Name">
+            <input class="form-control form-control-sm" @bind="context.Name" @bind:event="oninput" placeholder="Dev" />
+        </TemplateColumn>
+        <TemplateColumn Title="Kind">
+            <select class="form-select form-select-sm" @bind="context.Kind">
+                <option value="@ConfigEntryKind.ConnectionString">Connection string</option>
+                <option value="@ConfigEntryKind.AppSetting">App setting</option>
+            </select>
+        </TemplateColumn>
+        <TemplateColumn Title="Key (app settings)">
+            <input class="form-control form-control-sm"
+                   @bind="context.Key"
+                   @bind:event="oninput"
+                   placeholder="Paths:Report"
+                   disabled="@(context.Kind == ConfigEntryKind.ConnectionString)" />
+        </TemplateColumn>
+        <TemplateColumn Title="Value">
+            <input class="form-control form-control-sm" @bind="context.Value" @bind:event="oninput" placeholder="(placeholder)" />
+        </TemplateColumn>
+        <TemplateColumn Title="">
+            <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => RemoveRow(context)">Remove</button>
+        </TemplateColumn>
+    </QuickGrid>
+
+    <button type="button" class="btn btn-sm btn-secondary add-property-btn" @onclick="AddRow">+ Add setting</button>
+
+    @if (Database == DatabaseProvider.Oracle)
+    {
+        <p class="muted" style="margin-top: 0.75rem;">
+            Oracle projects include <code>scripts/oracle/001-create-tables.sql</code> and <code>002-seed-data.sql</code> when entities are added.
+        </p>
+    }
+    else if (Database == DatabaseProvider.SqlServer)
+    {
+        <p class="muted" style="margin-top: 0.75rem;">
+            SQL Server projects include <code>scripts/sqlserver/001-create-tables.sql</code> and <code>002-seed-data.sql</code> when entities are added.
+        </p>
+    }
+    else if (Database == DatabaseProvider.PostgreSql)
+    {
+        <p class="muted" style="margin-top: 0.75rem;">
+            PostgreSQL projects include <code>scripts/postgresql/001-create-tables.sql</code> and <code>002-seed-data.sql</code> when entities are added.
+        </p>
+    }
+</fieldset>
+
+@code {
+    [Parameter] public DatabaseProvider Database { get; set; }
+    [Parameter] public IList<ConfigEntryRow> ConfigEntries { get; set; } = [];
+    [Parameter] public string ActiveConnectionName { get; set; } = "Dev";
+    [Parameter] public EventCallback<string> ActiveConnectionNameChanged { get; set; }
+    [Parameter] public string? OracleSchemaPrefix { get; set; }
+    [Parameter] public EventCallback<string?> OracleSchemaPrefixChanged { get; set; }
+    [Parameter] public bool EnsureCreatedInDevelopment { get; set; } = true;
+    [Parameter] public EventCallback<bool> EnsureCreatedInDevelopmentChanged { get; set; }
+
+    private IEnumerable<string> ConnectionNames =>
+        ConfigEntries
+            .Where(c => c.Kind == ConfigEntryKind.ConnectionString && !string.IsNullOrWhiteSpace(c.Name))
+            .Select(c => c.Name);
+
+    private void AddRow()
+    {
+        ConfigEntries.Add(new ConfigEntryRow { Name = string.Empty, Kind = ConfigEntryKind.ConnectionString });
+    }
+
+    private void RemoveRow(ConfigEntryRow row) => ConfigEntries.Remove(row);
+
+    private Task OnActiveConnectionChanged(ChangeEventArgs e) =>
+        ActiveConnectionNameChanged.InvokeAsync(e.Value?.ToString() ?? "Dev");
+}

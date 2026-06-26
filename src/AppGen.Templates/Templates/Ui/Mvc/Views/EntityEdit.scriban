@@ -1,0 +1,70 @@
+@model {{ root_namespace }}.Shared.Responses.{{ entity_name }}Response
+@{
+    var id = ViewData["Id"] as {{ primary_key_clr_type }}?;
+    ViewData["Title"] = id.HasValue ? "Edit {{ entity_name }}" : "Create {{ entity_name }}";
+}
+
+<h1>@ViewData["Title"]</h1>
+
+@if (!ViewData.ModelState.IsValid)
+{
+    <div class="text-danger">Please correct the errors and try again.</div>
+}
+
+<form asp-action="Save" method="post">
+    @Html.AntiForgeryToken()
+    @if (id.HasValue)
+    {
+        <input type="hidden" name="id" value="@id" />
+    }
+
+{{ for property in properties }}
+    <div class="form-field">
+        <label for="{{ property.name }}">{{ property.name }}</label>
+        @if (id.HasValue && "{{ property.name }}" == "{{ primary_key_name }}")
+        {
+            <input id="{{ property.name }}" name="{{ property.name }}" value="@Model?.{{ property.name }}" readonly />
+        }
+        else
+        {
+{{ if property.has_foreign_key }}
+            <select id="{{ property.name }}" name="{{ property.name }}">
+                <option value="">— select —</option>
+                @foreach (var opt in (IEnumerable<SelectListItem>)(ViewBag.{{ property.name }}Options ?? Enumerable.Empty<SelectListItem>()))
+                {
+                    <option value="@opt.Value" selected="@(Model?.{{ property.name }}.ToString() == opt.Value)">@opt.Text</option>
+                }
+            </select>
+{{ else }}
+{{ case property.type_name }}
+{{ when "bool" }}
+            <input type="checkbox" id="{{ property.name }}" name="{{ property.name }}" value="true" @(Model?.{{ property.name }} == true ? "checked" : null) />
+{{ when "DateTime" }}
+            <input type="datetime-local" id="{{ property.name }}" name="{{ property.name }}" value="@Model?.{{ property.name }}" />
+{{ when "string" }}
+            <input type="text" id="{{ property.name }}" name="{{ property.name }}" value="@Model?.{{ property.name }}" />
+{{ when "Guid" }}
+            <input type="text" id="{{ property.name }}" name="{{ property.name }}" value="@Model?.{{ property.name }}" />
+{{ else }}
+            <input type="number" id="{{ property.name }}" name="{{ property.name }}" value="@Model?.{{ property.name }}" />
+{{ end }}
+{{ end }}
+        }
+    </div>
+{{ end }}
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Save</button>
+        <a class="btn btn-link" asp-action="Index">Cancel</a>
+        @if (id.HasValue)
+        {
+            <button type="submit"
+                    class="btn btn-danger"
+                    formaction="@Url.Action("Delete", new { id })"
+                    formmethod="post"
+                    onclick="return confirm('Delete this record?');">
+                Delete
+            </button>
+        }
+    </div>
+</form>

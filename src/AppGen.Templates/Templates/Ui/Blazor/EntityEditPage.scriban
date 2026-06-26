@@ -1,0 +1,139 @@
+@page "/{{ entity_plural_lower }}/edit"
+@page "/{{ entity_plural_lower }}/edit/{id:{{ primary_key_route_constraint }}}"
+@inject IHttpClientFactory HttpClientFactory
+@inject NavigationManager Navigation
+
+<PageTitle>@Title</PageTitle>
+
+<h1>@Title</h1>
+
+@if (!string.IsNullOrEmpty(ErrorMessage))
+{
+    <p class="text-danger">@ErrorMessage</p>
+}
+
+@if (Model is null && Id.HasValue)
+{
+    <p>Loading…</p>
+}
+else if (Model is not null)
+{
+    <EditForm Model="Model" OnValidSubmit="SaveAsync">
+{{ for property in properties }}
+        <div class="form-field">
+            <label>{{ property.name }}</label>
+            @if (IsReadOnly("{{ property.name }}"))
+            {
+                <input class="form-control" value="@FormatValue(Model.{{ property.name }})" disabled />
+            }
+            else
+            {
+{{ case property.type_name }}
+{{ when "bool" }}
+                <InputCheckbox @bind-Value="Model.{{ property.name }}" />
+{{ when "DateTime" }}
+                <InputDate TValue="DateTime" @bind-Value="Model.{{ property.name }}" />
+{{ when "string" }}
+                <InputText class="form-control" @bind-Value="Model.{{ property.name }}" />
+{{ when "Guid" }}
+                <InputText class="form-control" @bind-Value="GuidText" />
+{{ else }}
+                <InputNumber TValue="{{ property.type_name }}" class="form-control" @bind-Value="Model.{{ property.name }}" />
+{{ end }}
+            }
+        </div>
+{{ end }}
+        <button type="submit" class="btn btn-primary">Save</button>
+        <a class="btn btn-link" href="{{ entity_plural_lower }}">Cancel</a>
+        @if (Id.HasValue)
+        {
+            <button type="button" class="btn btn-danger" @onclick="DeleteAsync">Delete</button>
+        }
+    </EditForm>
+}
+
+@code {
+    [Parameter] public {{ primary_key_clr_type }}? Id { get; set; }
+
+    private string Title => Id.HasValue ? "Edit {{ entity_name }}" : "Create {{ entity_name }}";
+    private {{ entity_name }}Response? Model { get; set; }
+    private string? ErrorMessage { get; set; }
+    private string GuidText { get; set; } = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Id.HasValue)
+        {
+            Model = new {{ entity_name }}Response();
+            return;
+        }
+
+        try
+        {
+            var client = HttpClientFactory.CreateClient("Api");
+            var response = await client.GetFromJsonAsync<Response<{{ entity_name }}Response>>($"api/v1/{{ entity_plural }}/{Id}");
+            Model = response?.Data;
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+    }
+
+    private static string FormatValue(object? value) => value?.ToString() ?? string.Empty;
+
+    private bool IsReadOnly(string name) =>
+        Id.HasValue && name == "{{ primary_key_name }}";
+
+    private async Task SaveAsync()
+    {
+        if (Model is null) return;
+
+        try
+        {
+            var client = HttpClientFactory.CreateClient("Api");
+            if (Id.HasValue)
+            {
+                var update = new Update{{ entity_name }}Request
+                {
+{{ for property in non_key_properties }}
+                    {{ property.name }} = Model.{{ property.name }}{{ if !for.last }},{{ end }}
+{{ end }}
+                };
+                await client.PutAsJsonAsync($"api/v1/{{ entity_plural }}/{Id}", update);
+            }
+            else
+            {
+                var create = new Create{{ entity_name }}Request
+                {
+{{ for property in create_properties }}
+                    {{ property.name }} = Model.{{ property.name }}{{ if !for.last }},{{ end }}
+{{ end }}
+                };
+                await client.PostAsJsonAsync("api/v1/{{ entity_plural }}", create);
+            }
+
+            Navigation.NavigateTo("{{ entity_plural_lower }}");
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (!Id.HasValue) return;
+
+        try
+        {
+            var client = HttpClientFactory.CreateClient("Api");
+            await client.DeleteAsync($"api/v1/{{ entity_plural }}/{Id}");
+            Navigation.NavigateTo("{{ entity_plural_lower }}");
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+    }
+}

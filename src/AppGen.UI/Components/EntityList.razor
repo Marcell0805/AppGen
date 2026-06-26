@@ -1,0 +1,153 @@
+@using AppGen.UI.Models
+
+<fieldset class="panel">
+    <legend>Entities</legend>
+
+    <div class="entity-add-row">
+        <input @bind-value="NewEntityName" @bind-value:event="oninput"
+               placeholder="Entity name (e.g. Product)"
+               @onkeydown="OnEntityNameKeyDown" />
+        <button type="button" @onclick="AddEntity" disabled="@string.IsNullOrWhiteSpace(NewEntityName)">Add entity</button>
+    </div>
+
+    @if (Entities.Count == 0)
+    {
+        <p class="muted">No entities yet. Add one or generate API-only.</p>
+    }
+    else
+    {
+        <QuickGrid TGridItem="EntityDraft" Items="@Entities.AsQueryable()" Class="entity-grid">
+            <TemplateColumn Title="Entity">
+                <input class="form-control form-control-sm entity-name-input @(IsSelected(context) ? "selected" : "")"
+                       @bind="context.Name"
+                       @bind:event="oninput"
+                       @onfocus="() => OnEntityNameFocus(context)"
+                       @onfocusout="() => OnEntityNameBlur(context)"
+                       placeholder="Entity name" />
+            </TemplateColumn>
+            <PropertyColumn Property="@(e => e.Properties.Count)" Title="Properties" />
+            <TemplateColumn Title="UI">
+                <input type="checkbox"
+                       checked="@context.IncludeInUi"
+                       title="Generate MVC pages for this entity"
+                       @onchange="e => OnIncludeInUiChanged(context, e)" />
+            </TemplateColumn>
+            <TemplateColumn Title="Audit">
+                <input type="checkbox"
+                       checked="@context.IncludeAuditColumns"
+                       title="Add CreatedAt and UpdatedAt columns"
+                       @onchange="e => OnIncludeAuditChanged(context, e)" />
+            </TemplateColumn>
+            <TemplateColumn Title="Actions">
+                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => DuplicateEntity(context)">Duplicate</button>
+                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => RemoveEntity(context)">Remove</button>
+            </TemplateColumn>
+        </QuickGrid>
+    }
+</fieldset>
+
+@code {
+    [Parameter] public IList<EntityDraft> Entities { get; set; } = [];
+    [Parameter] public EntityDraft? SelectedEntity { get; set; }
+    [Parameter] public EventCallback<EntityDraft?> SelectedEntityChanged { get; set; }
+    [Parameter] public EventCallback<string> OnStatus { get; set; }
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private string NewEntityName { get; set; } = string.Empty;
+    private readonly Dictionary<EntityDraft, string> _nameOnFocus = new(ReferenceEqualityComparer.Instance);
+
+    private bool IsSelected(EntityDraft entity) =>
+        SelectedEntity is not null && ReferenceEquals(SelectedEntity, entity);
+
+    private async Task SelectEntity(EntityDraft entity) =>
+        await SelectedEntityChanged.InvokeAsync(entity);
+
+    private async Task OnEntityNameFocus(EntityDraft entity)
+    {
+        _nameOnFocus[entity] = entity.Name;
+        await SelectEntity(entity);
+    }
+
+    private async Task OnEntityNameBlur(EntityDraft entity)
+    {
+        if (!_nameOnFocus.TryGetValue(entity, out var originalName))
+            return;
+
+        _nameOnFocus.Remove(entity);
+
+        var error = EntityRenameHelper.TryRename(Entities, entity, entity.Name);
+        if (error is not null)
+        {
+            entity.Name = originalName;
+            await OnStatus.InvokeAsync(error);
+            return;
+        }
+
+        await SelectedEntityChanged.InvokeAsync(entity);
+        await NotifyChangedAsync();
+    }
+
+    private async Task NotifyChangedAsync()
+    {
+        if (OnChanged.HasDelegate)
+            await OnChanged.InvokeAsync();
+    }
+
+    private void OnIncludeInUiChanged(EntityDraft entity, ChangeEventArgs e)
+    {
+        entity.IncludeInUi = e.Value is true;
+        _ = NotifyChangedAsync();
+    }
+
+    private void OnIncludeAuditChanged(EntityDraft entity, ChangeEventArgs e)
+    {
+        entity.IncludeAuditColumns = e.Value is true;
+        _ = NotifyChangedAsync();
+    }
+
+    private async Task AddEntity()
+    {
+        var name = NewEntityName.Trim();
+        if (name.Length == 0) return;
+
+        if (Entities.Any(e => e.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+        {
+            await OnStatus.InvokeAsync($"Entity already exists: {name}");
+            return;
+        }
+
+        var draft = new EntityDraft(name);
+        Entities.Add(draft);
+        NewEntityName = string.Empty;
+        await SelectedEntityChanged.InvokeAsync(draft);
+        await NotifyChangedAsync();
+    }
+
+    private async Task OnEntityNameKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await AddEntity();
+    }
+
+    private async Task RemoveEntity(EntityDraft entity)
+    {
+        Entities.Remove(entity);
+        if (IsSelected(entity))
+            await SelectedEntityChanged.InvokeAsync(Entities.FirstOrDefault());
+        await NotifyChangedAsync();
+    }
+
+    private async Task DuplicateEntity(EntityDraft entity)
+    {
+        var baseName = entity.Name + "Copy";
+        var name = baseName;
+        var i = 1;
+        while (Entities.Any(e => e.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+            name = baseName + i++;
+
+        var copy = entity.Duplicate(name);
+        Entities.Add(copy);
+        await SelectedEntityChanged.InvokeAsync(copy);
+        await NotifyChangedAsync();
+    }
+}

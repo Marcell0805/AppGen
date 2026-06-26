@@ -1,0 +1,200 @@
+@page "/"
+@page "/project"
+@using AppGen.Core
+@using AppGen.Engine
+@using AppGen.UI.Models
+@using AppGen.UI.Services
+@inject ProjectGenerationService ProjectGenerator
+@inject WizardStateService WizardState
+@inject OutputFolderService FolderService
+@inject IJSRuntime Js
+
+<PageTitle>AppGen — Project</PageTitle>
+
+<PageHeader Title="Project"
+            Subtitle="Shared application definition: name, output folder, entities, and which layers to generate." />
+
+<div class="wizard">
+    <ProjectWorkspace @ref="_workspace" OnStatus="OnWorkspaceStatus" />
+
+    <div class="actions">
+        <button type="button" class="btn btn-primary" @onclick="GenerateAll" disabled="@(!CanGenerateAll)">
+            @(IsGenerating ? "Generating…" : "Generate all")
+        </button>
+        @if (CanRegenerateAll)
+        {
+            <button type="button" class="btn btn-outline-danger" @onclick="ShowRegenConfirm" disabled="@IsGenerating">
+                Regenerate all (force overwrite)
+            </button>
+        }
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(StatusMessage))
+    {
+        <div class="status-panel @(IsSuccess ? "status-success" : "status-error")">
+            <div><strong>Status</strong></div>
+            <div>@StatusMessage</div>
+            @if (!string.IsNullOrWhiteSpace(OutputDirectory))
+            {
+                <div class="output-block">
+                    <code>@OutputDirectory</code>
+                    <div class="output-actions">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CopyPath">Copy path</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="OpenFolder">Open folder</button>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<RegenConfirmModal @key="_regenModalKey"
+                   Visible="ShowRegenModal"
+                   ExpectedAppName="@(WizardState.Current?.ApplicationName?.Trim() ?? string.Empty)"
+                   OutputPath="@(OutputDirectory ?? string.Empty)"
+                   OnCancel="HideRegenConfirm"
+                   OnConfirm="RegenerateAll" />
+
+@code {
+    private ProjectWorkspace? _workspace;
+    private bool IsGenerating { get; set; }
+    private bool ShowRegenModal { get; set; }
+    private int _regenModalKey;
+    private string StatusMessage { get; set; } = string.Empty;
+    private bool IsSuccess { get; set; }
+    private string? OutputDirectory { get; set; }
+
+    private bool CanGenerateAll =>
+        !IsGenerating &&
+        WizardState.HasData &&
+        WizardState.Current is { } draft &&
+        !string.IsNullOrWhiteSpace(draft.ApplicationName) &&
+        !string.IsNullOrWhiteSpace(draft.OutputRoot) &&
+        (draft.EnableDocumentation || draft.EnableWeb || draft.EnableMobile);
+
+    private bool CanRegenerateAll
+    {
+        get
+        {
+            if (!CanGenerateAll || WizardState.Current is not { } draft)
+                return false;
+
+            try
+            {
+                var root = draft.OutputRoot.Trim();
+                var name = draft.ApplicationName.Trim();
+                if (draft.EnableDocumentation && DocumentationOutputExists(ProjectOutputPaths.DocumentationDirectory(root, name)))
+                    return true;
+                if (draft.EnableWeb && GenerationOutputHelper.OutputDirectoryExists(ProjectOutputPaths.WebDirectory(root, name)))
+                    return true;
+                if (draft.EnableMobile && Directory.Exists(ProjectOutputPaths.MobileDirectory(root, name)))
+                    return true;
+            }
+            catch
+            {
+                return false;
+            }
+
+            return false;
+        }
+    }
+
+    private static bool DocumentationOutputExists(string docDir) =>
+        File.Exists(Path.Combine(docDir, "portal", "index.html"));
+
+    private async Task GenerateAll() => await RunGenerateAllAsync(forceOverwrite: false);
+
+    private void OnWorkspaceStatus(WorkspaceStatus status)
+    {
+        StatusMessage = status.Message;
+        IsSuccess = status.Success;
+        if (status.OutputDirectory is not null)
+            OutputDirectory = status.OutputDirectory;
+    }
+
+    private void ShowRegenConfirm()
+    {
+        _regenModalKey++;
+        ShowRegenModal = true;
+    }
+
+    private void HideRegenConfirm() => ShowRegenModal = false;
+
+    private async Task RegenerateAll()
+    {
+        ShowRegenModal = false;
+        await RunGenerateAllAsync(forceOverwrite: true);
+    }
+
+    private async Task RunGenerateAllAsync(bool forceOverwrite)
+    {
+        _workspace?.SyncState();
+        if (WizardState.Current is not { } draft)
+        {
+            StatusMessage = "Define entities and project settings first.";
+            IsSuccess = false;
+            return;
+        }
+
+        IsGenerating = true;
+        StatusMessage = string.Empty;
+        IsSuccess = false;
+
+        try
+        {
+            var result = await ProjectGenerator.GenerateAllAsync(draft, forceOverwrite);
+            StatusMessage = result.Message;
+            IsSuccess = result.Success;
+            OutputDirectory = result.OutputDirectory;
+
+            if (result.Success && result.OutputDirectory is not null)
+            {
+                await Js.InvokeVoidAsync("appgen.saveSettings", new WizardSettings
+                {
+                    ApplicationName = draft.ApplicationName,
+                    OutputRoot = draft.OutputRoot,
+                    IncludeMvcWeb = draft.IncludeMvcWeb
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+            IsSuccess = false;
+        }
+        finally
+        {
+            IsGenerating = false;
+            ShowRegenModal = false;
+        }
+    }
+
+    private async Task CopyPath()
+    {
+        if (string.IsNullOrWhiteSpace(OutputDirectory)) return;
+        await Js.InvokeVoidAsync("appgen.copyToClipboard", OutputDirectory);
+        StatusMessage = "Path copied to clipboard.";
+        IsSuccess = true;
+    }
+
+    private void OpenFolder()
+    {
+        if (string.IsNullOrWhiteSpace(OutputDirectory)) return;
+        try
+        {
+            FolderService.OpenFolder(OutputDirectory);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+            IsSuccess = false;
+        }
+    }
+
+    private sealed class WizardSettings
+    {
+        public string? ApplicationName { get; set; }
+        public string? OutputRoot { get; set; }
+        public bool IncludeMvcWeb { get; set; }
+    }
+}

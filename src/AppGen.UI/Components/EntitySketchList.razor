@@ -1,0 +1,62 @@
+@using AppGen.UI.Models
+
+<fieldset class="panel">
+    <legend>Entity sketches</legend>
+    <p class="muted">Names and descriptions for the portal. Refine properties in the API tab before scaffolding.</p>
+    <div class="entity-add-row">
+        <input @bind="_newName" placeholder="Entity name" class="entity-name-input" />
+        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="AddSketch">Add sketch</button>
+    </div>
+    @if (Sketches.Count == 0)
+    {
+        <p class="muted">No entity sketches yet.</p>
+    }
+    else
+    {
+        <table class="property-grid">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th>Phase</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var sketch in Sketches)
+                {
+                    <tr>
+                        <td><input @bind="sketch.Name" /></td>
+                        <td><input @bind="sketch.Description" /></td>
+                        <td><input @bind="sketch.Phase" style="width:4rem" /></td>
+                        <td>
+                            <select @bind="sketch.Status">
+                                <option value="planned">planned</option>
+                                <option value="in_progress">in_progress</option>
+                                <option value="live">live</option>
+                            </select>
+                        </td>
+                        <td>
+                            <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => RemoveSketch(sketch)">Remove</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</fieldset>
+
+@code {
+    [Parameter] public List<EntitySketchDraft> Sketches { get; set; } = [];
+    private string _newName = string.Empty;
+
+    private void AddSketch()
+    {
+        if (string.IsNullOrWhiteSpace(_newName)) return;
+        Sketches.Add(new EntitySketchDraft { Name = _newName.Trim() });
+        _newName = string.Empty;
+    }
+
+    private void RemoveSketch(EntitySketchDraft sketch) => Sketches.Remove(sketch);
+}

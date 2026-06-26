@@ -1,0 +1,6 @@
+@{
+    ViewData["Title"] = "Home";
+}
+
+<h1>{{ app_name }}</h1>
+<p>Select an entity from the navigation to manage records.</p>

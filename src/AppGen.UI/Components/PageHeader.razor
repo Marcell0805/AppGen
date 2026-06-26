@@ -1,0 +1,21 @@
+@* Page title and subtitle for generator tabs *@
+
+<header class="page-header">
+    <div>
+        <h1>@Title</h1>
+        @if (!string.IsNullOrWhiteSpace(Subtitle))
+        {
+            <p class="subtitle">@Subtitle</p>
+        }
+    </div>
+    @if (!string.IsNullOrWhiteSpace(Badge))
+    {
+        <span class="page-badge">@Badge</span>
+    }
+</header>
+
+@code {
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public string? Badge { get; set; }
+}

@@ -1,25 +1,73 @@
 using {{ root_namespace }}.Domain.Entities;
+
 using Microsoft.EntityFrameworkCore;
+
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+
+
 
 namespace {{ root_namespace }}.Persistence.Configurations;
 
+
+
 public class {{ entity_name }}Configuration : IEntityTypeConfiguration<{{ entity_name }}>
+
 {
+
     public void Configure(EntityTypeBuilder<{{ entity_name }}> builder)
+
     {
-{{ if schema }}
+
+{{ if use_oracle && oracle_schema }}
+
+        builder.ToTable("{{ oracle_table_name_only }}", "{{ oracle_schema }}");
+
+{{ else if schema }}
+
         builder.ToTable("{{ table_name }}", "{{ schema }}");
+
 {{ else }}
+
         builder.ToTable("{{ table_name }}");
+
 {{ end }}
+
 {{ if has_composite_key }}
+
         builder.HasKey(e => new { {{ for key in key_properties }}{{ if !for.first }}, {{ end }}e.{{ key.name }}{{ end }});
+
 {{ else }}
+
         builder.HasKey(e => e.{{ primary_key_name }});
+
 {{ end }}
+
 {{ for property in properties }}
-        builder.Property(e => e.{{ property.name }}).HasColumnName("{{ property.column_name }}");
+
+        builder.Property(e => e.{{ property.name }})
+
+            .HasColumnName("{{ property.column_name }}"){{ if !property.is_nullable }}
+
+            .IsRequired(){{ end }}{{ if property.is_identity_type }}
+
+            .UseIdentityColumn(){{ end }};
+
 {{ end }}
+
+{{ for fk in foreign_key_properties }}
+
+        builder.HasOne<{{ fk.referenced_entity }}>()
+
+            .WithMany()
+
+            .HasForeignKey(e => e.{{ fk.name }})
+
+            .OnDelete(DeleteBehavior.Restrict);
+
+{{ end }}
+
     }
+
 }
+
+

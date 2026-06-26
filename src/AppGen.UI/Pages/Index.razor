@@ -1,261 +1,696 @@
-﻿@page "/"
+﻿@page "/web"
+@using AppGen.Core
 @using AppGen.Core.Models
+@using AppGen.UI.Models
+@using AppGen.Engine
 @using AppGen.UI.Services
 @inject AppGenerationService Generator
+@inject ProjectPromoter Promoter
+@inject OutputFolderService FolderService
+@inject WizardStateService WizardState
+@inject IWebHostEnvironment HostEnvironment
+@inject IJSRuntime Js
+@implements IDisposable
 
-<PageTitle>AppGen</PageTitle>
+<PageTitle>AppGen — Web</PageTitle>
 
-<h1>AppGen</h1>
+<PageHeader Title="Web"
+            Subtitle="Generate the server stack: API, application layers, persistence, and optional MVC admin UI." />
 
-<p>Generate a layered ASP.NET Core API solution with entities.</p>
+@if (!WizardState.HasData)
+{
+    <p class="muted">Define your project and entities on the <a href="project">Project</a> tab first.</p>
+}
+else
+{
+    <p class="status-inline">@WizardState.EntityNames.Count entities from Project: @string.Join(", ", WizardState.EntityNames)</p>
+}
 
-<div style="display:grid; grid-template-columns: 1fr; gap: 16px; max-width: 920px;">
-    <fieldset style="padding: 12px;">
-        <legend>Application</legend>
-
-        <div style="display:grid; grid-template-columns: 160px 1fr; gap: 8px; align-items:center;">
+<div class="wizard">
+    <ErrorBoundary @ref="_errorBoundary">
+        <ChildContent>
+    <fieldset class="panel">
+        <legend>Project</legend>
+        <div class="form-grid">
             <label>App name</label>
-            <input @bind="ApplicationName" />
+            <input value="@ApplicationName" readonly class="readonly-field" />
+            <label>Output folder</label>
+            <input value="@OutputRoot" readonly class="readonly-field" />
+        </div>
+        <p class="hint">Edit on the <a href="project">Project</a> tab. Web output: <code>{AppName} Web</code></p>
+    </fieldset>
 
-            <label>Root namespace</label>
-            <input @bind="RootNamespace" placeholder="Defaults to app name" />
+    <ConfigSettingsPanel Database="Database"
+                         ConfigEntries="ConfigEntries"
+                         @bind-ActiveConnectionName="ActiveConnectionName"
+                         @bind-OracleSchemaPrefix="OracleSchemaPrefix"
+                         @bind-EnsureCreatedInDevelopment="EnsureCreatedInDevelopment" />
 
-            <label>Database</label>
-            <select @bind="Database">
+    <fieldset class="panel">
+        <legend>Database</legend>
+        <div class="form-grid">
+            <label>Provider</label>
+            <select @bind="Database" @bind:after="OnDatabaseChanged">
                 <option value="@DatabaseProvider.SqlServer">SqlServer</option>
+                <option value="@DatabaseProvider.PostgreSql">PostgreSQL</option>
                 <option value="@DatabaseProvider.Oracle">Oracle</option>
             </select>
-
-            <label>Output folder</label>
-            <input @bind="OutputRoot" placeholder="e.g. C:\temp\generated" />
         </div>
     </fieldset>
 
-    <fieldset style="padding: 12px;">
-        <legend>Entities</legend>
-
-        <div style="display:flex; gap: 8px; align-items: center;">
-            <input @bind-value="NewEntityName" @bind-value:event="oninput" placeholder="Entity name (e.g. Product)" />
-            <button @onclick="AddEntity" disabled="@string.IsNullOrWhiteSpace(NewEntityName)">Add entity</button>
-        </div>
-
-        @if (Entities.Count == 0)
-        {
-            <p style="opacity:.75;">No entities yet.</p>
-        }
-        else
-        {
-            @foreach (var entity in Entities)
-            {
-                <div @key="entity" style="border:1px solid #ddd; padding:12px; margin-top:12px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <strong>@entity.Name</strong>
-                        <button @onclick="() => RemoveEntity(entity)">Remove</button>
-                    </div>
-
-                    <div style="margin-top:10px; display:flex; gap:8px; align-items:center;">
-                        <input @bind-value="entity.NewPropertyName" @bind-value:event="oninput" placeholder="Property name" />
-                        <select @bind="entity.NewPropertyType" style="width: 240px;">
-                            @foreach (var t in GetClrTypes(Database))
-                            {
-                                <option value="@t">@t</option>
-                            }
-                        </select>
-                        <label style="display:flex; gap:6px; align-items:center;">
-                            <input type="checkbox" @bind="entity.NewPropertyIsKey" />
-                            Key
-                        </label>
-                        <label style="display:flex; gap:6px; align-items:center;">
-                            <input type="checkbox" @bind="entity.NewPropertyIsNullable" />
-                            Nullable
-                        </label>
-                        <button @onclick="() => AddProperty(entity)">
-                            Add property
-                        </button>
-                    </div>
-
-                    <ul style="margin-top:10px;">
-                        @foreach (var prop in entity.Properties)
-                        {
-                            <li @key="prop">
-                                <code>@prop.ClrType</code> <strong>@prop.Name</strong>
-                                @if (prop.IsKey) { <span>(key)</span> }
-                                @if (prop.IsNullable) { <span>(nullable)</span> }
-                                <button style="margin-left:8px;" @onclick="() => RemoveProperty(entity, prop)">remove</button>
-                            </li>
-                        }
-                    </ul>
-                </div>
-            }
-        }
+    <fieldset class="panel">
+        <legend>Client UI (optional)</legend>
+        <label class="checkbox-row">
+            <input type="checkbox" checked="@IncludeMvcWeb" @onchange="OnMvcWebChanged" />
+            MVC Web — entity list and edit pages (calls API via HttpClient)
+        </label>
+        <label class="checkbox-row muted">
+            <input type="checkbox" disabled />
+            WinForms — coming in a later phase
+        </label>
     </fieldset>
 
-    <div style="display:flex; gap: 8px; align-items:center;">
-        <button @onclick="Generate" disabled="@IsGenerating">Generate</button>
-        @if (IsGenerating)
+    <div class="actions">
+        <button type="button" class="btn btn-primary" @onclick="Generate" disabled="@(!CanGenerate)">
+            @(IsGenerating ? "Generating…" : "Generate")
+        </button>
+        @if (CanRegenerate)
         {
-            <span>Generating…</span>
+            <button type="button" class="btn btn-outline-danger" @onclick="ShowRegenConfirm" disabled="@IsGenerating">
+                Regenerate (overwrite)
+            </button>
         }
+        <button type="button" class="btn btn-outline-secondary" @onclick="LoadProject" disabled="@IsGenerating">
+            Load project
+        </button>
+        <button type="button" class="btn btn-outline-secondary" @onclick="PromoteToApi" disabled="@(!CanPromote)">
+            @(IsPromoting ? "Promoting…" : "Promote to API")
+        </button>
+        <button type="button" class="btn btn-outline-secondary" @onclick="SaveDraft" disabled="@IsGenerating">
+            Save draft
+        </button>
+        <button type="button" class="btn btn-outline-secondary" @onclick="LoadDraft" disabled="@IsGenerating">
+            Load draft
+        </button>
     </div>
 
     @if (!string.IsNullOrWhiteSpace(StatusMessage))
     {
-        <div style="padding: 12px; border: 1px solid #ddd; background: #fafafa;">
+        <div class="status-panel @(IsSuccess ? "status-success" : "status-error")">
             <div><strong>Status</strong></div>
             <div>@StatusMessage</div>
             @if (!string.IsNullOrWhiteSpace(OutputDirectory))
             {
-                <div style="margin-top:8px;">
+                <div class="output-block">
                     <div><strong>Output</strong></div>
                     <code>@OutputDirectory</code>
-                    <div style="margin-top:6px;">
-                        Next:
-                        <code>cd "@OutputDirectory"</code>
-                        <code>dotnet build</code>
+                    <div class="output-actions">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CopyPath">Copy path</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="OpenFolder">Open folder</button>
                     </div>
+                    <div class="hint">Next: <code>cd "@OutputDirectory"</code> then <code>dotnet build</code></div>
                 </div>
             }
         </div>
     }
+        </ChildContent>
+        <ErrorContent Context="ex">
+            <div class="status-panel status-error">
+                <div><strong>Something went wrong</strong></div>
+                <div>@ex.Message</div>
+                <button type="button" class="btn btn-sm btn-outline-secondary" style="margin-top: 0.75rem;" @onclick="RecoverFromError">
+                    Dismiss and continue
+                </button>
+            </div>
+        </ErrorContent>
+    </ErrorBoundary>
 </div>
 
+<RegenConfirmModal @key="_regenModalKey"
+                   Visible="ShowRegenModal"
+                   ExpectedAppName="@ApplicationName.Trim()"
+                   OutputPath="@SafeOutputPath"
+                   OnCancel="HideRegenConfirm"
+                   OnConfirm="Regenerate" />
+
 @code {
-    private string ApplicationName { get; set; } = "InventorySystem";
+    private string ApplicationName { get; set; } = string.Empty;
     private string? RootNamespace { get; set; }
     private DatabaseProvider Database { get; set; } = DatabaseProvider.SqlServer;
-    private string OutputRoot { get; set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "AppGenOutput");
+    private string OutputRoot { get; set; } = string.Empty;
 
-    private string NewEntityName { get; set; } = string.Empty;
-    private List<EntityDraft> Entities { get; } = new();
+    private bool IncludeMvcWeb { get; set; } = true;
+    private List<ConfigEntryRow> ConfigEntries { get; } = [new ConfigEntryRow { Name = "Dev", Kind = ConfigEntryKind.ConnectionString, Value = NamingHelper.DefaultDevConnection(DatabaseProvider.SqlServer).Value }];
+    private string ActiveConnectionName { get; set; } = "Dev";
+    private string? OracleSchemaPrefix { get; set; }
+    private bool EnsureCreatedInDevelopment { get; set; } = true;
 
     private bool IsGenerating { get; set; }
+    private bool IsPromoting { get; set; }
+    private bool ShowRegenModal { get; set; }
+    private int _regenModalKey;
+    private ErrorBoundary? _errorBoundary;
     private string StatusMessage { get; set; } = string.Empty;
+    private bool IsSuccess { get; set; }
     private string? OutputDirectory { get; set; }
 
-    private static IReadOnlyList<string> GetClrTypes(DatabaseProvider db) =>
-        db switch
-        {
-            DatabaseProvider.SqlServer =>
-            [
-                "string",
-                "long",
-                "int",
-                "decimal",
-                "double",
-                "bool",
-                "DateTime",
-                "Guid"
-            ],
-            DatabaseProvider.Oracle =>
-            [
-                "string",
-                "long",
-                "int",
-                "decimal",
-                "double",
-                "bool",
-                "DateTime",
-                "Guid"
-            ],
-            _ => ["string", "long", "int", "decimal", "bool", "DateTime"]
-        };
+    private IReadOnlyList<EntityDraft> Entities =>
+        WizardState.Current is { } draft
+            ? WizardEntityHelper.ToEntityDrafts(draft.Entities)
+            : [];
 
-    private void AddEntity()
+    private bool CanGenerate =>
+        !IsGenerating &&
+        WizardState.HasData &&
+        !string.IsNullOrWhiteSpace(ApplicationName) &&
+        !string.IsNullOrWhiteSpace(OutputRoot);
+
+    private string? ResolvedWebDirectory
     {
-        var name = (NewEntityName ?? string.Empty).Trim();
-        if (name.Length == 0) return;
-
-        if (Entities.Any(e => e.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+        get
         {
-            StatusMessage = $"Entity already exists: {name}";
+            if (string.IsNullOrWhiteSpace(ApplicationName) || string.IsNullOrWhiteSpace(OutputRoot))
+                return null;
+
+            try
+            {
+                return ProjectOutputPaths.WebDirectory(OutputRoot, ApplicationName);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+    }
+
+    private string? ResolvedOutputDirectory =>
+        ProjectOutputPaths.FindManifestDirectory(OutputRoot, ApplicationName, ProjectOutputLayer.Web);
+
+    private string SafeOutputPath => ResolvedWebDirectory ?? string.Empty;
+
+    private bool CanRegenerate
+    {
+        get
+        {
+            if (IsGenerating ||
+                string.IsNullOrWhiteSpace(ApplicationName) ||
+                string.IsNullOrWhiteSpace(OutputRoot))
+                return false;
+
+            var outputDir = ResolvedWebDirectory;
+            if (outputDir is null || !Directory.Exists(outputDir))
+                return false;
+
+            try
+            {
+                return Directory.EnumerateFileSystemEntries(outputDir).Any();
+            }
+            catch
+            {
+                return false;
+            }
+        }
+    }
+
+    private bool CanPromote =>
+        !IsGenerating &&
+        !IsPromoting &&
+        !string.IsNullOrWhiteSpace(ApplicationName) &&
+        !string.IsNullOrWhiteSpace(OutputRoot) &&
+        ResolvedWebDirectory is not null &&
+        File.Exists(Path.Combine(ResolvedWebDirectory, "appgen.json"));
+
+    protected override void OnInitialized()
+    {
+        OutputRoot = FolderService.GetDefaultOutputRoot(HostEnvironment.ContentRootPath);
+        WizardState.Changed += OnWizardStateChanged;
+        ApplySharedState();
+    }
+
+    private void OnWizardStateChanged() => InvokeAsync(() =>
+    {
+        ApplySharedState();
+        StateHasChanged();
+    });
+
+    private void ApplySharedState()
+    {
+        if (WizardState.Current is not { } draft)
+            return;
+
+        ApplicationName = draft.ApplicationName;
+        RootNamespace = draft.RootNamespace;
+        if (!string.IsNullOrWhiteSpace(draft.OutputRoot))
+            OutputRoot = draft.OutputRoot;
+        Database = draft.Database;
+        IncludeMvcWeb = draft.IncludeMvcWeb;
+        ActiveConnectionName = draft.ActiveConnectionName;
+        OracleSchemaPrefix = draft.OracleSchemaPrefix;
+        EnsureCreatedInDevelopment = draft.EnsureCreatedInDevelopment;
+
+        if (draft.ConfigEntries.Count > 0)
+        {
+            ConfigEntries.Clear();
+            foreach (var entry in draft.ConfigEntries)
+            {
+                ConfigEntries.Add(new ConfigEntryRow
+                {
+                    Name = entry.Name,
+                    Kind = entry.Kind,
+                    Key = entry.Key,
+                    Value = entry.Value
+                });
+            }
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try
+        {
+            var settings = await Js.InvokeAsync<WizardSettings?>("appgen.loadSettings", Array.Empty<object>());
+            if (settings is null) return;
+            if (!string.IsNullOrWhiteSpace(settings.ApplicationName))
+                ApplicationName = settings.ApplicationName;
+            if (!string.IsNullOrWhiteSpace(settings.OutputRoot))
+                OutputRoot = settings.OutputRoot;
+            IncludeMvcWeb = settings.IncludeMvcWeb;
+            StateHasChanged();
+        }
+        catch
+        {
+            // localStorage unavailable
+        }
+    }
+
+    private void OnDatabaseChanged()
+    {
+        var setup = NamingHelper.DefaultSetup(Database);
+        ConfigEntries.Clear();
+        foreach (var entry in setup.ConfigEntries)
+        {
+            ConfigEntries.Add(new ConfigEntryRow
+            {
+                Name = entry.Name,
+                Kind = entry.Kind,
+                Key = entry.Key,
+                Value = entry.Value
+            });
+        }
+        ActiveConnectionName = setup.ActiveConnectionName;
+        OracleSchemaPrefix = setup.OracleSchemaPrefix;
+        EnsureCreatedInDevelopment = setup.EnsureCreatedInDevelopment;
+        SyncSharedState();
+    }
+
+    private ProjectSetupSpec BuildSetup() => new()
+    {
+        ActiveConnectionName = ActiveConnectionName,
+        EnsureCreatedInDevelopment = EnsureCreatedInDevelopment,
+        OracleSchemaPrefix = OracleSchemaPrefix,
+        ConfigEntries = ConfigEntries
+            .Where(c => !string.IsNullOrWhiteSpace(c.Name))
+            .Select(c => c.ToSpec())
+            .ToList()
+    };
+
+    private void OnMvcWebChanged(ChangeEventArgs e)
+    {
+        IncludeMvcWeb = e.Value is true;
+        SyncSharedState();
+    }
+
+    private string? ValidateEntities() =>
+        EntityValidation.ValidateEntities(Entities.ToList());
+
+    private async Task Generate() => await RunGenerationAsync(overwrite: false);
+
+    private void ShowRegenConfirm()
+    {
+        _regenModalKey++;
+        ShowRegenModal = true;
+    }
+
+    private void HideRegenConfirm() => ShowRegenModal = false;
+
+    private async Task Regenerate()
+    {
+        var validationError = ValidateEntities();
+        if (validationError is not null)
+        {
+            ShowRegenModal = false;
+            StatusMessage = validationError;
+            IsSuccess = false;
+            OutputDirectory = null;
             return;
         }
 
-        Entities.Add(new EntityDraft(name));
-        NewEntityName = string.Empty;
+        ShowRegenModal = false;
+        await RunGenerationAsync(overwrite: true, validate: false);
     }
 
-    private void RemoveEntity(EntityDraft entity) => Entities.Remove(entity);
-
-    private void AddProperty(EntityDraft entity)
+    private async Task RunGenerationAsync(bool overwrite, bool validate = true)
     {
-        var name = (entity.NewPropertyName ?? string.Empty).Trim();
-        var type = (entity.NewPropertyType ?? string.Empty).Trim();
-        if (name.Length == 0 || type.Length == 0) return;
-
-        if (entity.Properties.Any(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+        if (validate)
         {
-            StatusMessage = $"Property already exists on {entity.Name}: {name}";
-            return;
+            var validationError = ValidateEntities();
+            if (validationError is not null)
+            {
+                StatusMessage = validationError;
+                IsSuccess = false;
+                OutputDirectory = null;
+                return;
+            }
         }
 
-        entity.Properties.Add(new PropertySpec
-        {
-            Name = name,
-            ClrType = type,
-            IsKey = entity.NewPropertyIsKey,
-            IsNullable = entity.NewPropertyIsNullable
-        });
-
-        entity.NewPropertyName = string.Empty;
-        entity.NewPropertyType = "string";
-        entity.NewPropertyIsKey = false;
-        entity.NewPropertyIsNullable = false;
-    }
-
-    private void RemoveProperty(EntityDraft entity, PropertySpec prop) => entity.Properties.Remove(prop);
-
-    private async Task Generate()
-    {
         IsGenerating = true;
         StatusMessage = string.Empty;
         OutputDirectory = null;
+        IsSuccess = false;
 
         try
         {
-            var entities = Entities.Select(e => e.ToSpec()).ToList();
-            var result = await Generator.GenerateAsync(
-                ApplicationName.Trim(),
-                string.IsNullOrWhiteSpace(RootNamespace) ? null : RootNamespace.Trim(),
-                Database,
-                OutputRoot.Trim(),
-                entities);
+            var uiTargets = IncludeMvcWeb ? UiTarget.MvcWeb : UiTarget.None;
+            var allNames = Entities.Select(e => e.Name).ToList();
+            var entities = Entities.Select(e => e.ToSpec(allNames)).ToList();
+            var result = overwrite
+                ? await Generator.RegenerateAsync(
+                    ApplicationName.Trim(),
+                    string.IsNullOrWhiteSpace(RootNamespace) ? null : RootNamespace.Trim(),
+                    Database,
+                    uiTargets,
+                    OutputRoot.Trim(),
+                    BuildSetup(),
+                    entities)
+                : await Generator.GenerateAsync(
+                    ApplicationName.Trim(),
+                    string.IsNullOrWhiteSpace(RootNamespace) ? null : RootNamespace.Trim(),
+                    Database,
+                    uiTargets,
+                    OutputRoot.Trim(),
+                    BuildSetup(),
+                    entities);
 
             StatusMessage = result.Message;
+            IsSuccess = result.Success;
             OutputDirectory = result.OutputDirectory;
+
+            if (result.Success)
+            {
+                await Js.InvokeVoidAsync("appgen.saveSettings", new WizardSettings
+                {
+                    ApplicationName = ApplicationName,
+                    OutputRoot = OutputRoot,
+                    IncludeMvcWeb = IncludeMvcWeb
+                });
+                SyncSharedState();
+            }
         }
         catch (Exception ex)
         {
             StatusMessage = ex.Message;
+            IsSuccess = false;
         }
         finally
         {
             IsGenerating = false;
+            ShowRegenModal = false;
         }
     }
 
-    private sealed class EntityDraft
+    private void RecoverFromError()
     {
-        public EntityDraft(string name)
+        ShowRegenModal = false;
+        IsGenerating = false;
+        _errorBoundary?.Recover();
+    }
+
+    private async Task CopyPath()
+    {
+        if (string.IsNullOrWhiteSpace(OutputDirectory)) return;
+        await Js.InvokeVoidAsync("appgen.copyToClipboard", OutputDirectory);
+        StatusMessage = "Path copied to clipboard.";
+        IsSuccess = true;
+    }
+
+    private void OpenFolder()
+    {
+        if (string.IsNullOrWhiteSpace(OutputDirectory)) return;
+        try
         {
-            Name = name;
-            Properties.Add(new PropertySpec { Name = "Id", ClrType = "long", IsKey = true });
-            Properties.Add(new PropertySpec { Name = "Name", ClrType = "string" });
-            NewPropertyType = "string";
+            FolderService.OpenFolder(OutputDirectory);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+            IsSuccess = false;
+        }
+    }
+
+    private async Task LoadProject()
+    {
+        var dir = ResolvedOutputDirectory;
+        if (dir is null || !File.Exists(Path.Combine(dir, "appgen.json")))
+        {
+            StatusMessage = "appgen.json not found. Expected under {AppName} Web or legacy {AppName} folder.";
+            IsSuccess = false;
+            return;
         }
 
-        public string Name { get; }
-        public List<PropertySpec> Properties { get; } = new();
-
-        public string NewPropertyName { get; set; } = string.Empty;
-        public string NewPropertyType { get; set; }
-        public bool NewPropertyIsKey { get; set; }
-        public bool NewPropertyIsNullable { get; set; }
-
-        public EntitySpec ToSpec() => new()
+        try
         {
-            Name = Name,
-            Properties = Properties.ToList()
-        };
+            var spec = await SpecLoader.LoadAsync(dir);
+            ApplicationName = spec.ApplicationName;
+            RootNamespace = spec.RootNamespace;
+            Database = spec.Database;
+            IncludeMvcWeb = spec.UiTargets.HasFlag(UiTarget.MvcWeb);
+            ActiveConnectionName = spec.Setup.ActiveConnectionName;
+            OracleSchemaPrefix = spec.Setup.OracleSchemaPrefix;
+            EnsureCreatedInDevelopment = spec.Setup.EnsureCreatedInDevelopment;
+
+            ConfigEntries.Clear();
+            foreach (var entry in spec.Setup.ConfigEntries)
+            {
+                ConfigEntries.Add(new ConfigEntryRow
+                {
+                    Name = entry.Name,
+                    Kind = entry.Kind,
+                    Key = entry.Key,
+                    Value = entry.Value
+                });
+            }
+
+            if (spec.Entities.Count > 0)
+            {
+                var entityDrafts = new List<EntityDraft>();
+                ProjectManifestMapper.ApplyEntitiesToDrafts(entityDrafts, spec.Entities);
+                WizardState.Update(WizardDraft.FromWizard(
+                    ApplicationName,
+                    RootNamespace,
+                    Database,
+                    OutputRoot,
+                    IncludeMvcWeb,
+                    ActiveConnectionName,
+                    OracleSchemaPrefix,
+                    EnsureCreatedInDevelopment,
+                    ConfigEntries,
+                    entityDrafts,
+                    spec.Targets?.Documentation.Enabled ?? false,
+                    spec.Targets?.Web.Enabled ?? true,
+                    spec.Targets?.Mobile.Enabled ?? false,
+                    spec.Targets?.Mobile.PackageName,
+                    spec.Targets?.Mobile.ApiBaseUrl));
+            }
+            else
+            {
+                var entityDrafts = new List<EntityDraft>();
+                ProjectManifestMapper.ApplySketchesToEntities(entityDrafts, spec.EntitySketches);
+                WizardState.Update(WizardDraft.FromWizard(
+                    ApplicationName,
+                    RootNamespace,
+                    Database,
+                    OutputRoot,
+                    IncludeMvcWeb,
+                    ActiveConnectionName,
+                    OracleSchemaPrefix,
+                    EnsureCreatedInDevelopment,
+                    ConfigEntries,
+                    entityDrafts,
+                    spec.Targets?.Documentation.Enabled ?? false,
+                    spec.Targets?.Web.Enabled ?? true,
+                    spec.Targets?.Mobile.Enabled ?? false,
+                    spec.Targets?.Mobile.PackageName,
+                    spec.Targets?.Mobile.ApiBaseUrl));
+            }
+
+            ApplySharedState();
+            StatusMessage = $"Loaded project from appgen.json ({WizardState.EntityNames.Count} entities).";
+            IsSuccess = true;
+            OutputDirectory = dir;
+            SyncSharedState();
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+            IsSuccess = false;
+        }
+    }
+
+    private async Task PromoteToApi()
+    {
+        var dir = ResolvedWebDirectory;
+        if (dir is null)
+        {
+            StatusMessage = "Output folder is invalid.";
+            IsSuccess = false;
+            return;
+        }
+
+        var validationError = ValidateEntities();
+        if (validationError is not null)
+        {
+            StatusMessage = validationError;
+            IsSuccess = false;
+            return;
+        }
+
+        IsPromoting = true;
+        try
+        {
+            var allNames = Entities.Select(e => e.Name).ToList();
+            var entities = Entities.Select(e => e.ToSpec(allNames)).ToList();
+            var spec = await SpecLoader.LoadAsync(dir);
+            var updated = new SolutionSpec
+            {
+                SchemaVersion = spec.SchemaVersion,
+                ApplicationName = spec.ApplicationName,
+                RootNamespace = spec.RootNamespace,
+                Phase = spec.Phase,
+                Portal = spec.Portal,
+                EntitySketches = spec.EntitySketches,
+                Targets = spec.Targets,
+                Generation = spec.Generation,
+                Database = Database,
+                UiTargets = IncludeMvcWeb ? UiTarget.MvcWeb : UiTarget.None,
+                Setup = BuildSetup(),
+                Entities = entities
+            };
+            await ProjectSpecWriter.WriteAsync(updated, dir);
+
+            var force = File.Exists(Path.Combine(dir, $"{spec.ApplicationName}.sln"));
+            var result = await Promoter.PromoteAsync(dir, force: force);
+            StatusMessage = result.Message;
+            IsSuccess = result.Success;
+            OutputDirectory = result.ProjectDirectory;
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+            IsSuccess = false;
+        }
+        finally
+        {
+            IsPromoting = false;
+        }
+    }
+
+    private async Task SaveDraft()
+    {
+        var draft = WizardDraft.FromWizard(
+            ApplicationName,
+            RootNamespace,
+            Database,
+            OutputRoot,
+            IncludeMvcWeb,
+            ActiveConnectionName,
+            OracleSchemaPrefix,
+            EnsureCreatedInDevelopment,
+            ConfigEntries,
+            Entities);
+
+        var fileName = string.IsNullOrWhiteSpace(ApplicationName)
+            ? "appgen-draft.json"
+            : $"{NamingHelper.NormalizeAppName(ApplicationName)}-appgen-draft.json";
+
+        await Js.InvokeVoidAsync("appgen.downloadTextFile", fileName, draft.ToJson(), "application/json");
+        StatusMessage = $"Draft saved as {fileName}.";
+        IsSuccess = true;
+        OutputDirectory = null;
+    }
+
+    private async Task LoadDraft()
+    {
+        try
+        {
+            var json = await Js.InvokeAsync<string?>("appgen.pickTextFile", ".json,application/json");
+            if (string.IsNullOrWhiteSpace(json))
+                return;
+
+            var draft = WizardDraft.TryParse(json);
+            if (draft is null)
+            {
+                StatusMessage = "Could not read draft file. Expected valid AppGen draft JSON.";
+                IsSuccess = false;
+                return;
+            }
+
+            if (draft.SchemaVersion > WizardDraft.CurrentSchemaVersion)
+            {
+                StatusMessage = $"Draft version {draft.SchemaVersion} is newer than this AppGen UI supports.";
+                IsSuccess = false;
+                return;
+            }
+
+            ApplyDraft(draft);
+            StatusMessage = $"Draft loaded ({draft.Entities.Count} entities).";
+            IsSuccess = true;
+            OutputDirectory = null;
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+            IsSuccess = false;
+        }
+    }
+
+    private void ApplyDraft(WizardDraft draft)
+    {
+        WizardState.Update(draft);
+        ApplySharedState();
+    }
+
+    private void SyncSharedState()
+    {
+        var current = WizardState.Current;
+        WizardState.Update(WizardDraft.FromWizard(
+            ApplicationName,
+            RootNamespace,
+            Database,
+            OutputRoot,
+            IncludeMvcWeb,
+            ActiveConnectionName,
+            OracleSchemaPrefix,
+            EnsureCreatedInDevelopment,
+            ConfigEntries,
+            WizardEntityHelper.ToEntityDrafts(current?.Entities ?? []),
+            current?.EnableDocumentation ?? false,
+            current?.EnableWeb ?? true,
+            current?.EnableMobile ?? false,
+            current?.MobilePackageName,
+            current?.MobileApiBaseUrl));
+    }
+
+    public void Dispose()
+    {
+        WizardState.Changed -= OnWizardStateChanged;
+        SyncSharedState();
+    }
+
+    private sealed class WizardSettings
+    {
+        public string? ApplicationName { get; set; }
+        public string? OutputRoot { get; set; }
+        public bool IncludeMvcWeb { get; set; }
     }
 }

@@ -1,0 +1,68 @@
+using System.Text;
+using System.Text.Json;
+
+namespace {{ root_namespace }}.MVC.Services;
+
+public abstract class EntityWebServiceBase<TResponse, TCreate, TUpdate>
+{
+    protected HttpClient Client { get; }
+    protected JsonSerializerOptions JsonOptions { get; } = new() { PropertyNameCaseInsensitive = true };
+    protected string Endpoint { get; }
+
+    protected EntityWebServiceBase(IHttpClientFactory httpClientFactory, string endpoint)
+    {
+        Client = httpClientFactory.CreateClient("Api");
+        Endpoint = endpoint.Trim('/');
+    }
+
+    protected async Task<List<TResponse>> GetAllCoreAsync(CancellationToken ct)
+    {
+        var resp = await Client.GetAsync(Endpoint, ct);
+        resp.EnsureSuccessStatusCode();
+        var content = await resp.Content.ReadAsStringAsync(ct);
+        using var doc = JsonDocument.Parse(content);
+        var data = doc.RootElement.GetProperty("data").GetRawText();
+        return JsonSerializer.Deserialize<List<TResponse>>(data, JsonOptions) ?? [];
+    }
+
+    protected async Task<TResponse?> GetByIdCoreAsync(string id, CancellationToken ct)
+    {
+        var resp = await Client.GetAsync($"{Endpoint}/{Uri.EscapeDataString(id)}", ct);
+        if (resp.StatusCode == System.Net.HttpStatusCode.NotFound)
+            return default;
+
+        resp.EnsureSuccessStatusCode();
+        var content = await resp.Content.ReadAsStringAsync(ct);
+        using var doc = JsonDocument.Parse(content);
+        var data = doc.RootElement.GetProperty("data").GetRawText();
+        return JsonSerializer.Deserialize<TResponse>(data, JsonOptions);
+    }
+
+    protected async Task<TResponse?> CreateCoreAsync(TCreate request, CancellationToken ct)
+    {
+        var json = JsonSerializer.Serialize(request, JsonOptions);
+        var resp = await Client.PostAsync(Endpoint, new StringContent(json, Encoding.UTF8, "application/json"), ct);
+        resp.EnsureSuccessStatusCode();
+        var content = await resp.Content.ReadAsStringAsync(ct);
+        using var doc = JsonDocument.Parse(content);
+        var data = doc.RootElement.GetProperty("data").GetRawText();
+        return JsonSerializer.Deserialize<TResponse>(data, JsonOptions);
+    }
+
+    protected async Task<TResponse?> UpdateCoreAsync(string id, TUpdate request, CancellationToken ct)
+    {
+        var json = JsonSerializer.Serialize(request, JsonOptions);
+        var resp = await Client.PutAsync($"{Endpoint}/{Uri.EscapeDataString(id)}", new StringContent(json, Encoding.UTF8, "application/json"), ct);
+        resp.EnsureSuccessStatusCode();
+        var content = await resp.Content.ReadAsStringAsync(ct);
+        using var doc = JsonDocument.Parse(content);
+        var data = doc.RootElement.GetProperty("data").GetRawText();
+        return JsonSerializer.Deserialize<TResponse>(data, JsonOptions);
+    }
+
+    protected async Task<bool> DeleteCoreAsync(string id, CancellationToken ct)
+    {
+        var resp = await Client.DeleteAsync($"{Endpoint}/{Uri.EscapeDataString(id)}", ct);
+        return resp.IsSuccessStatusCode;
+    }
+}

@@ -1,7 +1,23 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 3,
   "applicationName": "{{ app_name }}",
   "rootNamespace": "{{ root_namespace }}",
   "database": "{{ database }}",
+  "uiTargets": [{{ for t in ui_targets }}{{ if for.index > 0 }}, {{ end }}"{{ t }}"{{ end }}],
+  "setup": {
+    "activeConnectionName": "{{ setup.active_connection_name }}",
+    "ensureCreatedInDevelopment": {{ setup.ensure_created_in_development }},
+    "oracleSchemaPrefix": {{ if setup.oracle_schema_prefix }}"{{ setup.oracle_schema_prefix }}"{{ else }}null{{ end }},
+    "configEntries": [
+{{ for entry in setup.config_entries }}
+      {
+        "name": "{{ entry.name }}",
+        "kind": "{{ entry.kind }}",
+        "key": {{ if entry.key }}"{{ entry.key }}"{{ else }}null{{ end }},
+        "value": {{ if entry.value }}"{{ entry.value }}"{{ else }}null{{ end }}
+      }{{ if !for.last }},{{ end }}
+{{ end }}
+    ]
+  },
   "entities": []
 }

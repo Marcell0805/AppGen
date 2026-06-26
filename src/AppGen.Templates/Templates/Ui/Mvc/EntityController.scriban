@@ -1,0 +1,87 @@
+using {{ root_namespace }}.MVC.Services;
+using {{ root_namespace }}.Shared.Requests;
+using {{ root_namespace }}.Shared.Responses;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
+
+namespace {{ root_namespace }}.MVC.Controllers;
+
+public class {{ entity_name }}Controller(
+    I{{ entity_name }}Service service{{ for fk in foreign_key_services }},
+    I{{ fk.referenced_entity }}Service {{ fk.service_name }}{{ end }}) : Controller
+{
+    public async Task<IActionResult> Index(CancellationToken ct)
+    {
+        var items = await service.GetAllAsync(ct);
+        return View(items);
+    }
+
+    public async Task<IActionResult> Create(CancellationToken ct)
+    {
+        await PopulateLookupsAsync(ct);
+        ViewData["Id"] = null;
+        return View("Edit", new {{ entity_name }}Response());
+    }
+
+    public async Task<IActionResult> Edit({{ primary_key_clr_type }} id, CancellationToken ct)
+    {
+        var item = await service.GetByIdAsync(id, ct);
+        if (item is null)
+            return NotFound();
+
+        await PopulateLookupsAsync(ct);
+        ViewData["Id"] = id;
+        return View(item);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Save({{ primary_key_clr_type }}? id, {{ entity_name }}Response model, CancellationToken ct)
+    {
+        if (id.HasValue)
+        {
+            var update = new Update{{ entity_name }}Request
+            {
+{{ for property in non_key_properties }}
+                {{ property.name }} = model.{{ property.name }}{{ if !for.last }},{{ end }}
+{{ end }}
+            };
+            await service.UpdateAsync(id.Value, update, ct);
+        }
+        else
+        {
+            var create = new Create{{ entity_name }}Request
+            {
+{{ for property in create_properties }}
+                {{ property.name }} = model.{{ property.name }}{{ if !for.last }},{{ end }}
+{{ end }}
+            };
+            await service.CreateAsync(create, ct);
+        }
+
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Delete({{ primary_key_clr_type }} id, CancellationToken ct)
+    {
+        await service.DeleteAsync(id, ct);
+        return RedirectToAction(nameof(Index));
+    }
+
+{{ if has_foreign_keys }}
+    private async Task PopulateLookupsAsync(CancellationToken ct)
+    {
+{{ for fk in foreign_key_properties }}
+        ViewBag.{{ fk.name }}Options = (await {{ fk.service_name }}.GetAllAsync(ct))
+            .Select(x => new SelectListItem(
+                x.{{ fk.display_property }}?.ToString() ?? string.Empty,
+                x.{{ fk.referenced_key_name }}.ToString()))
+            .ToList();
+{{ end }}
+    }
+{{ else }}
+    private static Task PopulateLookupsAsync(CancellationToken _) => Task.CompletedTask;
+{{ end }}
+}

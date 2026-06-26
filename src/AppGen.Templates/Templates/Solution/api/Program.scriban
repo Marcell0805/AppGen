@@ -1,6 +1,8 @@
 using {{ root_namespace }}.Application;
 using {{ root_namespace }}.Persistence;
+using {{ root_namespace }}.Persistence.Contexts;
 using Asp.Versioning;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -20,6 +22,35 @@ builder.Services.AddApiVersioning(options =>
 
 builder.Services.AddApplicationServices();
 builder.Services.AddPersistenceServices(builder.Configuration);
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        if (builder.Environment.IsDevelopment())
+        {
+            policy.SetIsOriginAllowed(_ => true)
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+        }
+        else if ({{ include_mvc_web }})
+        {
+            policy.WithOrigins("https://localhost:5101", "http://localhost:5100")
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+        }
+        else
+        {
+            policy.SetIsOriginAllowed(static origin =>
+            {
+                if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+                    return false;
+                return uri.IsLoopback;
+            })
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+        }
+    });
+});
 
 var app = builder.Build();
 
@@ -28,9 +59,18 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI(options => options.SwaggerEndpoint("/swagger/v1/swagger.json", "{{ app_name }} API v1"));
     app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
+
+    if (app.Configuration.GetValue<bool>("Database:EnsureCreated"))
+    {
+        using var scope = app.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        db.Database.EnsureCreated();
+    }
 }
 
-app.UseHttpsRedirection();
+app.UseCors();
+if (!app.Environment.IsDevelopment())
+    app.UseHttpsRedirection();
 app.UseAuthorization();
-app.MapControllers();
+app.MapControllers().RequireCors();
 app.Run();

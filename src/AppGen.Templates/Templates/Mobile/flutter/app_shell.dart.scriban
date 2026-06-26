@@ -1,0 +1,87 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+
+import 'app_colors.dart';
+
+class AppShell extends StatelessWidget {
+  const AppShell({super.key, required this.child});
+
+  final Widget child;
+
+  static const _destinations = [
+{{ for e in entities }}
+    _NavDestination(path: '/{{ e.entity_snake }}', label: '{{ e.entity_name }}', iconIndex: {{ for.index }}),
+{{ end }}
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final location = GoRouterState.of(context).uri.path;
+    final selectedIndex = _destinations.indexWhere(
+      (d) => location == d.path || location.startsWith('${d.path}/'),
+    );
+    final safeIndex = selectedIndex < 0 ? 0 : selectedIndex;
+    final title = safeIndex < _destinations.length
+        ? _destinations[safeIndex].label
+        : '{{ app_name }}';
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title),
+            Text(
+              '{{ app_name }}',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppColors.textMuted),
+            ),
+          ],
+        ),
+      ),
+      body: child,
+{{ if entities.size > 1 }}
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: safeIndex,
+        onDestinationSelected: (index) => context.go(_destinations[index].path),
+        destinations: [
+{{ for e in entities }}
+          NavigationDestination(
+            icon: Icon(_navIcon({{ for.index }}, selected: false)),
+            selectedIcon: Icon(_navIcon({{ for.index }}, selected: true)),
+            label: '{{ e.entity_name }}',
+          ),
+{{ end }}
+        ],
+      ),
+{{ end }}
+    );
+  }
+}
+
+class _NavDestination {
+  const _NavDestination({required this.path, required this.label, required this.iconIndex});
+
+  final String path;
+  final String label;
+  final int iconIndex;
+}
+
+IconData _navIcon(int index, {required bool selected}) {
+  const icons = <IconData>[
+    Icons.view_list_outlined,
+    Icons.folder_outlined,
+    Icons.inventory_2_outlined,
+    Icons.layers_outlined,
+    Icons.apps_outlined,
+  ];
+  const selectedIcons = <IconData>[
+    Icons.view_list,
+    Icons.folder,
+    Icons.inventory_2,
+    Icons.layers,
+    Icons.apps,
+  ];
+  final i = index % icons.length;
+  return selected ? selectedIcons[i] : icons[i];
+}

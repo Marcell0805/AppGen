@@ -1,0 +1,70 @@
+@page "/{{ entity_plural_lower }}"
+@inject IHttpClientFactory HttpClientFactory
+
+<PageTitle>{{ entity_plural }}</PageTitle>
+
+<h1>{{ entity_plural }}</h1>
+
+@if (!string.IsNullOrEmpty(ErrorMessage))
+{
+    <p class="text-danger">@ErrorMessage</p>
+}
+
+<p>
+    <a href="{{ entity_plural_lower }}/edit">Create new</a>
+</p>
+
+@if (Items is null)
+{
+    <p>Loading…</p>
+}
+else if (Items.Count == 0)
+{
+    <p>No records found.</p>
+}
+else
+{
+    <table class="data-table">
+        <thead>
+            <tr>
+{{ for property in properties }}
+                <th>{{ property.name }}</th>
+{{ end }}
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Items)
+            {
+                <tr>
+{{ for property in properties }}
+                    <td>@item.{{ property.name }}</td>
+{{ end }}
+                    <td>
+                        <a href="{{ entity_plural_lower }}/edit/@item.{{ primary_key_name }}">Edit</a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<{{ entity_name }}Response>? Items { get; set; }
+    private string? ErrorMessage { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var client = HttpClientFactory.CreateClient("Api");
+            var response = await client.GetFromJsonAsync<Response<List<{{ entity_name }}Response>>>("api/v1/{{ entity_plural }}");
+            Items = response?.Data ?? [];
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+            Items = [];
+        }
+    }
+}

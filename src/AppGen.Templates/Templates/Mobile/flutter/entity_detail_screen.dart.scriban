@@ -1,0 +1,96 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../app/app_colors.dart';
+import '../../../core/widgets/app_widgets.dart';
+import '../providers/{{ entity_snake }}_provider.dart';
+import '../services/{{ entity_snake }}_service.dart';
+
+class {{ entity_name }}DetailScreen extends ConsumerWidget {
+  const {{ entity_name }}DetailScreen({super.key, required this.id});
+
+  final {{ key_dart_type }} id;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncItem = ref.watch({{ entity_snake }}DetailProvider(id));
+
+    return asyncItem.when(
+      data: (item) => ListView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        children: [
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+{{ for p in properties }}
+                  _DetailRow(label: '{{ p.label }}', value: item.{{ p.name }}.toString()),
+{{ end }}
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: () => context.push('/{{ entity_snake }}/$id/edit'),
+            icon: const Icon(Icons.edit_outlined),
+            label: const Text('Edit'),
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: () => _confirmDelete(context, ref),
+            icon: const Icon(Icons.delete_outline, color: AppColors.error),
+            label: const Text('Delete', style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+      loading: () => const AppLoadingState(message: 'Loading {{ entity_name }}…'),
+      error: (error, _) => AppErrorState(message: error.toString()),
+    );
+  }
+
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete {{ entity_name }}?'),
+        content: const Text('This cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) return;
+
+    await ref.read({{ entity_snake }}ServiceProvider).delete(id);
+    ref.invalidate({{ entity_snake }}ListProvider);
+    if (context.mounted) context.go('/{{ entity_snake }}');
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  const _DetailRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: AppColors.textMuted)),
+          const SizedBox(height: 4),
+          Text(value, style: Theme.of(context).textTheme.bodyLarge),
+        ],
+      ),
+    );
+  }
+}

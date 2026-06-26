@@ -1,0 +1,11 @@
+<nav class="sidebar-nav">
+    <div class="sidebar-brand">
+        <a href="">{{ app_name }}</a>
+    </div>
+
+    <div class="nav-items">
+        <NavLink class="nav-link" href="" Match="NavLinkMatch.All">Home</NavLink>
+        <!-- <AppGen-NavItems> -->
+        <!-- </AppGen-NavItems> -->
+    </div>
+</nav>

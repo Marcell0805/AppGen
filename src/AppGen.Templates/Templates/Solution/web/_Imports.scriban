@@ -1,0 +1,11 @@
+@using System.Net.Http
+@using System.Net.Http.Json
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Routing
+@using Microsoft.AspNetCore.Components.Web
+@using {{ root_namespace }}.Web
+@using {{ root_namespace }}.Web.Shared
+@using {{ root_namespace }}.Shared.Responses
+@using {{ root_namespace }}.Shared.Requests
+@using {{ root_namespace }}.Shared.Wrappers

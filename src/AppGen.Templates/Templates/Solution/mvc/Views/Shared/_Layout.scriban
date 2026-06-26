@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - {{ app_name }}</title>
+    <link rel="stylesheet" href="~/css/site.css" />
+</head>
+<body>
+    <div class="page">
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <a asp-controller="Home" asp-action="Index">{{ app_name }}</a>
+            </div>
+            <nav class="nav-items">
+                <a class="nav-link" asp-controller="Home" asp-action="Index">Home</a>
+                <!-- <AppGen-NavItems> -->
+                <!-- </AppGen-NavItems> -->
+            </nav>
+        </aside>
+        <main class="content">
+            @RenderBody()
+        </main>
+    </div>
+</body>
+</html>

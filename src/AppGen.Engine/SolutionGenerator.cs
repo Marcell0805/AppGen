@@ -12,8 +12,6 @@ public sealed class SolutionGenerator(TemplateRenderer renderer)
         ("Solution/gitignore.scriban", _ => ".gitignore"),
         ("Solution/api/Program.scriban", s => $"src/{s.ApiProject}/Program.cs"),
         ("Solution/api/csproj.scriban", s => $"src/{s.ApiProject}/{s.ApiProject}.csproj"),
-        ("Solution/api/appsettings.json.scriban", s => $"src/{s.ApiProject}/appsettings.json"),
-        ("Solution/api/appsettings.Development.json.scriban", s => $"src/{s.ApiProject}/appsettings.Development.json"),
         ("Solution/api/Properties/launchSettings.scriban", s => $"src/{s.ApiProject}/Properties/launchSettings.json"),
         ("Solution/api/Controllers/HealthController.scriban", s => $"src/{s.ApiProject}/Controllers/HealthController.cs"),
         ("Solution/application/csproj.scriban", s => $"src/{s.ApplicationProject}/{s.ApplicationProject}.csproj"),
@@ -31,6 +29,23 @@ public sealed class SolutionGenerator(TemplateRenderer renderer)
         ("Solution/appgen.json.scriban", _ => "appgen.json"),
     ];
 
+    private static readonly (string Template, Func<SolutionSpec, string> Output)[] MvcWebFiles =
+    [
+        ("Solution/mvc/csproj.scriban", s => $"src/{s.MvcProject}/{s.MvcProject}.csproj"),
+        ("Solution/mvc/Program.scriban", s => $"src/{s.MvcProject}/Program.cs"),
+        ("Solution/mvc/Properties/launchSettings.scriban", s => $"src/{s.MvcProject}/Properties/launchSettings.json"),
+        ("Solution/mvc/Controllers/HomeController.scriban", s => $"src/{s.MvcProject}/Controllers/HomeController.cs"),
+        ("Solution/mvc/Services/EntityWebServiceBase.scriban", s => $"src/{s.MvcProject}/Services/EntityWebServiceBase.cs"),
+        ("Solution/mvc/Views/_ViewImports.scriban", s => $"src/{s.MvcProject}/Views/_ViewImports.cshtml"),
+        ("Solution/mvc/Views/_ViewStart.scriban", s => $"src/{s.MvcProject}/Views/_ViewStart.cshtml"),
+        ("Solution/mvc/Views/Shared/_Layout.scriban", s => $"src/{s.MvcProject}/Views/Shared/_Layout.cshtml"),
+        ("Solution/mvc/Views/Home/Index.scriban", s => $"src/{s.MvcProject}/Views/Home/Index.cshtml"),
+        ("Solution/mvc/wwwroot/css/site.scriban", s => $"src/{s.MvcProject}/wwwroot/css/site.css"),
+        ("Solution/solution.slnLaunch.scriban", s => $"{s.ApplicationName}.slnLaunch"),
+        ("Solution/vscode/launch.scriban", _ => ".vscode/launch.json"),
+        ("Solution/vscode/tasks.scriban", _ => ".vscode/tasks.json"),
+    ];
+
     public async Task GenerateAsync(SolutionSpec spec, string outputDirectory, CancellationToken ct = default)
     {
         Directory.CreateDirectory(outputDirectory);
@@ -39,26 +54,70 @@ public sealed class SolutionGenerator(TemplateRenderer renderer)
         foreach (var (templatePath, outputPathFunc) in Files)
         {
             ct.ThrowIfCancellationRequested();
-            var content = renderer.Render(TemplateProvider.Load(templatePath), model);
-            var relativePath = outputPathFunc(spec);
-            var fullPath = Path.Combine(outputDirectory, relativePath);
-            Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
-            await File.WriteAllTextAsync(fullPath, content, ct);
+            await WriteTemplateAsync(renderer, templatePath, outputPathFunc(spec), outputDirectory, model, ct);
+        }
+
+        if (spec.UiTargets.HasFlag(UiTarget.MvcWeb))
+        {
+            foreach (var (templatePath, outputPathFunc) in MvcWebFiles)
+            {
+                ct.ThrowIfCancellationRequested();
+                await WriteTemplateAsync(renderer, templatePath, outputPathFunc(spec), outputDirectory, model, ct);
+            }
         }
     }
 
-    internal static object BuildModel(SolutionSpec spec) => new
+    private static async Task WriteTemplateAsync(
+        TemplateRenderer renderer,
+        string templatePath,
+        string relativePath,
+        string outputDirectory,
+        object model,
+        CancellationToken ct)
     {
-        app_name = spec.ApplicationName,
-        root_namespace = spec.RootNamespace,
-        database = spec.Database.ToString(),
-        use_oracle = spec.Database == DatabaseProvider.Oracle,
-        use_sqlserver = spec.Database == DatabaseProvider.SqlServer,
-        oracle_package = "Oracle.EntityFrameworkCore",
-        oracle_version = "8.23.60",
-        sqlserver_package = "Microsoft.EntityFrameworkCore.SqlServer",
-        ef_version = "8.0.11",
-        swagger_version = "6.9.0",
-        versioning_version = "8.1.0",
-    };
+        var content = renderer.Render(TemplateProvider.Load(templatePath), model);
+        var fullPath = Path.Combine(outputDirectory, relativePath);
+        Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+        await File.WriteAllTextAsync(fullPath, content, ct);
+    }
+
+    internal static object BuildModel(SolutionSpec spec)
+    {
+        var uiTargetNames = Enum.GetValues<UiTarget>()
+            .Where(t => t != UiTarget.None && spec.UiTargets.HasFlag(t))
+            .Select(t => t.ToString())
+            .ToList();
+
+        return new
+        {
+            app_name = spec.ApplicationName,
+            root_namespace = spec.RootNamespace,
+            database = spec.Database.ToString(),
+            use_oracle = spec.Database == DatabaseProvider.Oracle,
+            use_sqlserver = spec.Database == DatabaseProvider.SqlServer,
+            use_postgresql = spec.Database == DatabaseProvider.PostgreSql,
+            include_mvc_web = spec.UiTargets.HasFlag(UiTarget.MvcWeb),
+            ui_targets = uiTargetNames,
+            setup = new
+            {
+                active_connection_name = spec.Setup.ActiveConnectionName,
+                ensure_created_in_development = spec.Setup.EnsureCreatedInDevelopment,
+                oracle_schema_prefix = spec.Setup.OracleSchemaPrefix,
+                config_entries = spec.Setup.ConfigEntries.Select(e => new
+                {
+                    name = e.Name,
+                    kind = e.Kind.ToString(),
+                    key = e.Key,
+                    value = e.Value
+                }).ToList()
+            },
+            oracle_package = "Oracle.EntityFrameworkCore",
+            oracle_version = "8.23.60",
+            sqlserver_package = "Microsoft.EntityFrameworkCore.SqlServer",
+            postgresql_package = "Npgsql.EntityFrameworkCore.PostgreSQL",
+            ef_version = "8.0.11",
+            swagger_version = "6.9.0",
+            versioning_version = "8.1.0",
+        };
+    }
 }

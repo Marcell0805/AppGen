@@ -1,0 +1,27 @@
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddRazorPages();
+builder.Services.AddServerSideBlazor();
+builder.Services.AddHttpClient("Api", (sp, client) =>
+{
+    var baseUrl = sp.GetRequiredService<IConfiguration>()["ApiBaseUrl"]
+        ?? "https://localhost:5001";
+    client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
+});
+
+var app = builder.Build();
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Error");
+    app.UseHsts();
+}
+
+app.UseHttpsRedirection();
+app.UseStaticFiles();
+app.UseRouting();
+
+app.MapBlazorHub();
+app.MapFallbackToPage("/_Host");
+
+app.Run();

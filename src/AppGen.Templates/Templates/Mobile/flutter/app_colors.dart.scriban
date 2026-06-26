@@ -1,0 +1,16 @@
+import 'package:flutter/material.dart';
+
+/// AppGen default palette — matches the AppGen wizard (site.css tokens).
+abstract final class AppColors {
+  static const sidebar = Color(0xFF0F172A);
+  static const sidebarAccent = Color(0xFF1E293B);
+  static const accent = Color(0xFF3B82F6);
+  static const accentMuted = Color(0xFF60A5FA);
+  static const surface = Color(0xFFFFFFFF);
+  static const background = Color(0xFFF8FAFC);
+  static const border = Color(0xFFE2E8F0);
+  static const text = Color(0xFF0F172A);
+  static const textMuted = Color(0xFF64748B);
+  static const success = Color(0xFF16A34A);
+  static const error = Color(0xFFDC2626);
+}
