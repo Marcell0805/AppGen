@@ -500,8 +500,14 @@ else
                     spec.Targets?.Documentation.Enabled ?? false,
                     spec.Targets?.Web.Enabled ?? true,
                     spec.Targets?.Mobile.Enabled ?? false,
+                    spec.Targets?.Web.Auth.Enabled ?? false,
+                    spec.Targets?.Mobile.Offline.Enabled ?? false,
+                    spec.Targets?.Mobile.Theme.Preset ?? "appgen",
                     spec.Targets?.Mobile.PackageName,
-                    spec.Targets?.Mobile.ApiBaseUrl));
+                    spec.Targets?.Mobile.ApiBaseUrl,
+                    spec.Project?.Tagline,
+                    spec.Project?.Description,
+                    spec.Targets?.Mobile.Capabilities.Enabled));
             }
             else
             {
@@ -521,8 +527,14 @@ else
                     spec.Targets?.Documentation.Enabled ?? false,
                     spec.Targets?.Web.Enabled ?? true,
                     spec.Targets?.Mobile.Enabled ?? false,
+                    spec.Targets?.Web.Auth.Enabled ?? false,
+                    spec.Targets?.Mobile.Offline.Enabled ?? false,
+                    spec.Targets?.Mobile.Theme.Preset ?? "appgen",
                     spec.Targets?.Mobile.PackageName,
-                    spec.Targets?.Mobile.ApiBaseUrl));
+                    spec.Targets?.Mobile.ApiBaseUrl,
+                    spec.Project?.Tagline,
+                    spec.Project?.Description,
+                    spec.Targets?.Mobile.Capabilities.Enabled));
             }
 
             ApplySharedState();
@@ -678,8 +690,14 @@ else
             current?.EnableDocumentation ?? false,
             current?.EnableWeb ?? true,
             current?.EnableMobile ?? false,
+            current?.EnableWebAuth ?? false,
+            current?.EnableMobileOffline ?? false,
+            current?.MobileThemePreset ?? "appgen",
             current?.MobilePackageName,
-            current?.MobileApiBaseUrl));
+            current?.MobileApiBaseUrl,
+            current?.Tagline,
+            current?.Description,
+            current?.MobileCapabilities));
     }
 
     public void Dispose()

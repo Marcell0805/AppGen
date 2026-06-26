@@ -7,6 +7,7 @@ namespace AppGen.Engine;
 public sealed class FlutterGenerator(TemplateRenderer renderer)
 {
     public const string TargetId = "mobile";
+    private readonly FlutterCapabilityEmitter _capabilityEmitter = new(renderer);
 
     public async Task GenerateAllAsync(
         SolutionSpec spec,
@@ -69,6 +70,8 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
             await WriteTemplateAsync("Mobile/flutter/entity_form_screen.dart.scriban", flutterRoot, $"lib/features/{entitySnake}/screens/{entitySnake}_form_screen.dart", model, ct);
         }
 
+        await _capabilityEmitter.EmitAsync(spec, flutterRoot, firstModel, ct);
+
         var legacyTargets = SpecNormalizer.BuildTargetsFromLegacy(spec);
         var mobileTarget = new MobileTargetSpec
         {
@@ -78,7 +81,8 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
             ApiBaseUrl = mobile.ApiBaseUrl,
             StateManagement = mobile.StateManagement,
             Theme = mobile.Theme,
-            Offline = mobile.Offline
+            Offline = mobile.Offline,
+            Capabilities = spec.Targets?.Mobile.Capabilities ?? mobile.Capabilities
         };
 
         var updated = new SolutionSpec
@@ -163,6 +167,7 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
             theme_error = theme.Error,
             auth_enabled = TargetFlags.AuthEnabled(spec),
             offline_enabled = TargetFlags.OfflineEnabled(spec),
+            capability_packages = BuildCapabilityPackages(spec),
             entities = entities.Select((e, index) =>
             {
                 var keyProp = e.Properties.FirstOrDefault(p => p.IsKey);
@@ -226,6 +231,7 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
             theme_error = theme.Error,
             auth_enabled = TargetFlags.AuthEnabled(spec),
             offline_enabled = TargetFlags.OfflineEnabled(spec),
+            capability_packages = BuildCapabilityPackages(spec),
             entity_name = entity.Name,
             entity_snake = entitySnake,
             entity_description = ResolveEntityDescription(spec, entity.Name),
@@ -240,6 +246,11 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
             properties = dartProps
         };
     }
+
+    private static List<object> BuildCapabilityPackages(SolutionSpec spec) =>
+        FlutterCapabilityEmitter.MergePackages(MobileCapabilityResolver.Resolve(spec))
+            .Select(p => (object)new { name = p.Name, version = p.Version })
+            .ToList();
 
     internal static string ToDartType(string clrType) => clrType.Trim() switch
     {
@@ -344,6 +355,9 @@ public sealed class MobileApplicationGenerator(FlutterGenerator flutterGenerator
                 projectDirectory,
                 ct);
 
+            var capabilities = MobileCapabilityResolver.Resolve(normalized);
+            var patch = await FlutterPlatformConfigPatcher.PatchAsync(flutterRoot, capabilities, ct);
+
             var names = string.Join(", ", entities.Select(e => e.Name));
             var message = entities.Count == 1
                 ? $"Flutter CRUD generated for entity '{entities[0].Name}'."
@@ -351,6 +365,9 @@ public sealed class MobileApplicationGenerator(FlutterGenerator flutterGenerator
 
             if (!string.IsNullOrWhiteSpace(scaffold.Message))
                 message += " " + scaffold.Message;
+
+            if (!string.IsNullOrWhiteSpace(patch.Message))
+                message += " " + patch.Message;
 
             return GeneratorTargetResult.Ok(flutterRoot, message);
         }

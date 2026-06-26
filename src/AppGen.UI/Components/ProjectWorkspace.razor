@@ -1,4 +1,5 @@
 @using AppGen.Core
+@using AppGen.Core.Capabilities
 @using AppGen.Core.Models
 @using AppGen.Engine
 @using AppGen.UI.Models
@@ -72,6 +73,36 @@
                 <option value="cookbook">Cookbook-style</option>
             </select>
         </div>
+        <fieldset class="layer-sub capabilities-panel">
+            <legend>Capabilities</legend>
+            <p class="hint">Describe what the app should do — AppGen adds packages, permissions, and services.</p>
+            @foreach (var category in MobileCapabilityCatalog.Categories)
+            {
+                <div class="capability-category">
+                    <strong>@category</strong>
+                    @foreach (var cap in MobileCapabilityCatalog.GetByCategory(category)
+                        .Where(c => c.Id is not (
+                            MobileCapabilityId.OfflineCache
+                            or MobileCapabilityId.SecureStorage
+                            or MobileCapabilityId.JwtAuth
+                            or MobileCapabilityId.Internet)))
+                    {
+                        var locked = IsCapabilityLocked(cap.Id);
+                        <label class="checkbox-row" title="@(cap.IsImplemented ? cap.Description : "Coming soon")">
+                            <input type="checkbox"
+                                   checked="@IsCapabilityEnabled(cap.Id)"
+                                   disabled="@(!cap.IsImplemented || locked)"
+                                   @onchange="e => ToggleCapability(cap.Id, e.Value is true)" />
+                            @cap.DisplayName
+                            @if (!cap.IsImplemented)
+                            {
+                                <span class="hint"> (soon)</span>
+                            }
+                        </label>
+                    }
+                </div>
+            }
+        </fieldset>
     }
 </fieldset>
 
@@ -126,6 +157,7 @@
     private List<ConfigEntryRow> ConfigEntries { get; } = [new ConfigEntryRow { Name = "Dev", Kind = ConfigEntryKind.ConnectionString, Value = NamingHelper.DefaultDevConnection(DatabaseProvider.SqlServer).Value }];
     private string MobilePackageName { get; set; } = string.Empty;
     private string MobileApiBaseUrl { get; set; } = "http://localhost:5000";
+    private readonly HashSet<string> MobileCapabilities = new(StringComparer.OrdinalIgnoreCase);
 
     private List<EntityDraft> Entities { get; } = [];
     private EntityDraft? SelectedEntity { get; set; }
@@ -203,6 +235,12 @@
             MobileThemePreset = spec.Targets?.Mobile.Theme.Preset ?? "appgen";
             MobilePackageName = spec.Targets?.Mobile.PackageName ?? string.Empty;
             MobileApiBaseUrl = spec.Targets?.Mobile.ApiBaseUrl ?? "http://localhost:5000";
+            MobileCapabilities.Clear();
+            foreach (var id in spec.Targets?.Mobile.Capabilities.Enabled ?? [])
+            {
+                if (!string.IsNullOrWhiteSpace(id))
+                    MobileCapabilities.Add(id.Trim());
+            }
 
             ConfigEntries.Clear();
             foreach (var entry in spec.Setup.ConfigEntries)
@@ -328,6 +366,9 @@
         MobileThemePreset = draft.MobileThemePreset;
         MobilePackageName = draft.MobilePackageName;
         MobileApiBaseUrl = draft.MobileApiBaseUrl;
+        MobileCapabilities.Clear();
+        foreach (var id in draft.MobileCapabilities)
+            MobileCapabilities.Add(id);
         ActiveConnectionName = draft.ActiveConnectionName;
         OracleSchemaPrefix = draft.OracleSchemaPrefix;
         EnsureCreatedInDevelopment = draft.EnsureCreatedInDevelopment;
@@ -391,7 +432,26 @@
         string.IsNullOrWhiteSpace(MobilePackageName) ? null : MobilePackageName,
         MobileApiBaseUrl,
         Tagline,
-        Description);
+        Description,
+        MobileCapabilities.ToList());
+
+    private bool IsCapabilityEnabled(string id) =>
+        MobileCapabilities.Contains(id)
+        || (id == MobileCapabilityId.OfflineCache && EnableMobileOffline)
+        || (id == MobileCapabilityId.JwtAuth && EnableWebAuth)
+        || (id == MobileCapabilityId.SecureStorage && EnableWebAuth);
+
+    private bool IsCapabilityLocked(string id) =>
+        id is MobileCapabilityId.OfflineCache or MobileCapabilityId.JwtAuth or MobileCapabilityId.SecureStorage;
+
+    private void ToggleCapability(string id, bool enabled)
+    {
+        if (enabled)
+            MobileCapabilities.Add(id);
+        else
+            MobileCapabilities.Remove(id);
+        SyncState();
+    }
 
     public void SyncState()
     {
@@ -411,6 +471,7 @@
         {
             EnableMobileOffline = false;
             MobileThemePreset = "appgen";
+            MobileCapabilities.Clear();
         }
         SyncState();
     }

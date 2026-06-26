@@ -26,6 +26,11 @@ public sealed class WebAuthTargetSpec
     public int TokenLifetimeMinutes { get; init; } = 60;
 }
 
+public sealed class MobileCapabilitiesSpec
+{
+    public List<string> Enabled { get; init; } = [];
+}
+
 public sealed class MobileTargetSpec
 {
     public bool Enabled { get; init; }
@@ -35,6 +40,7 @@ public sealed class MobileTargetSpec
     public string StateManagement { get; init; } = "riverpod";
     public MobileThemeSpec Theme { get; init; } = new();
     public MobileOfflineTargetSpec Offline { get; init; } = new();
+    public MobileCapabilitiesSpec Capabilities { get; init; } = new();
 }
 
 public sealed class MobileOfflineTargetSpec

@@ -1,3 +1,4 @@
+using AppGen.Core.Capabilities;
 using AppGen.Core.Models;
 
 namespace AppGen.Engine;
@@ -12,4 +13,7 @@ public static class TargetFlags
 
     public static bool MobileEnabled(SolutionSpec spec) =>
         spec.Targets?.Mobile.Enabled == true;
+
+    public static bool HasCapability(SolutionSpec spec, string capabilityId) =>
+        MobileCapabilityResolver.Has(spec, capabilityId);
 }

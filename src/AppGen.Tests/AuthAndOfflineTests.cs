@@ -37,7 +37,7 @@ public class AuthAndOfflineTests
 
             await ProjectSpecWriter.WriteAsync(spec, tempRoot);
             var loaded = await SpecLoader.LoadAsync(tempRoot);
-            Assert.Equal(7, loaded.SchemaVersion);
+            Assert.Equal(8, loaded.SchemaVersion);
             Assert.True(loaded.Targets!.Web.Auth.Enabled);
             Assert.Equal(90, loaded.Targets.Web.Auth.TokenLifetimeMinutes);
             Assert.True(loaded.Targets.Mobile.Offline.Enabled);

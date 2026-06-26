@@ -1,5 +1,6 @@
 using System.Text;
 using AppGen.Core;
+using AppGen.Core.Capabilities;
 using AppGen.Core.Models;
 
 namespace AppGen.Engine;
@@ -206,6 +207,29 @@ public static class ReadmeGenerator
             sb.AppendLine("- SQLite cache stores entity list responses for offline reading.");
             sb.AppendLine("- Does not require login when Web auth is disabled.");
         }
+
+        var capabilities = MobileCapabilityResolver.Resolve(spec)
+            .Where(c => c.IsImplemented && c.Id is not (
+                MobileCapabilityId.OfflineCache
+                or MobileCapabilityId.SecureStorage
+                or MobileCapabilityId.JwtAuth))
+            .ToList();
+        if (capabilities.Count > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine("## Capabilities");
+            sb.AppendLine();
+            foreach (var cap in capabilities)
+                sb.AppendLine($"- **{cap.DisplayName}** (`{cap.Id}`) — see `lib/core/services/`");
+            sb.AppendLine();
+            sb.AppendLine("Platform permissions are merged into Android/iOS project files when Flutter platforms are scaffolded.");
+            if (capabilities.Any(c => c.Id == MobileCapabilityId.Maps))
+            {
+                sb.AppendLine();
+                sb.AppendLine("**Maps:** configure a Google Maps API key in `android/app/src/main/AndroidManifest.xml` and iOS `AppDelegate` per [google_maps_flutter](https://pub.dev/packages/google_maps_flutter) docs.");
+            }
+        }
+
         sb.AppendLine();
         sb.AppendLine("## Troubleshooting");
         sb.AppendLine();

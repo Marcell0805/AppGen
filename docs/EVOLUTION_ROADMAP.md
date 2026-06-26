@@ -40,6 +40,8 @@ Web, Mobile, and **Project** tabs share entity definitions via `WizardStateServi
 
 **Phase 4 (done):** JWT auth scaffold (Web toggle + mobile login), optional SQLite offline cache (independent Mobile toggle), generated API/MVC xUnit integration tests with EF InMemory.
 
+**Phase 5 (done):** Mobile **Capabilities** system — schema v8, full capability catalog (connectivity, location, media, device, intelligence), Flutter services/packages/permissions generation.
+
 ---
 
 ## Overall assessment

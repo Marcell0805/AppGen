@@ -1,5 +1,6 @@
 @page "/mobile"
 @using AppGen.Core
+@using AppGen.Core.Capabilities
 @using AppGen.Core.Models
 @using AppGen.Engine
 @using AppGen.UI.Models
@@ -71,6 +72,10 @@
             </div>
         </div>
         <p class="hint">State management: Riverpod (POC). Architecture: feature folders with Dio HTTP client. Generate creates list screens and routes for all selected entities.</p>
+        @if (EnabledCapabilityLabels.Count > 0)
+        {
+            <p class="hint"><strong>Capabilities (from Project tab):</strong> @string.Join(", ", EnabledCapabilityLabels)</p>
+        }
     </fieldset>
 
     <div class="actions">
@@ -113,6 +118,38 @@
     private string StatusMessage { get; set; } = string.Empty;
     private bool IsSuccess { get; set; }
     private string? OutputDirectory { get; set; }
+
+    private IReadOnlyList<string> EnabledCapabilityLabels
+    {
+        get
+        {
+            if (WizardState.Current is not { } draft)
+                return [];
+
+            var spec = new SolutionSpec
+            {
+                ApplicationName = draft.ApplicationName,
+                RootNamespace = draft.RootNamespace ?? draft.ApplicationName,
+                Targets = new ApplicationTargets
+                {
+                    Web = new WebTargetSpec { Auth = new WebAuthTargetSpec { Enabled = draft.EnableWebAuth } },
+                    Mobile = new MobileTargetSpec
+                    {
+                        Offline = new MobileOfflineTargetSpec { Enabled = draft.EnableMobileOffline },
+                        Capabilities = new MobileCapabilitiesSpec { Enabled = draft.MobileCapabilities.ToList() }
+                    }
+                }
+            };
+
+            return MobileCapabilityResolver.Resolve(spec)
+                .Where(c => c.IsImplemented && c.Id is not (
+                    MobileCapabilityId.OfflineCache
+                    or MobileCapabilityId.SecureStorage
+                    or MobileCapabilityId.JwtAuth))
+                .Select(c => c.DisplayName)
+                .ToList();
+        }
+    }
 
     private bool CanGenerate =>
         !IsWorking &&
@@ -187,8 +224,14 @@
             draft.EnableDocumentation,
             draft.EnableWeb,
             draft.EnableMobile,
+            draft.EnableWebAuth,
+            draft.EnableMobileOffline,
+            draft.MobileThemePreset,
             PackageName,
-            ApiBaseUrl));
+            ApiBaseUrl,
+            draft.Tagline,
+            draft.Description,
+            draft.MobileCapabilities));
     }
 
     private void SelectAllEntities()
@@ -392,8 +435,14 @@
             spec.Targets?.Documentation.Enabled ?? false,
             spec.Targets?.Web.Enabled ?? true,
             spec.Targets?.Mobile.Enabled ?? false,
+            spec.Targets?.Web.Auth.Enabled ?? false,
+            spec.Targets?.Mobile.Offline.Enabled ?? false,
+            spec.Targets?.Mobile.Theme.Preset ?? "appgen",
             PackageName,
-            ApiBaseUrl));
+            ApiBaseUrl,
+            spec.Project?.Tagline,
+            spec.Project?.Description,
+            spec.Targets?.Mobile.Capabilities.Enabled));
     }
 
     public void Dispose()

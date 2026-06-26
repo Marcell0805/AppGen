@@ -4,7 +4,7 @@ namespace AppGen.Core.Models;
 
 public sealed class SolutionSpec
 {
-    public const int CurrentSchemaVersion = 7;
+    public const int CurrentSchemaVersion = 8;
 
     public int SchemaVersion { get; init; } = CurrentSchemaVersion;
     public required string ApplicationName { get; init; }
