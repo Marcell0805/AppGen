@@ -20,12 +20,13 @@ public static class FlutterPlatformScaffolder
         string? androidOrg = null,
         string? appDisplayName = null,
         string? projectRootDirectory = null,
+        bool preferAndroidLaunch = false,
         CancellationToken ct = default)
     {
         if (!Directory.Exists(flutterProjectDirectory))
             return FlutterScaffoldResult.Skipped("Flutter project folder was not created.");
 
-        WriteVsCodeConfig(flutterProjectDirectory, appDisplayName ?? projectName, projectRootDirectory);
+        WriteVsCodeConfig(flutterProjectDirectory, appDisplayName ?? projectName, projectRootDirectory, preferAndroidLaunch);
 
         var flutter = ResolveFlutterExecutable();
         if (flutter is null)
@@ -77,9 +78,10 @@ public static class FlutterPlatformScaffolder
     internal static void WriteVsCodeConfig(
         string flutterProjectDirectory,
         string appDisplayName,
-        string? projectRootDirectory = null)
+        string? projectRootDirectory = null,
+        bool preferAndroidLaunch = false)
     {
-        var model = new { app_name = appDisplayName };
+        var model = new { app_name = appDisplayName, prefer_android_launch = preferAndroidLaunch };
         var renderer = new TemplateRenderer();
         var extensions = renderer.Render(TemplateProvider.Load("Mobile/flutter/vscode-extensions.json.scriban"), model);
 
@@ -101,14 +103,38 @@ public static class FlutterPlatformScaffolder
 
     internal static string? ResolveFlutterExecutable()
     {
-        foreach (var candidate in new[] { "flutter", "flutter.bat" })
+        var candidates = OperatingSystem.IsWindows()
+            ? new[] { "flutter.bat", "flutter.cmd", "flutter" }
+            : new[] { "flutter" };
+
+        foreach (var candidate in candidates)
         {
             var path = FindOnPath(candidate);
             if (path is not null)
-                return path;
+                return NormalizeFlutterExecutable(path);
         }
 
         return null;
+    }
+
+    private static string NormalizeFlutterExecutable(string path)
+    {
+        if (!OperatingSystem.IsWindows())
+            return path;
+
+        if (path.EndsWith(".bat", StringComparison.OrdinalIgnoreCase) ||
+            path.EndsWith(".cmd", StringComparison.OrdinalIgnoreCase))
+            return path;
+
+        var bat = path + ".bat";
+        if (File.Exists(bat))
+            return bat;
+
+        var cmd = path + ".cmd";
+        if (File.Exists(cmd))
+            return cmd;
+
+        return path;
     }
 
     private static string? FindOnPath(string fileName)

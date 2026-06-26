@@ -78,6 +78,20 @@ public class MobileCapabilitiesTests
     }
 
     [Fact]
+    public void RequiresNativePlatform_is_true_when_camera_enabled()
+    {
+        var spec = BuildSpec([MobileCapabilityId.Camera]);
+        Assert.True(MobileCapabilityResolver.RequiresNativePlatform(spec));
+    }
+
+    [Fact]
+    public void RequiresNativePlatform_is_false_for_clipboard_only()
+    {
+        var spec = BuildSpec([MobileCapabilityId.Clipboard]);
+        Assert.False(MobileCapabilityResolver.RequiresNativePlatform(spec));
+    }
+
+    [Fact]
     public async Task Flutter_generate_with_camera_emits_service_and_pubspec()
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), "AppGenTests", Guid.NewGuid().ToString("N"));
@@ -95,7 +109,7 @@ public class MobileCapabilitiesTests
 
             Assert.True(result.Success, result.Message);
 
-            var flutterRoot = Path.Combine(outputDir, "mobile", "flutter");
+            var flutterRoot = FlutterProjectPaths.GetFlutterRoot(outputDir);
             var service = Path.Combine(flutterRoot, "lib", "core", "services", "camera_service.dart");
             Assert.True(File.Exists(service));
             Assert.Contains("class CameraService", await File.ReadAllTextAsync(service));
@@ -152,11 +166,11 @@ public class MobileCapabilitiesTests
 
             Assert.True(result.Success, result.Message);
 
-            var servicesDir = Path.Combine(outputDir, "mobile", "flutter", "lib", "core", "services");
+            var servicesDir = Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "lib", "core", "services");
             Assert.True(File.Exists(Path.Combine(servicesDir, "gallery_service.dart")));
             Assert.True(File.Exists(Path.Combine(servicesDir, "maps_service.dart")));
 
-            var pubspec = await File.ReadAllTextAsync(Path.Combine(outputDir, "mobile", "flutter", "pubspec.yaml"));
+            var pubspec = await File.ReadAllTextAsync(Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "pubspec.yaml"));
             Assert.Contains("google_maps_flutter:", pubspec);
         }
         finally
@@ -164,6 +178,47 @@ public class MobileCapabilitiesTests
             if (Directory.Exists(tempRoot))
                 Directory.Delete(tempRoot, recursive: true);
         }
+    }
+
+    [Fact]
+    public void Catalog_marks_native_hardware_capabilities()
+    {
+        Assert.True(MobileCapabilityCatalog.TryGet(MobileCapabilityId.Nfc)!.RequiresNativePlatform);
+        Assert.True(MobileCapabilityCatalog.TryGet(MobileCapabilityId.Camera)!.RequiresNativePlatform);
+        Assert.False(MobileCapabilityCatalog.TryGet(MobileCapabilityId.Clipboard)!.RequiresNativePlatform);
+        Assert.False(MobileCapabilityCatalog.TryGet(MobileCapabilityId.Share)!.RequiresNativePlatform);
+    }
+
+    [Fact]
+    public void Platform_matrix_marks_cross_platform_capabilities_on_chrome()
+    {
+        var clipboard = MobileCapabilityCatalog.TryGet(MobileCapabilityId.Clipboard)!;
+
+        Assert.True(MobileCapabilityPlatforms.IsSupported(clipboard, MobileRunPlatform.Android));
+        Assert.True(MobileCapabilityPlatforms.IsSupported(clipboard, MobileRunPlatform.Chrome));
+        Assert.True(MobileCapabilityPlatforms.IsSupported(clipboard, MobileRunPlatform.Mac));
+        Assert.True(MobileCapabilityPlatforms.IsSupported(clipboard, MobileRunPlatform.IPhone));
+    }
+
+    [Fact]
+    public void Platform_matrix_marks_native_hardware_android_and_iphone()
+    {
+        var bluetooth = MobileCapabilityCatalog.TryGet(MobileCapabilityId.Bluetooth)!;
+
+        Assert.True(MobileCapabilityPlatforms.IsSupported(bluetooth, MobileRunPlatform.Android));
+        Assert.False(MobileCapabilityPlatforms.IsSupported(bluetooth, MobileRunPlatform.Chrome));
+        Assert.False(MobileCapabilityPlatforms.IsSupported(bluetooth, MobileRunPlatform.Mac));
+        Assert.True(MobileCapabilityPlatforms.IsSupported(bluetooth, MobileRunPlatform.IPhone));
+    }
+
+    [Fact]
+    public void Platform_matrix_marks_nfc_android_only()
+    {
+        var nfc = MobileCapabilityCatalog.TryGet(MobileCapabilityId.Nfc)!;
+
+        Assert.True(MobileCapabilityPlatforms.IsSupported(nfc, MobileRunPlatform.Android));
+        Assert.False(MobileCapabilityPlatforms.IsSupported(nfc, MobileRunPlatform.Chrome));
+        Assert.False(MobileCapabilityPlatforms.IsSupported(nfc, MobileRunPlatform.IPhone));
     }
 
     [Fact]

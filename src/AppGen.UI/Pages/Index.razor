@@ -41,12 +41,6 @@ else
         <p class="hint">Edit on the <a href="project">Project</a> tab. Web output: <code>{AppName} Web</code></p>
     </fieldset>
 
-    <ConfigSettingsPanel Database="Database"
-                         ConfigEntries="ConfigEntries"
-                         @bind-ActiveConnectionName="ActiveConnectionName"
-                         @bind-OracleSchemaPrefix="OracleSchemaPrefix"
-                         @bind-EnsureCreatedInDevelopment="EnsureCreatedInDevelopment" />
-
     <fieldset class="panel">
         <legend>Database</legend>
         <div class="form-grid">
@@ -58,6 +52,12 @@ else
             </select>
         </div>
     </fieldset>
+
+    <ConfigSettingsPanel Database="Database"
+                         ConfigEntries="ConfigEntries"
+                         @bind-ActiveConnectionName="ActiveConnectionName"
+                         @bind-OracleSchemaPrefix="OracleSchemaPrefix"
+                         @bind-EnsureCreatedInDevelopment="EnsureCreatedInDevelopment" />
 
     <fieldset class="panel">
         <legend>Client UI (optional)</legend>

@@ -19,8 +19,15 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
         if (entities.Count == 0)
             throw new ArgumentException("At least one entity is required.", nameof(entities));
 
-        var flutterRoot = Path.Combine(projectDirectory, "mobile", "flutter");
+        var flutterRoot = FlutterProjectPaths.GetFlutterRoot(projectDirectory);
         Directory.CreateDirectory(flutterRoot);
+
+        var activeEntitySnakes = entities.Select(e => ToSnakeCase(e.Name)).ToList();
+        FlutterGeneratedOutputPruner.Prune(
+            flutterRoot,
+            activeEntitySnakes,
+            TargetFlags.AuthEnabled(spec),
+            TargetFlags.OfflineEnabled(spec));
 
         var firstEntity = entities[0];
         var appModel = BuildAppModel(spec, mobile, entities);
@@ -345,23 +352,26 @@ public sealed class MobileApplicationGenerator(FlutterGenerator flutterGenerator
         {
             await flutterGenerator.GenerateAllAsync(normalized, entities, projectDirectory, mobile, ct);
 
-            var flutterRoot = Path.Combine(projectDirectory, "mobile", "flutter");
+            var flutterRoot = FlutterProjectPaths.GetFlutterRoot(projectDirectory);
             var projectName = normalized.ApplicationName.ToLowerInvariant().Replace("_", "", StringComparison.Ordinal);
+            var preferAndroidLaunch = MobileCapabilityResolver.RequiresNativePlatform(normalized);
             var scaffold = await FlutterPlatformScaffolder.ScaffoldAsync(
                 flutterRoot,
                 projectName,
                 FlutterPlatformScaffolder.ResolveAndroidOrg(mobile.PackageName),
                 normalized.ApplicationName,
                 projectDirectory,
+                preferAndroidLaunch,
                 ct);
 
             var capabilities = MobileCapabilityResolver.Resolve(normalized);
             var patch = await FlutterPlatformConfigPatcher.PatchAsync(flutterRoot, capabilities, ct);
 
             var names = string.Join(", ", entities.Select(e => e.Name));
+            var prefix = options.Force ? "Regenerated" : "Generated";
             var message = entities.Count == 1
-                ? $"Flutter CRUD generated for entity '{entities[0].Name}'."
-                : $"Flutter CRUD generated for {entities.Count} entities: {names}.";
+                ? $"{prefix} Flutter CRUD for entity '{entities[0].Name}'."
+                : $"{prefix} Flutter CRUD for {entities.Count} entities: {names}.";
 
             if (!string.IsNullOrWhiteSpace(scaffold.Message))
                 message += " " + scaffold.Message;

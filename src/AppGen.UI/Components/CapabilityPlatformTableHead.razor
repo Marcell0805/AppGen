@@ -1,0 +1,12 @@
+@using AppGen.Core.Capabilities
+
+<colgroup>
+    <col class="cap-name-col" />
+    @foreach (var _ in MobileCapabilityPlatforms.DisplayOrder)
+    {
+        <col class="platform-mark-col" />
+    }
+</colgroup>
+<thead>
+    <CapabilityPlatformMatrixHeader />
+</thead>

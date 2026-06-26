@@ -178,6 +178,16 @@ public sealed class ProjectGenerationService(
             await manifestSave.SaveAsync(spec, mobileDir, ct);
 
             var loaded = await SpecLoader.LoadAsync(mobileDir, ct);
+            loaded = MobileTargetMerger.ApplyWizardMobileSettings(loaded, new MobileTargetSpec
+            {
+                Enabled = true,
+                PackageName = draft.MobilePackageName,
+                ApiBaseUrl = draft.MobileApiBaseUrl,
+                Theme = new MobileThemeSpec { Preset = draft.MobileThemePreset },
+                Offline = new MobileOfflineTargetSpec { Enabled = draft.EnableMobileOffline },
+                Capabilities = new MobileCapabilitiesSpec { Enabled = draft.MobileCapabilities.ToList() }
+            });
+
             var packageName = string.IsNullOrWhiteSpace(draft.MobilePackageName)
                 ? $"com.{loaded.ApplicationName.ToLowerInvariant()}.app"
                 : draft.MobilePackageName.Trim();
@@ -189,6 +199,7 @@ public sealed class ProjectGenerationService(
                 entityNames,
                 packageName,
                 draft.MobileApiBaseUrl,
+                forceRegenerate: forceOverwrite,
                 ct);
 
             messages.Add(mobileResult.Success

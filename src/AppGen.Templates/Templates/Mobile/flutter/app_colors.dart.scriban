@@ -1,5 +1,3 @@
-import 'package:flutter/material.dart';
-
 import 'app_theme_config.dart';
 
 /// Semantic color aliases — edit [AppThemeConfig] to retheme the app.

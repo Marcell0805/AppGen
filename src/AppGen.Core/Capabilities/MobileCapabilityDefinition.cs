@@ -13,6 +13,8 @@ public sealed class MobileCapabilityDefinition
     public IReadOnlyList<string> IosPlistKeys { get; init; } = [];
     public string? ServiceTemplate { get; init; }
     public string? ServiceFileName { get; init; }
+    /// <summary>True when the capability pulls in dart:ffi / dart:io plugins that cannot compile for web.</summary>
+    public bool RequiresNativePlatform { get; init; }
 
     public sealed class PubspecPackage
     {

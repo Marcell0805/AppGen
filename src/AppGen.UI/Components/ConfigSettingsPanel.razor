@@ -4,7 +4,7 @@
 <fieldset class="panel">
     <legend>Configuration</legend>
 
-    <div class="form-grid">
+    <div class="form-grid config-connection-grid">
         <label>Active connection (Development)</label>
         <select @bind="ActiveConnectionName">
             @foreach (var name in ConnectionNames)
@@ -18,16 +18,17 @@
             <label>Oracle schema prefix</label>
             <input @bind="OracleSchemaPrefix" placeholder="SE → tables like SE.SE_LOT" />
         }
-
-        <label class="checkbox-row">
-            <input type="checkbox" @bind="EnsureCreatedInDevelopment" />
-            EnsureCreated in Development (creates tables on API startup)
-        </label>
     </div>
 
-    <div class="property-grid-header" style="margin-top: 1rem;">
-        <strong>Settings</strong> — connection strings and app settings
-    </div>
+    <label class="checkbox-row config-checkbox-row">
+        <input type="checkbox" @bind="EnsureCreatedInDevelopment" />
+        <span>EnsureCreated in Development (creates tables on API startup)</span>
+    </label>
+
+    <div class="config-settings-section">
+        <div class="property-grid-header">
+            <strong>Settings</strong> — connection strings and app settings
+        </div>
 
     <QuickGrid TGridItem="ConfigEntryRow" Items="@ConfigEntries.AsQueryable()" Class="property-grid">
         <TemplateColumn Title="Name">
@@ -55,6 +56,7 @@
     </QuickGrid>
 
     <button type="button" class="btn btn-sm btn-secondary add-property-btn" @onclick="AddRow">+ Add setting</button>
+    </div>
 
     @if (Database == DatabaseProvider.Oracle)
     {

@@ -25,4 +25,13 @@ internal static class SqlScriptHelpers
             ? null
             : spec.Entities.FirstOrDefault(e =>
                 e.Name.Equals(property.ForeignKeyEntity, StringComparison.OrdinalIgnoreCase));
+
+    public static bool IsAutoIncrementKey(IReadOnlyList<PropertySpec> properties, PropertySpec property)
+    {
+        if (!property.IsKey)
+            return false;
+
+        var keys = properties.Where(p => p.IsKey).ToList();
+        return keys.Count == 1 && property.ClrType is "int" or "long";
+    }
 }

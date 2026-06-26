@@ -141,6 +141,8 @@ public sealed class EntityGenerator(TemplateRenderer renderer)
             app_name = spec.ApplicationName,
             root_namespace = spec.RootNamespace,
             use_oracle = spec.Database == DatabaseProvider.Oracle,
+            use_postgresql = spec.Database == DatabaseProvider.PostgreSql,
+            use_sqlserver = spec.Database == DatabaseProvider.SqlServer,
             oracle_schema = oracleSchema,
             oracle_table_name_only = oracleTableOnly,
             entity_name = entity.Name,

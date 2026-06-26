@@ -88,7 +88,7 @@ src/
 
 | Command | Description |
 |---------|-------------|
-| `appgen mobile create --project <path> [--entity Product]` | Generate Flutter POC under `mobile/flutter/` |
+| `appgen mobile create --project <path> [--entity Product]` | Generate Flutter POC in `{AppName} Mobile/` |
 | `appgen portal create <Name> --output <path> [--preset engineering-portal]` | Scaffold static portal + appgen.json manifest |
 | `appgen portal import --project <path>` | Merge portal/data edits into appgen.json |
 | `appgen promote --project <path> [--force]` | Generate API solution from manifest |

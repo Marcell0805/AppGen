@@ -1,0 +1,9 @@
+@using AppGen.Core.Capabilities
+
+<tr>
+    <th class="cap-name-col">Capability</th>
+    @foreach (var platform in MobileCapabilityPlatforms.DisplayOrder)
+    {
+        <th class="platform-mark-col">@MobileCapabilityPlatforms.GetDisplayName(platform)</th>
+    }
+</tr>

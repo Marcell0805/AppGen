@@ -24,7 +24,7 @@ public class MobileUiShellTests
 
             Assert.True(result.Success, result.Message);
 
-            var flutterRoot = Path.Combine(outputDir, "mobile", "flutter", "lib");
+            var flutterRoot = Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "lib");
             Assert.True(File.Exists(Path.Combine(flutterRoot, "app", "app_drawer.dart")));
             Assert.True(File.Exists(Path.Combine(flutterRoot, "app", "app_theme_config.dart")));
             Assert.True(File.Exists(Path.Combine(flutterRoot, "core", "widgets", "app_page_header.dart")));
@@ -103,14 +103,14 @@ public class MobileUiShellTests
             Assert.True(result.Success, result.Message);
 
             var themeConfig = await File.ReadAllTextAsync(
-                Path.Combine(outputDir, "mobile", "flutter", "lib", "app", "app_theme_config.dart"));
+                Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "lib", "app", "app_theme_config.dart"));
             Assert.Contains("preset = 'portal'", themeConfig);
             Assert.Contains("0xFF1B3A5C", themeConfig);
             Assert.Contains("0xFF2E75B6", themeConfig);
             Assert.Contains("0xFFE8F1F8", themeConfig);
 
             var drawer = await File.ReadAllTextAsync(
-                Path.Combine(outputDir, "mobile", "flutter", "lib", "app", "app_drawer.dart"));
+                Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "lib", "app", "app_drawer.dart"));
             Assert.Contains("Industrial intelligence", drawer);
         }
         finally
@@ -139,7 +139,7 @@ public class MobileUiShellTests
             Assert.True(result.Success, result.Message);
 
             var listScreen = await File.ReadAllTextAsync(
-                Path.Combine(outputDir, "mobile", "flutter", "lib", "features", "widget", "screens", "widget_list_screen.dart"));
+                Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "lib", "features", "widget", "screens", "widget_list_screen.dart"));
 
             Assert.Contains("AppPageHeader", listScreen);
             Assert.DoesNotContain("Scaffold(", listScreen);

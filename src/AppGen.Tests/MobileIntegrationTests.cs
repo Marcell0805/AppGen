@@ -55,20 +55,20 @@ public class MobileIntegrationTests
       var result = await generator.GenerateAsync(spec, outputDir, new GeneratorOptions());
 
       Assert.True(result.Success, result.Message);
-      Assert.True(File.Exists(Path.Combine(outputDir, "mobile", "flutter", "lib", "features", "widget", "models", "widget_model.dart")));
-      Assert.True(File.Exists(Path.Combine(outputDir, "mobile", "flutter", "lib", "features", "gadget", "models", "gadget_model.dart")));
-      Assert.True(File.Exists(Path.Combine(outputDir, "mobile", "flutter", "lib", "features", "widget", "screens", "widget_detail_screen.dart")));
-      Assert.True(File.Exists(Path.Combine(outputDir, "mobile", "flutter", "lib", "features", "widget", "screens", "widget_form_screen.dart")));
+      Assert.True(File.Exists(Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "lib", "features", "widget", "models", "widget_model.dart")));
+      Assert.True(File.Exists(Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "lib", "features", "gadget", "models", "gadget_model.dart")));
+      Assert.True(File.Exists(Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "lib", "features", "widget", "screens", "widget_detail_screen.dart")));
+      Assert.True(File.Exists(Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "lib", "features", "widget", "screens", "widget_form_screen.dart")));
 
-      var widgetService = await File.ReadAllTextAsync(Path.Combine(outputDir, "mobile", "flutter", "lib", "features", "widget", "services", "widget_service.dart"));
+      var widgetService = await File.ReadAllTextAsync(Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "lib", "features", "widget", "services", "widget_service.dart"));
       Assert.Contains("Future<WidgetModel> create", widgetService);
       Assert.Contains("Future<WidgetModel> update", widgetService);
       Assert.Contains("Future<void> delete", widgetService);
 
-      var widgetModel = await File.ReadAllTextAsync(Path.Combine(outputDir, "mobile", "flutter", "lib", "features", "widget", "models", "widget_model.dart"));
+      var widgetModel = await File.ReadAllTextAsync(Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "lib", "features", "widget", "models", "widget_model.dart"));
       Assert.Contains("toWriteJson", widgetModel);
 
-      var router = await File.ReadAllTextAsync(Path.Combine(outputDir, "mobile", "flutter", "lib", "app", "router.dart"));
+      var router = await File.ReadAllTextAsync(Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "lib", "app", "router.dart"));
       Assert.Contains("/widget", router);
       Assert.Contains("/gadget", router);
       Assert.Contains("WidgetDetailScreen", router);
@@ -127,11 +127,11 @@ public class MobileIntegrationTests
         new GeneratorOptions { EntityName = "Widget" });
 
       Assert.True(result.Success, result.Message);
-      Assert.True(File.Exists(Path.Combine(outputDir, "mobile", "flutter", "pubspec.yaml")));
-      Assert.True(File.Exists(Path.Combine(outputDir, "mobile", "flutter", "lib", "main.dart")));
-      Assert.True(File.Exists(Path.Combine(outputDir, "mobile", "flutter", "lib", "features", "widget", "models", "widget_model.dart")));
-      Assert.True(File.Exists(Path.Combine(outputDir, "mobile", "flutter", "lib", "features", "widget", "screens", "widget_detail_screen.dart")));
-      Assert.True(File.Exists(Path.Combine(outputDir, "mobile", "flutter", "lib", "features", "widget", "screens", "widget_form_screen.dart")));
+      Assert.True(File.Exists(Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "pubspec.yaml")));
+      Assert.True(File.Exists(Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "lib", "main.dart")));
+      Assert.True(File.Exists(Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "lib", "features", "widget", "models", "widget_model.dart")));
+      Assert.True(File.Exists(Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "lib", "features", "widget", "screens", "widget_detail_screen.dart")));
+      Assert.True(File.Exists(Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "lib", "features", "widget", "screens", "widget_form_screen.dart")));
       Assert.Contains("Flutter CRUD", result.Message);
 
       var reloaded = await SpecLoader.LoadAsync(outputDir);

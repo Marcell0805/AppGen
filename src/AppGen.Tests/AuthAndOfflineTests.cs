@@ -119,8 +119,8 @@ public class AuthAndOfflineTests
             var result = await new MobileApplicationGenerator(new FlutterGenerator(renderer)).GenerateAsync(spec, outputDir, new GeneratorOptions());
             Assert.True(result.Success, result.Message);
 
-            Assert.True(File.Exists(Path.Combine(outputDir, "mobile", "flutter", "lib", "core", "offline", "offline_cache.dart")));
-            Assert.False(File.Exists(Path.Combine(outputDir, "mobile", "flutter", "lib", "features", "auth", "screens", "login_screen.dart")));
+            Assert.True(File.Exists(Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "lib", "core", "offline", "offline_cache.dart")));
+            Assert.False(File.Exists(Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "lib", "features", "auth", "screens", "login_screen.dart")));
         }
         finally
         {
@@ -145,8 +145,8 @@ public class AuthAndOfflineTests
             var result = await new MobileApplicationGenerator(new FlutterGenerator(renderer)).GenerateAsync(spec, outputDir, new GeneratorOptions());
             Assert.True(result.Success, result.Message);
 
-            Assert.True(File.Exists(Path.Combine(outputDir, "mobile", "flutter", "lib", "features", "auth", "screens", "login_screen.dart")));
-            var pubspec = await File.ReadAllTextAsync(Path.Combine(outputDir, "mobile", "flutter", "pubspec.yaml"));
+            Assert.True(File.Exists(Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "lib", "features", "auth", "screens", "login_screen.dart")));
+            var pubspec = await File.ReadAllTextAsync(Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "pubspec.yaml"));
             Assert.Contains("flutter_secure_storage", pubspec);
             Assert.DoesNotContain("sqflite", pubspec);
         }

@@ -59,51 +59,6 @@
         <input type="checkbox" @bind="EnableMobile" @bind:after="OnMobileLayerChanged" />
         Mobile — Flutter proof-of-concept
     </label>
-    @if (EnableMobile)
-    {
-        <label class="checkbox-row layer-sub">
-            <input type="checkbox" @bind="EnableMobileOffline" @bind:after="SyncState" />
-            Offline cache (SQLite) — caches lists for offline reading; does not require login
-        </label>
-        <div class="form-grid layer-sub">
-            <label>Mobile theme</label>
-            <select @bind="MobileThemePreset" @bind:after="SyncState">
-                <option value="appgen">AppGen default</option>
-                <option value="portal">Match documentation portal</option>
-                <option value="cookbook">Cookbook-style</option>
-            </select>
-        </div>
-        <fieldset class="layer-sub capabilities-panel">
-            <legend>Capabilities</legend>
-            <p class="hint">Describe what the app should do — AppGen adds packages, permissions, and services.</p>
-            @foreach (var category in MobileCapabilityCatalog.Categories)
-            {
-                <div class="capability-category">
-                    <strong>@category</strong>
-                    @foreach (var cap in MobileCapabilityCatalog.GetByCategory(category)
-                        .Where(c => c.Id is not (
-                            MobileCapabilityId.OfflineCache
-                            or MobileCapabilityId.SecureStorage
-                            or MobileCapabilityId.JwtAuth
-                            or MobileCapabilityId.Internet)))
-                    {
-                        var locked = IsCapabilityLocked(cap.Id);
-                        <label class="checkbox-row" title="@(cap.IsImplemented ? cap.Description : "Coming soon")">
-                            <input type="checkbox"
-                                   checked="@IsCapabilityEnabled(cap.Id)"
-                                   disabled="@(!cap.IsImplemented || locked)"
-                                   @onchange="e => ToggleCapability(cap.Id, e.Value is true)" />
-                            @cap.DisplayName
-                            @if (!cap.IsImplemented)
-                            {
-                                <span class="hint"> (soon)</span>
-                            }
-                        </label>
-                    }
-                </div>
-            }
-        </fieldset>
-    }
 </fieldset>
 
 <EntityList Entities="Entities"
@@ -119,6 +74,88 @@
                         ClrTypes="ClrTypes"
                         OnChanged="OnPropertyGridChanged" />
 </fieldset>
+
+@if (EnableMobile)
+{
+    <fieldset class="panel mobile-settings-panel">
+        <legend>Mobile</legend>
+        <div class="form-grid mobile-theme-settings">
+            <label>Mobile theme</label>
+            <select @bind="MobileThemePreset" @bind:after="SyncState">
+                <option value="appgen">AppGen default</option>
+                <option value="portal">Match documentation portal</option>
+                <option value="cookbook">Cookbook-style</option>
+            </select>
+        </div>
+        <fieldset class="capabilities-panel">
+            <legend>Capabilities</legend>
+            <p class="hint capability-table-legend">Select what the app should do. <strong>X</strong> = supported on that platform; <strong>—</strong> = not supported.</p>
+            <div class="capability-table-wrap">
+            <table class="capability-platform-table">
+                <CapabilityPlatformTableHead />
+                <tbody>
+                    <tr class="cap-category-row">
+                        <td colspan="5">Options</td>
+                    </tr>
+                    <tr class="cap-item-row">
+                        <td class="cap-name-col">
+                            <label class="cap-enable-label" title="SQLite read-through cache when the API is unreachable">
+                                <input type="checkbox" @bind="EnableMobileOffline" @bind:after="SyncState" />
+                                <span>Offline cache (SQLite)</span>
+                            </label>
+                        </td>
+                        <CapabilityPlatformMatrixCells Definition="@OfflineCacheCapability" />
+                    </tr>
+                    @foreach (var category in MobileCapabilityCatalog.Categories)
+                    {
+                        var caps = MobileCapabilityCatalog.GetByCategory(category)
+                            .Where(c => c.Id is not (
+                                MobileCapabilityId.OfflineCache
+                                or MobileCapabilityId.SecureStorage
+                                or MobileCapabilityId.JwtAuth
+                                or MobileCapabilityId.Internet))
+                            .ToList();
+                        if (caps.Count == 0)
+                        {
+                            continue;
+                        }
+
+                        <tr class="cap-category-row">
+                            <td colspan="5">@category</td>
+                        </tr>
+                        @foreach (var cap in caps)
+                        {
+                            var locked = IsCapabilityLocked(cap.Id);
+                            <tr class="cap-item-row">
+                                <td class="cap-name-col">
+                                    <label class="cap-enable-label" title="@(cap.IsImplemented ? cap.Description : "Coming soon")">
+                                        <input type="checkbox"
+                                               checked="@IsCapabilityEnabled(cap.Id)"
+                                               disabled="@(!cap.IsImplemented || locked)"
+                                               @onchange="e => ToggleCapability(cap.Id, e.Value is true)" />
+                                        <span>
+                                            @cap.DisplayName
+                                            @if (!cap.IsImplemented)
+                                            {
+                                                <span class="hint"> (soon)</span>
+                                            }
+                                        </span>
+                                    </label>
+                                </td>
+                                <CapabilityPlatformMatrixCells Definition="cap" />
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+            </div>
+            @if (HasAnyNativeOnlySelection)
+            {
+                <p class="hint capability-native-hint">At least one selected capability needs an <strong>Android emulator or device</strong> — Chrome/web will not compile or run those plugins.</p>
+            }
+        </fieldset>
+    </fieldset>
+}
 
 <div class="actions">
     <button type="button" class="btn btn-outline-secondary" @onclick="LoadProject" disabled="@IsBusy">
@@ -443,6 +480,17 @@
 
     private bool IsCapabilityLocked(string id) =>
         id is MobileCapabilityId.OfflineCache or MobileCapabilityId.JwtAuth or MobileCapabilityId.SecureStorage;
+
+    private bool HasAnyNativeOnlySelection =>
+        EnableMobileOffline ||
+        MobileCapabilities.Any(id =>
+        {
+            var cap = MobileCapabilityCatalog.TryGet(id);
+            return cap is { IsImplemented: true, RequiresNativePlatform: true };
+        });
+
+    private static MobileCapabilityDefinition OfflineCacheCapability =>
+        MobileCapabilityCatalog.TryGet(MobileCapabilityId.OfflineCache)!;
 
     private void ToggleCapability(string id, bool enabled)
     {

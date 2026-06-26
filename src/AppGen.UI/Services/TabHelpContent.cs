@@ -39,9 +39,9 @@ public static class TabHelpContent
             """,
         "mobile" => """
             <div class="help-body">
-            <section class="help-section"><h3>What happens here</h3><ul><li>Generates a Flutter proof-of-concept under mobile/flutter/ with API client, routes, and CRUD screens per entity.</li></ul></section>
-            <section class="help-section"><h3>What you can configure</h3><ul><li>Package name and API base URL</li><li>Entity selection (from shared Project manifest)</li><li>Capabilities summary (configured on Project tab)</li><li>Offline cache (SQLite) — read-through cache when API is unreachable</li><li>Theme preset — appgen, portal, or cookbook shell styling</li><li>Login flow when Web JWT auth is enabled on Project</li><li>Output folder ({AppName} Mobile)</li></ul></section>
-            <section class="help-section"><h3>Typical workflow</h3><ul><li>1. Define entities on Project and enable Mobile (or generate here).</li><li>2. Start the Web API first.</li><li>3. Generate mobile.</li><li>4. cd mobile/flutter, flutter pub get, flutter run.</li></ul></section>
+            <section class="help-section"><h3>What happens here</h3><ul><li>Generates a Flutter proof-of-concept in the <code>{AppName} Mobile/</code> folder with API client, routes, and CRUD screens per entity.</li></ul></section>
+            <section class="help-section"><h3>Capabilities</h3><ul><li>Each capability shows read-only <strong>Chrome</strong> / <strong>Android</strong> ticks on the Project tab.</li><li>Native plugins (camera, NFC, Bluetooth, ML Kit, etc.) need an Android emulator — Chrome cannot compile them.</li><li>Clipboard, share, place search, and WiFi are web-friendly.</li></ul></section>
+            <section class="help-section"><h3>Typical workflow</h3><ul><li>1. Define entities on Project and enable Mobile (or generate here).</li><li>2. Start the Web API first.</li><li>3. Generate mobile.</li><li>4. Open the <code>{AppName} Mobile</code> folder, then <code>flutter pub get</code> and <code>flutter run</code>.</li></ul></section>
             <section class="help-section"><h3>Common issues</h3><ul><li>Connection refused — start the Web API; confirm apiBaseUrl matches Swagger.</li><li>Android emulator — use http://10.0.2.2:&lt;port&gt; instead of localhost.</li><li>Empty list — verify the API returns data and CORS is configured.</li><li>HTTPS errors — use HTTP in dev or trust the development certificate.</li></ul></section>
             </div>
             """,

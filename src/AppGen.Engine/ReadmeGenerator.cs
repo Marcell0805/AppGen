@@ -185,7 +185,6 @@ public static class ReadmeGenerator
         sb.AppendLine("## First run");
         sb.AppendLine();
         sb.AppendLine("```powershell");
-        sb.AppendLine("cd mobile/flutter");
         sb.AppendLine("flutter pub get");
         sb.AppendLine("flutter run");
         sb.AppendLine("```");

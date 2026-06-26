@@ -21,6 +21,8 @@ public sealed class FlutterCapabilityEmitter(TemplateRenderer renderer)
         var servicesDir = Path.Combine(flutterRoot, "lib", "core", "services");
         Directory.CreateDirectory(servicesDir);
 
+        PruneStaleServices(servicesDir, services);
+
         foreach (var capability in services)
         {
             var templatePath = $"Mobile/flutter/services/{capability.ServiceTemplate}";
@@ -39,6 +41,12 @@ public sealed class FlutterCapabilityEmitter(TemplateRenderer renderer)
                 Path.Combine(servicesDir, "capabilities_provider.dart"),
                 providerContent,
                 ct);
+        }
+        else
+        {
+            var providerPath = Path.Combine(servicesDir, "capabilities_provider.dart");
+            if (File.Exists(providerPath))
+                File.Delete(providerPath);
         }
 
         return new FlutterCapabilityEmitResult(resolved, packages, services);
@@ -81,6 +89,31 @@ public sealed class FlutterCapabilityEmitter(TemplateRenderer renderer)
 
     private static string ToProviderName(string fileName) =>
         Path.GetFileNameWithoutExtension(fileName) + "Provider";
+
+    private static void PruneStaleServices(string servicesDir, IReadOnlyList<MobileCapabilityDefinition> activeServices)
+    {
+        if (!Directory.Exists(servicesDir))
+            return;
+
+        var activeFiles = new HashSet<string>(
+            activeServices.Select(s => s.ServiceFileName!).Where(f => !string.IsNullOrWhiteSpace(f)),
+            StringComparer.OrdinalIgnoreCase);
+
+        var catalogFiles = MobileCapabilityCatalog.GetAll()
+            .Select(c => c.ServiceFileName)
+            .Where(f => !string.IsNullOrWhiteSpace(f))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var path in Directory.EnumerateFiles(servicesDir, "*.dart"))
+        {
+            var fileName = Path.GetFileName(path);
+            if (fileName.Equals("capabilities_provider.dart", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (catalogFiles.Contains(fileName) && !activeFiles.Contains(fileName))
+                File.Delete(path);
+        }
+    }
 }
 
 public sealed record FlutterCapabilityEmitResult(

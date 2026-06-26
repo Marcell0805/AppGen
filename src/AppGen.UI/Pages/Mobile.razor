@@ -37,7 +37,7 @@
             <label>Output folder</label>
             <input value="@OutputRoot" readonly class="readonly-field" />
         </div>
-        <p class="hint">Edit on the <a href="project">Project</a> tab. Mobile output: <code>{AppName} Mobile/mobile/flutter/</code></p>
+        <p class="hint">Edit on the <a href="project">Project</a> tab. Mobile output: <code>{AppName} Mobile/</code> (open that folder in VS Code)</p>
     </fieldset>
 
     <fieldset class="panel">
@@ -72,9 +72,29 @@
             </div>
         </div>
         <p class="hint">State management: Riverpod (POC). Architecture: feature folders with Dio HTTP client. Generate creates list screens and routes for all selected entities.</p>
-        @if (EnabledCapabilityLabels.Count > 0)
+        @if (EnabledCapabilities.Count > 0)
         {
-            <p class="hint"><strong>Capabilities (from Project tab):</strong> @string.Join(", ", EnabledCapabilityLabels)</p>
+            <div class="panel-inset">
+                <strong>Capabilities (from Project tab)</strong>
+                <div class="capability-table-wrap">
+                <table class="capability-platform-table">
+                    <CapabilityPlatformTableHead />
+                    <tbody>
+                        @foreach (var cap in EnabledCapabilities)
+                        {
+                            <tr class="cap-item-row">
+                                <td class="cap-name-col">@cap.DisplayName</td>
+                                <CapabilityPlatformMatrixCells Definition="cap" />
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                </div>
+                @if (RequiresNativeLaunchTarget)
+                {
+                    <p class="hint capability-native-hint">Use an <strong>Android emulator or device</strong> to run this app — not Chrome.</p>
+                }
+            </div>
         }
     </fieldset>
 
@@ -95,7 +115,14 @@
             {
                 <div class="output-block">
                     <code>@OutputDirectory</code>
-                    <div class="hint">Output: <code>mobile/flutter/</code> — open that folder in VS Code/Cursor and press F5 (<strong>{{ ApplicationName }} (Chrome)</strong>). Platforms and <code>.vscode/launch.json</code> are scaffolded when Flutter SDK is on PATH.</div>
+                    <div class="hint">Output: <code>{AppName} Mobile/</code> — open that folder in VS Code/Cursor and press F5.@if (RequiresNativeLaunchTarget)
+                    {
+                        <text> Use <strong>Android</strong> (not Chrome) because native capabilities are enabled.</text>
+                    }
+                    else
+                    {
+                        <text> <strong>Chrome</strong> is fine for UI-only apps.</text>
+                    }</div>
                 </div>
             }
         </div>
@@ -119,7 +146,7 @@
     private bool IsSuccess { get; set; }
     private string? OutputDirectory { get; set; }
 
-    private IReadOnlyList<string> EnabledCapabilityLabels
+    private IReadOnlyList<MobileCapabilityDefinition> EnabledCapabilities
     {
         get
         {
@@ -146,8 +173,33 @@
                     MobileCapabilityId.OfflineCache
                     or MobileCapabilityId.SecureStorage
                     or MobileCapabilityId.JwtAuth))
-                .Select(c => c.DisplayName)
                 .ToList();
+        }
+    }
+
+    private bool RequiresNativeLaunchTarget
+    {
+        get
+        {
+            if (WizardState.Current is not { } draft)
+                return false;
+
+            var spec = new SolutionSpec
+            {
+                ApplicationName = draft.ApplicationName,
+                RootNamespace = draft.RootNamespace ?? draft.ApplicationName,
+                Targets = new ApplicationTargets
+                {
+                    Web = new WebTargetSpec { Auth = new WebAuthTargetSpec { Enabled = draft.EnableWebAuth } },
+                    Mobile = new MobileTargetSpec
+                    {
+                        Offline = new MobileOfflineTargetSpec { Enabled = draft.EnableMobileOffline },
+                        Capabilities = new MobileCapabilitiesSpec { Enabled = draft.MobileCapabilities.ToList() }
+                    }
+                }
+            };
+
+            return MobileCapabilityResolver.RequiresNativePlatform(spec);
         }
     }
 
@@ -387,6 +439,19 @@
                         ]
                     }).ToList()
                 };
+            }
+
+            if (WizardState.Current is { } draft)
+            {
+                spec = MobileTargetMerger.ApplyWizardMobileSettings(spec, new MobileTargetSpec
+                {
+                    Enabled = true,
+                    PackageName = PackageName,
+                    ApiBaseUrl = ApiBaseUrl,
+                    Theme = new MobileThemeSpec { Preset = draft.MobileThemePreset },
+                    Offline = new MobileOfflineTargetSpec { Enabled = draft.EnableMobileOffline },
+                    Capabilities = new MobileCapabilitiesSpec { Enabled = draft.MobileCapabilities.ToList() }
+                });
             }
 
             var result = await MobileService.GenerateAsync(

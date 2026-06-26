@@ -38,6 +38,12 @@ public static class FlutterPlatformConfigPatcher
             messages.Add("Platform folders missing — wrote CAPABILITIES.md checklist.");
         }
 
+        if (capabilities.Any(c => c.RequiresNativePlatform))
+        {
+            await WriteNativeLaunchGuidanceAsync(flutterRoot, ct);
+            messages.Add("Native capabilities enabled — use Android/iOS launch target (not Chrome).");
+        }
+
         return new PlatformPatchResult(messages.Count > 0, string.Join(" ", messages));
     }
 
@@ -154,6 +160,28 @@ public static class FlutterPlatformConfigPatcher
         }
 
         await File.WriteAllTextAsync(Path.Combine(flutterRoot, "CAPABILITIES.md"), sb.ToString(), ct);
+    }
+
+    private static async Task WriteNativeLaunchGuidanceAsync(string flutterRoot, CancellationToken ct)
+    {
+        var path = Path.Combine(flutterRoot, "MOBILE_RUN.md");
+        var sb = new StringBuilder();
+        sb.AppendLine("# AppGen — run on a native device");
+        sb.AppendLine();
+        sb.AppendLine("This project includes capabilities that use native plugins (`dart:ffi` / `dart:io`).");
+        sb.AppendLine("They **cannot** compile for Chrome/web and may crash the Dart compiler with:");
+        sb.AppendLine();
+        sb.AppendLine("```");
+        sb.AppendLine("type 'InvalidType' is not a subtype of type 'FunctionType' in type cast");
+        sb.AppendLine("```");
+        sb.AppendLine();
+        sb.AppendLine("## What to do");
+        sb.AppendLine();
+        sb.AppendLine("1. In VS Code/Cursor, pick **Android** (or iOS) from the Run and Debug dropdown — not Chrome.");
+        sb.AppendLine("2. Ensure platform folders exist: `flutter create . --platforms android,ios,windows,web`");
+        sb.AppendLine("3. Run `flutter pub get` after regenerating.");
+        sb.AppendLine();
+        await File.WriteAllTextAsync(path, sb.ToString(), ct);
     }
 }
 

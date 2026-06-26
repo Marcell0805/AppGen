@@ -38,6 +38,10 @@ public static class MobileCapabilityResolver
     public static bool Has(SolutionSpec spec, string capabilityId) =>
         Resolve(spec).Any(c => c.Id.Equals(capabilityId, StringComparison.OrdinalIgnoreCase));
 
+    public static bool RequiresNativePlatform(SolutionSpec spec) =>
+        TargetFlags.OfflineEnabled(spec) ||
+        Resolve(spec).Any(c => c.RequiresNativePlatform);
+
     private static void Visit(
         string id,
         List<MobileCapabilityDefinition> resolved,

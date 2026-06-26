@@ -18,7 +18,7 @@ public class FlutterPlatformScaffolderTests
     public void WriteVsCodeConfig_writes_launch_and_extension_recommendations()
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), "AppGenTests", Guid.NewGuid().ToString("N"));
-        var flutterRoot = Path.Combine(tempRoot, "mobile", "flutter");
+        var flutterRoot = tempRoot;
 
         try
         {
@@ -35,9 +35,9 @@ public class FlutterPlatformScaffolderTests
             var launch = File.ReadAllText(launchPath);
             Assert.Contains("MyProduct (Chrome)", launch);
             Assert.Contains("\"deviceId\": \"chrome\"", launch);
-            Assert.Contains("\"cwd\": \"${workspaceFolder}/mobile/flutter\"", File.ReadAllText(workspaceLaunchPath));
+            Assert.Contains("\"cwd\": \"${workspaceFolder}\"", File.ReadAllText(workspaceLaunchPath));
             Assert.Contains("\"program\": \"lib/main.dart\"", File.ReadAllText(workspaceLaunchPath));
-            Assert.DoesNotContain("mobile/flutter/lib/main.dart", File.ReadAllText(workspaceLaunchPath));
+            Assert.DoesNotContain("mobile/flutter", File.ReadAllText(workspaceLaunchPath));
             Assert.Contains("Dart-Code.flutter", File.ReadAllText(extensionsPath));
         }
         finally
