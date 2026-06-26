@@ -6,18 +6,23 @@ namespace AppGen.UI.Models;
 
 public sealed class WizardDraft
 {
-    public const int CurrentSchemaVersion = 2;
+    public const int CurrentSchemaVersion = 4;
 
     public int SchemaVersion { get; init; } = CurrentSchemaVersion;
     public DateTime SavedAt { get; init; } = DateTime.UtcNow;
     public string ApplicationName { get; init; } = string.Empty;
     public string? RootNamespace { get; init; }
+    public string? Tagline { get; init; }
+    public string? Description { get; init; }
     public DatabaseProvider Database { get; init; } = DatabaseProvider.SqlServer;
     public string OutputRoot { get; init; } = string.Empty;
     public bool IncludeMvcWeb { get; init; } = true;
     public bool EnableDocumentation { get; init; }
     public bool EnableWeb { get; init; } = true;
     public bool EnableMobile { get; init; }
+    public bool EnableWebAuth { get; init; }
+    public bool EnableMobileOffline { get; init; }
+    public string MobileThemePreset { get; init; } = "appgen";
     public string MobilePackageName { get; init; } = string.Empty;
     public string MobileApiBaseUrl { get; init; } = "http://localhost:5000";
     public string ActiveConnectionName { get; init; } = "Dev";
@@ -86,17 +91,27 @@ public sealed class WizardDraft
         bool enableDocumentation = false,
         bool enableWeb = true,
         bool enableMobile = false,
+        bool enableWebAuth = false,
+        bool enableMobileOffline = false,
+        string mobileThemePreset = "appgen",
         string? mobilePackageName = null,
-        string? mobileApiBaseUrl = null) => new()
+        string? mobileApiBaseUrl = null,
+        string? tagline = null,
+        string? description = null) => new()
     {
         ApplicationName = applicationName,
         RootNamespace = rootNamespace,
+        Tagline = tagline,
+        Description = description,
         Database = database,
         OutputRoot = outputRoot,
         IncludeMvcWeb = includeMvcWeb,
         EnableDocumentation = enableDocumentation,
         EnableWeb = enableWeb,
         EnableMobile = enableMobile,
+        EnableWebAuth = enableWebAuth,
+        EnableMobileOffline = enableMobileOffline,
+        MobileThemePreset = string.IsNullOrWhiteSpace(mobileThemePreset) ? "appgen" : mobileThemePreset,
         MobilePackageName = mobilePackageName ?? string.Empty,
         MobileApiBaseUrl = string.IsNullOrWhiteSpace(mobileApiBaseUrl) ? "http://localhost:5000" : mobileApiBaseUrl,
         ActiveConnectionName = activeConnectionName,

@@ -4,11 +4,12 @@ namespace AppGen.Core.Models;
 
 public sealed class SolutionSpec
 {
-    public const int CurrentSchemaVersion = 5;
+    public const int CurrentSchemaVersion = 7;
 
     public int SchemaVersion { get; init; } = CurrentSchemaVersion;
     public required string ApplicationName { get; init; }
     public required string RootNamespace { get; init; }
+    public ProjectInfoSpec? Project { get; init; }
     public ProjectPhase Phase { get; init; } = ProjectPhase.Solution;
     public PortalSpec? Portal { get; init; }
     public List<EntitySketch> EntitySketches { get; init; } = [];

@@ -2,7 +2,6 @@
 @using AppGen.Core.Models
 @using AppGen.Engine
 @using AppGen.UI.Models
-@using AppGen.Engine
 @using AppGen.UI.Services
 @inject WizardStateService WizardState
 @inject ManifestSaveService ManifestSave
@@ -26,6 +25,18 @@
 </fieldset>
 
 <fieldset class="panel">
+    <legend>About this app</legend>
+    <div class="form-grid">
+        <label>Tagline</label>
+        <input @bind="Tagline" @bind:after="SyncState" placeholder="Short pitch (one line)" />
+
+        <label>Description</label>
+        <textarea @bind="Description" @bind:after="SyncState" rows="6" placeholder="Goals, audience, scope…"></textarea>
+    </div>
+    <p class="hint">Markdown supported (headings, lists, bold). Used in generated READMEs and Documentation vision when not customized.</p>
+</fieldset>
+
+<fieldset class="panel">
     <legend>Layers</legend>
     <p class="hint">Each layer generates into its own folder under the output root: <code>{AppName}</code> (manifest), <code>{AppName} Doc</code>, <code>{AppName} Web</code>, <code>{AppName} Mobile</code>.</p>
     <label class="checkbox-row">
@@ -33,13 +44,35 @@
         Documentation — static portal site
     </label>
     <label class="checkbox-row">
-        <input type="checkbox" @bind="EnableWeb" @bind:after="SyncState" />
+        <input type="checkbox" @bind="EnableWeb" @bind:after="OnWebLayerChanged" />
         Web — API, application layers, persistence, optional MVC
     </label>
+    @if (EnableWeb)
+    {
+        <label class="checkbox-row layer-sub">
+            <input type="checkbox" @bind="EnableWebAuth" @bind:after="SyncState" />
+            Enable API authentication (JWT)
+        </label>
+    }
     <label class="checkbox-row">
-        <input type="checkbox" @bind="EnableMobile" @bind:after="SyncState" />
+        <input type="checkbox" @bind="EnableMobile" @bind:after="OnMobileLayerChanged" />
         Mobile — Flutter proof-of-concept
     </label>
+    @if (EnableMobile)
+    {
+        <label class="checkbox-row layer-sub">
+            <input type="checkbox" @bind="EnableMobileOffline" @bind:after="SyncState" />
+            Offline cache (SQLite) — caches lists for offline reading; does not require login
+        </label>
+        <div class="form-grid layer-sub">
+            <label>Mobile theme</label>
+            <select @bind="MobileThemePreset" @bind:after="SyncState">
+                <option value="appgen">AppGen default</option>
+                <option value="portal">Match documentation portal</option>
+                <option value="cookbook">Cookbook-style</option>
+            </select>
+        </div>
+    }
 </fieldset>
 
 <EntityList Entities="Entities"
@@ -76,10 +109,15 @@
 
     private string ApplicationName { get; set; } = "MyProduct";
     private string? RootNamespace { get; set; }
+    private string? Tagline { get; set; }
+    private string? Description { get; set; }
     private string OutputRoot { get; set; } = string.Empty;
     private bool EnableDocumentation { get; set; }
     private bool EnableWeb { get; set; } = true;
+    private bool EnableWebAuth { get; set; }
     private bool EnableMobile { get; set; }
+    private bool EnableMobileOffline { get; set; }
+    private string MobileThemePreset { get; set; } = "appgen";
     private DatabaseProvider Database { get; set; } = DatabaseProvider.SqlServer;
     private bool IncludeMvcWeb { get; set; } = true;
     private string ActiveConnectionName { get; set; } = "Dev";
@@ -150,6 +188,8 @@
             var spec = await SpecLoader.LoadAsync(dir);
             ApplicationName = spec.ApplicationName;
             RootNamespace = spec.RootNamespace;
+            Tagline = spec.Project?.Tagline;
+            Description = spec.Project?.Description;
             Database = spec.Database;
             IncludeMvcWeb = spec.UiTargets.HasFlag(UiTarget.MvcWeb);
             ActiveConnectionName = spec.Setup.ActiveConnectionName;
@@ -157,7 +197,10 @@
             EnsureCreatedInDevelopment = spec.Setup.EnsureCreatedInDevelopment;
             EnableDocumentation = spec.Targets?.Documentation.Enabled ?? false;
             EnableWeb = spec.Targets?.Web.Enabled ?? true;
+            EnableWebAuth = spec.Targets?.Web.Auth.Enabled ?? false;
             EnableMobile = spec.Targets?.Mobile.Enabled ?? false;
+            EnableMobileOffline = spec.Targets?.Mobile.Offline.Enabled ?? false;
+            MobileThemePreset = spec.Targets?.Mobile.Theme.Preset ?? "appgen";
             MobilePackageName = spec.Targets?.Mobile.PackageName ?? string.Empty;
             MobileApiBaseUrl = spec.Targets?.Mobile.ApiBaseUrl ?? "http://localhost:5000";
 
@@ -266,6 +309,8 @@
     {
         ApplicationName = draft.ApplicationName;
         RootNamespace = draft.RootNamespace;
+        Tagline = draft.Tagline;
+        Description = draft.Description;
         if (!fromWizardOnly || string.IsNullOrWhiteSpace(OutputRoot))
         {
             OutputRoot = string.IsNullOrWhiteSpace(draft.OutputRoot)
@@ -277,7 +322,10 @@
         IncludeMvcWeb = draft.IncludeMvcWeb;
         EnableDocumentation = draft.EnableDocumentation;
         EnableWeb = draft.EnableWeb;
+        EnableWebAuth = draft.EnableWebAuth;
         EnableMobile = draft.EnableMobile;
+        EnableMobileOffline = draft.EnableMobileOffline;
+        MobileThemePreset = draft.MobileThemePreset;
         MobilePackageName = draft.MobilePackageName;
         MobileApiBaseUrl = draft.MobileApiBaseUrl;
         ActiveConnectionName = draft.ActiveConnectionName;
@@ -337,10 +385,35 @@
         EnableDocumentation,
         EnableWeb,
         EnableMobile,
+        EnableWebAuth,
+        EnableMobileOffline,
+        MobileThemePreset,
         string.IsNullOrWhiteSpace(MobilePackageName) ? null : MobilePackageName,
-        MobileApiBaseUrl);
+        MobileApiBaseUrl,
+        Tagline,
+        Description);
 
-    public void SyncState() => WizardState.Update(BuildDraft());
+    public void SyncState()
+    {
+        WizardState.Update(BuildDraft());
+    }
+
+    private void OnWebLayerChanged()
+    {
+        if (!EnableWeb)
+            EnableWebAuth = false;
+        SyncState();
+    }
+
+    private void OnMobileLayerChanged()
+    {
+        if (!EnableMobile)
+        {
+            EnableMobileOffline = false;
+            MobileThemePreset = "appgen";
+        }
+        SyncState();
+    }
 
     private async Task ReportAsync(string message, bool success, string? outputDirectory = null)
     {

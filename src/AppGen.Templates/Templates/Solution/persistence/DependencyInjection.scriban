@@ -1,9 +1,10 @@
 using {{ root_namespace }}.Application.Interfaces;
-using {{ root_namespace }}.Persistence.Contexts;
 using {{ root_namespace }}.Persistence.Repositories;
+using {{ root_namespace }}.Persistence.Contexts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace {{ root_namespace }}.Persistence;
 
@@ -11,12 +12,19 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddPersistenceServices(this IServiceCollection services, IConfiguration configuration)
     {
-        var connectionName = configuration["Database:ActiveConnection"] ?? "Dev";
-        var connectionString = configuration.GetConnectionString(connectionName)
-            ?? throw new InvalidOperationException($"Connection string '{connectionName}' is not configured.");
-
-        services.AddDbContext<ApplicationDbContext>(options =>
+        services.AddDbContext<ApplicationDbContext>((serviceProvider, options) =>
         {
+            var environment = serviceProvider.GetRequiredService<IHostEnvironment>();
+            if (environment.IsEnvironment("Testing"))
+            {
+                options.UseInMemoryDatabase("AppGenTests");
+                return;
+            }
+
+            var connectionName = configuration["Database:ActiveConnection"] ?? "Dev";
+            var connectionString = configuration.GetConnectionString(connectionName)
+                ?? throw new InvalidOperationException($"Connection string '{connectionName}' is not configured.");
+
 {{ if use_oracle }}
             options.UseOracle(connectionString);
 {{ else if use_postgresql }}
@@ -28,6 +36,9 @@ public static class DependencyInjection
 
         // <AppGen-Repositories>
         // </AppGen-Repositories>
+{{ if auth_enabled }}
+        services.AddScoped<IAppUserRepository, AppUserRepository>();
+{{ end }}
         return services;
     }
 }

@@ -135,7 +135,7 @@ public class MobileIntegrationTests
       Assert.Contains("Flutter CRUD", result.Message);
 
       var reloaded = await SpecLoader.LoadAsync(outputDir);
-      Assert.Equal(5, reloaded.SchemaVersion);
+      Assert.Equal(SolutionSpec.CurrentSchemaVersion, reloaded.SchemaVersion);
       Assert.NotNull(reloaded.Targets);
       Assert.True(reloaded.Targets!.Mobile.Enabled);
     }
@@ -156,7 +156,7 @@ public class MobileIntegrationTests
       Directory.CreateDirectory(tempRoot);
       var spec = new SolutionSpec
       {
-        SchemaVersion = 5,
+        SchemaVersion = SolutionSpec.CurrentSchemaVersion,
         ApplicationName = "TargetApp",
         RootNamespace = "TargetApp",
         Targets = new ApplicationTargets

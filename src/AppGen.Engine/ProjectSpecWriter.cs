@@ -24,6 +24,7 @@ public static class ProjectSpecWriter
             SchemaVersion = SolutionSpec.CurrentSchemaVersion,
             ApplicationName = normalized.ApplicationName,
             RootNamespace = normalized.RootNamespace,
+            Project = normalized.Project,
             Phase = normalized.Phase,
             Portal = normalized.Portal,
             EntitySketches = normalized.EntitySketches,

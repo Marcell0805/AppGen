@@ -1,0 +1,21 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+import '../auth/auth_provider.dart';
+import '../auth/token_storage.dart';
+import '../config/api_config.dart';
+import 'auth_interceptor.dart';
+
+final dioProvider = Provider<Dio>((ref) {
+  final dio = Dio(BaseOptions(
+    baseUrl: ApiConfig.baseUrl,
+    connectTimeout: const Duration(seconds: 15),
+    receiveTimeout: const Duration(seconds: 15),
+  ));
+  final storage = ref.watch(tokenStorageProvider);
+  dio.interceptors.add(AuthInterceptor(storage, ref));
+  return dio;
+});
+
+final tokenStorageProvider = Provider<TokenStorage>((ref) => const TokenStorage(const FlutterSecureStorage()));

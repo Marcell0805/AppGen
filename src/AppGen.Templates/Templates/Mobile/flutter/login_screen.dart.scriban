@@ -1,0 +1,86 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../app/app_colors.dart';
+import '../../../core/auth/auth_provider.dart';
+
+class LoginScreen extends ConsumerStatefulWidget {
+  const LoginScreen({super.key});
+
+  @override
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends ConsumerState<LoginScreen> {
+  final _emailController = TextEditingController(text: 'dev@appgen.local');
+  final _passwordController = TextEditingController(text: 'AppGen123!');
+  var _submitting = false;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    setState(() => _submitting = true);
+    try {
+      await ref.read(authStateProvider.notifier).login(
+            _emailController.text.trim(),
+            _passwordController.text,
+          );
+      if (mounted) context.go('/{{ entity_snake }}');
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.toString()), backgroundColor: AppColors.error),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 400),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('{{ app_name }}', style: Theme.of(context).textTheme.headlineSmall),
+                const SizedBox(height: 8),
+                Text('Sign in to continue', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.textMuted)),
+                const SizedBox(height: 24),
+                TextField(
+                  controller: _emailController,
+                  decoration: const InputDecoration(labelText: 'Email'),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _passwordController,
+                  decoration: const InputDecoration(labelText: 'Password'),
+                  obscureText: true,
+                ),
+                const SizedBox(height: 20),
+                FilledButton(
+                  onPressed: _submitting ? null : _submit,
+                  child: Text(_submitting ? 'Signing in…' : 'Sign in'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

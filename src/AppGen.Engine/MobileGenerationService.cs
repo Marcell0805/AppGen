@@ -37,6 +37,7 @@ public sealed class MobileGenerationService(MobileApplicationGenerator mobileGen
             SchemaVersion = normalized.SchemaVersion,
             ApplicationName = normalized.ApplicationName,
             RootNamespace = normalized.RootNamespace,
+            Project = normalized.Project,
             Phase = normalized.Phase,
             Portal = normalized.Portal,
             EntitySketches = normalized.EntitySketches,
@@ -63,6 +64,15 @@ public sealed class MobileGenerationService(MobileApplicationGenerator mobileGen
             outputDir,
             new GeneratorOptions { EntityNames = entityNames },
             ct);
+
+        if (result.Success)
+        {
+            await ReadmeGenerator.WriteMobileAsync(new ReadmeContext(
+                normalized,
+                outputDir,
+                ApiBaseUrl: apiBaseUrl,
+                EnableMobile: true), ct);
+        }
 
         return result.Success
             ? MobileGenerationResult.Ok(result.OutputPath ?? outputDir, result.Message)

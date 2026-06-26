@@ -14,10 +14,29 @@ ThemeData buildAppTheme() {
     ),
     scaffoldBackgroundColor: AppColors.background,
     dividerColor: AppColors.border,
-    textTheme: GoogleFonts.interTextTheme(),
+    textTheme: GoogleFonts.interTextTheme().apply(
+      bodyColor: AppColors.text,
+      displayColor: AppColors.text,
+    ),
   );
 
+  final headingFont = GoogleFonts.playfairDisplayTextTheme(base.textTheme);
+
   return base.copyWith(
+    textTheme: base.textTheme.copyWith(
+      headlineSmall: headingFont.headlineSmall?.copyWith(
+        fontWeight: FontWeight.w700,
+        color: AppColors.text,
+      ),
+      titleLarge: headingFont.titleLarge?.copyWith(
+        fontWeight: FontWeight.w700,
+        color: AppColors.text,
+      ),
+      titleMedium: base.textTheme.titleMedium?.copyWith(
+        fontWeight: FontWeight.w600,
+        color: AppColors.text,
+      ),
+    ),
     appBarTheme: AppBarTheme(
       elevation: 0,
       scrolledUnderElevation: 0,
@@ -26,10 +45,14 @@ ThemeData buildAppTheme() {
       foregroundColor: AppColors.text,
       surfaceTintColor: Colors.transparent,
       titleTextStyle: GoogleFonts.inter(
-        fontSize: 18,
+        fontSize: 17,
         fontWeight: FontWeight.w600,
         color: AppColors.text,
       ),
+    ),
+    drawerTheme: const DrawerThemeData(
+      backgroundColor: AppColors.sidebar,
+      surfaceTintColor: Colors.transparent,
     ),
     cardTheme: CardThemeData(
       elevation: 0,
@@ -40,26 +63,22 @@ ThemeData buildAppTheme() {
       ),
       margin: EdgeInsets.zero,
     ),
-    navigationBarTheme: NavigationBarThemeData(
-      elevation: 0,
-      height: 68,
-      backgroundColor: AppColors.surface,
-      indicatorColor: AppColors.accent.withValues(alpha: 0.12),
-      labelTextStyle: WidgetStateProperty.resolveWith((states) {
-        final selected = states.contains(WidgetState.selected);
-        return GoogleFonts.inter(
-          fontSize: 12,
-          fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-          color: selected ? AppColors.accent : AppColors.textMuted,
-        );
-      }),
-      iconTheme: WidgetStateProperty.resolveWith((states) {
-        final selected = states.contains(WidgetState.selected);
-        return IconThemeData(
-          color: selected ? AppColors.accent : AppColors.textMuted,
-          size: 22,
-        );
-      }),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: AppColors.surface,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: AppColors.border),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: AppColors.border),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: AppColors.accent, width: 1.5),
+      ),
+      labelStyle: GoogleFonts.inter(color: AppColors.textMuted),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
@@ -69,6 +88,19 @@ ThemeData buildAppTheme() {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         textStyle: GoogleFonts.inter(fontWeight: FontWeight.w600),
       ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: AppColors.text,
+        side: const BorderSide(color: AppColors.border),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    ),
+    floatingActionButtonTheme: const FloatingActionButtonThemeData(
+      backgroundColor: AppColors.accent,
+      foregroundColor: Colors.white,
+      elevation: 2,
     ),
     progressIndicatorTheme: const ProgressIndicatorThemeData(color: AppColors.accent),
   );

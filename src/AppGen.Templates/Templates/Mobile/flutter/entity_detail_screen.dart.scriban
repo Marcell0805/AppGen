@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/app_colors.dart';
+import '../../../core/widgets/app_page_header.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../providers/{{ entity_snake }}_provider.dart';
 import '../services/{{ entity_snake }}_service.dart';
@@ -17,33 +18,48 @@ class {{ entity_name }}DetailScreen extends ConsumerWidget {
     final asyncItem = ref.watch({{ entity_snake }}DetailProvider(id));
 
     return asyncItem.when(
-      data: (item) => ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      data: (item) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-{{ for p in properties }}
-                  _DetailRow(label: '{{ p.label }}', value: item.{{ p.name }}.toString()),
-{{ end }}
-                ],
-              ),
+          AppPageHeader(
+            title: '{{ entity_name }} details',
+            subtitle: 'Record ${item.{{ key_field }}}',
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => context.go('/{{ entity_snake }}'),
             ),
           ),
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: () => context.push('/{{ entity_snake }}/$id/edit'),
-            icon: const Icon(Icons.edit_outlined),
-            label: const Text('Edit'),
-          ),
-          const SizedBox(height: 10),
-          OutlinedButton.icon(
-            onPressed: () => _confirmDelete(context, ref),
-            icon: const Icon(Icons.delete_outline, color: AppColors.error),
-            label: const Text('Delete', style: TextStyle(color: AppColors.error)),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+              children: [
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+{{ for p in properties }}
+                        _DetailRow(label: '{{ p.label }}', value: item.{{ p.name }}.toString()),
+{{ end }}
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed: () => context.push('/{{ entity_snake }}/$id/edit'),
+                  icon: const Icon(Icons.edit_outlined),
+                  label: const Text('Edit'),
+                ),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: () => _confirmDelete(context, ref),
+                  icon: const Icon(Icons.delete_outline, color: AppColors.error),
+                  label: const Text('Delete', style: TextStyle(color: AppColors.error)),
+                ),
+              ],
+            ),
           ),
         ],
       ),

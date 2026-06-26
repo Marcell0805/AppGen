@@ -1,0 +1,28 @@
+extern alias MvcHost;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+using MvcProgram = MvcHost::{{ root_namespace }}.MVC.Program;
+
+namespace {{ root_namespace }}.Tests.Infrastructure;
+
+public sealed class MvcWebApplicationFactory : WebApplicationFactory<MvcProgram>
+{
+    private readonly ApiWebApplicationFactory _apiFactory;
+
+    public MvcWebApplicationFactory(ApiWebApplicationFactory apiFactory) => _apiFactory = apiFactory;
+
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        _ = _apiFactory.Server;
+
+        builder.UseEnvironment("Testing");
+        builder.ConfigureTestServices(services =>
+        {
+            services.AddHttpClient("Api")
+                .ConfigurePrimaryHttpMessageHandler(_ => _apiFactory.Server.CreateHandler())
+                .ConfigureHttpClient(client => client.BaseAddress = _apiFactory.Server.BaseAddress);
+        });
+    }
+}

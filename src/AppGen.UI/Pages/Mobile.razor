@@ -3,7 +3,6 @@
 @using AppGen.Core.Models
 @using AppGen.Engine
 @using AppGen.UI.Models
-@using AppGen.Engine
 @using AppGen.UI.Services
 @inject MobileGenerationService MobileService
 @inject OutputFolderService FolderService
@@ -16,7 +15,8 @@
 
 <PageHeader Title="Mobile"
             Subtitle="Generate a Flutter proof-of-concept from entities defined on the Project tab or saved manifest."
-            Badge="Flutter POC" />
+            Badge="Flutter POC"
+            HelpTabId="mobile" />
 
 <div class="wizard">
     @if (WizardState.HasData)

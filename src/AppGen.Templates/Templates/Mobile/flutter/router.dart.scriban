@@ -2,6 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'app_shell.dart';
+{{ if auth_enabled }}
+import '../core/auth/auth_provider.dart';
+import '../features/auth/screens/login_screen.dart';
+{{ end }}
 {{ for e in entities }}
 import '../features/{{ e.entity_snake }}/screens/{{ e.entity_snake }}_list_screen.dart';
 import '../features/{{ e.entity_snake }}/screens/{{ e.entity_snake }}_detail_screen.dart';
@@ -9,12 +13,34 @@ import '../features/{{ e.entity_snake }}/screens/{{ e.entity_snake }}_form_scree
 {{ end }}
 
 final appRouterProvider = Provider<GoRouter>((ref) {
+{{ if auth_enabled }}
+  final authState = ref.watch(authStateProvider);
+
+  return GoRouter(
+    initialLocation: '/login',
+    redirect: (context, state) {
+      final loggedIn = authState.valueOrNull == true;
+      final loggingIn = state.matchedLocation == '/login';
+      if (!loggedIn && !loggingIn) return '/login';
+      if (loggedIn && loggingIn) return '/{{ first_entity_snake }}';
+      return null;
+    },
+    routes: [
+      GoRoute(
+        path: '/login',
+        builder: (context, state) => const LoginScreen(),
+      ),
+      ShellRoute(
+        builder: (context, state, child) => AppShell(child: child),
+        routes: [
+{{ else }}
   return GoRouter(
     initialLocation: '/{{ first_entity_snake }}',
     routes: [
       ShellRoute(
         builder: (context, state, child) => AppShell(child: child),
         routes: [
+{{ end }}
 {{ for e in entities }}
           GoRoute(
             path: '/{{ e.entity_snake }}',

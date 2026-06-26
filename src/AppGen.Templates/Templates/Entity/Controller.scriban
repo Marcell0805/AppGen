@@ -3,6 +3,7 @@ using {{ root_namespace }}.Shared.Requests;
 using {{ root_namespace }}.Shared.Responses;
 using {{ root_namespace }}.Shared.Wrappers;
 using Asp.Versioning;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace {{ root_namespace }}.API.Controllers.V1;
@@ -10,6 +11,7 @@ namespace {{ root_namespace }}.API.Controllers.V1;
 [ApiController]
 [Route("api/v1/[controller]")]
 [ApiVersion("1.0")]
+{{ if auth_enabled }}[Authorize]{{ end }}
 public class {{ entity_name }}Controller(I{{ entity_name }}Service service) : ControllerBase
 {
     [HttpGet]

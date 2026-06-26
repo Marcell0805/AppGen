@@ -72,14 +72,20 @@ public sealed class WizardStateService
                 Enabled = _draft.EnableDocumentation,
                 Preset = targets.Documentation.Preset
             },
-            Web = new WebTargetSpec { Enabled = _draft.EnableWeb },
+            Web = new WebTargetSpec
+            {
+                Enabled = _draft.EnableWeb,
+                Auth = new WebAuthTargetSpec { Enabled = _draft.EnableWeb && _draft.EnableWebAuth }
+            },
             Mobile = new MobileTargetSpec
             {
                 Enabled = _draft.EnableMobile,
                 Framework = targets.Mobile.Framework,
                 PackageName = packageName,
                 ApiBaseUrl = _draft.MobileApiBaseUrl,
-                StateManagement = targets.Mobile.StateManagement
+                StateManagement = targets.Mobile.StateManagement,
+                Theme = new MobileThemeSpec { Preset = _draft.MobileThemePreset },
+                Offline = new MobileOfflineTargetSpec { Enabled = _draft.EnableMobile && _draft.EnableMobileOffline }
             }
         };
 
@@ -108,6 +114,7 @@ public sealed class WizardStateService
             SchemaVersion = SolutionSpec.CurrentSchemaVersion,
             ApplicationName = appName,
             RootNamespace = rootNs,
+            Project = BuildProjectInfo(),
             Phase = _draft.EnableDocumentation && !_draft.EnableWeb ? ProjectPhase.Portal : ProjectPhase.Solution,
             Portal = portal,
             EntitySketches = sketches,
@@ -116,6 +123,21 @@ public sealed class WizardStateService
             UiTargets = uiTargets,
             Setup = setup,
             Entities = entities
+        };
+    }
+
+    private ProjectInfoSpec? BuildProjectInfo()
+    {
+        if (_draft is null)
+            return null;
+
+        if (string.IsNullOrWhiteSpace(_draft.Tagline) && string.IsNullOrWhiteSpace(_draft.Description))
+            return null;
+
+        return new ProjectInfoSpec
+        {
+            Tagline = string.IsNullOrWhiteSpace(_draft.Tagline) ? null : _draft.Tagline.Trim(),
+            Description = string.IsNullOrWhiteSpace(_draft.Description) ? null : _draft.Description.Trim()
         };
     }
 }

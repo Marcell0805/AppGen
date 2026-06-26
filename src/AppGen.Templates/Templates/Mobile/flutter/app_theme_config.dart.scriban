@@ -1,0 +1,19 @@
+import 'package:flutter/material.dart';
+
+/// Generated from appgen.json — safe to customize after generation.
+abstract final class AppThemeConfig {
+  static const preset = '{{ theme_preset }}';
+
+  static const sidebar = Color({{ theme_sidebar }});
+  static const sidebarAccent = Color({{ theme_sidebar_accent }});
+  static const accent = Color({{ theme_accent }});
+  static const accentMuted = Color({{ theme_accent_muted }});
+  static const background = Color({{ theme_background }});
+  static const surface = Color({{ theme_surface }});
+  static const border = Color({{ theme_border }});
+  static const text = Color({{ theme_text }});
+  static const textMuted = Color({{ theme_text_muted }});
+  static const highlight = Color({{ theme_highlight }});
+  static const success = Color({{ theme_success }});
+  static const error = Color({{ theme_error }});
+}

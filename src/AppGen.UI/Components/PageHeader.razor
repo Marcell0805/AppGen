@@ -1,8 +1,21 @@
-@* Page title and subtitle for generator tabs *@
+@using AppGen.UI.Services
+@inject HelpPanelService HelpPanel
 
 <header class="page-header">
-    <div>
-        <h1>@Title</h1>
+    <div class="page-header-main">
+        <div class="page-header-title-row">
+            <h1>@Title</h1>
+            @if (!string.IsNullOrWhiteSpace(HelpTabId))
+            {
+                <button type="button"
+                        class="page-header-help-btn"
+                        aria-label="How to use this tab"
+                        title="How to use this tab"
+                        @onclick="OpenHelp">
+                    ?
+                </button>
+            }
+        </div>
         @if (!string.IsNullOrWhiteSpace(Subtitle))
         {
             <p class="subtitle">@Subtitle</p>
@@ -18,4 +31,11 @@
     [Parameter] public string Title { get; set; } = string.Empty;
     [Parameter] public string? Subtitle { get; set; }
     [Parameter] public string? Badge { get; set; }
+    [Parameter] public string? HelpTabId { get; set; }
+
+    private void OpenHelp()
+    {
+        if (!string.IsNullOrWhiteSpace(HelpTabId))
+            HelpPanel.Open(HelpTabId);
+    }
 }

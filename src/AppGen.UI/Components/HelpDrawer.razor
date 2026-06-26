@@ -1,0 +1,37 @@
+@using AppGen.UI.Services
+@inject HelpPanelService HelpPanel
+@implements IDisposable
+
+@if (HelpPanel.IsOpen && !string.IsNullOrWhiteSpace(HelpPanel.ActiveTabId))
+{
+    <div class="appgen-overlay appgen-help-overlay" @onclick="Close">
+        <aside class="appgen-help-drawer panel"
+               role="dialog"
+               aria-modal="true"
+               aria-labelledby="help-drawer-title"
+               @onclick:stopPropagation="true">
+            <div class="help-drawer-header">
+                <h2 id="help-drawer-title" class="appgen-overlay-title">
+                    @TabHelpContent.GetTitle(HelpPanel.ActiveTabId!)
+                </h2>
+                <button type="button"
+                        class="btn btn-sm btn-outline-secondary help-drawer-close"
+                        aria-label="Close help"
+                        @onclick="Close">
+                    Close
+                </button>
+            </div>
+            @((MarkupString)TabHelpContent.GetBodyHtml(HelpPanel.ActiveTabId!))
+        </aside>
+    </div>
+}
+
+@code {
+    protected override void OnInitialized() => HelpPanel.Changed += OnHelpChanged;
+
+    private void OnHelpChanged() => InvokeAsync(StateHasChanged);
+
+    private void Close() => HelpPanel.Close();
+
+    public void Dispose() => HelpPanel.Changed -= OnHelpChanged;
+}

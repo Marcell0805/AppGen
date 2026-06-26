@@ -121,33 +121,43 @@ class EntityRecordCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(14),
+        child: IntrinsicHeight(
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              CircleAvatar(
-                radius: 22,
-                backgroundColor: AppColors.accent.withValues(alpha: 0.12),
-                child: Text(
-                  entityName.isNotEmpty ? entityName[0].toUpperCase() : '?',
-                  style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.w700),
-                ),
-              ),
-              const SizedBox(width: 14),
+              Container(width: 4, color: AppColors.highlight),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textMuted),
-                    ),
-                  ],
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 22,
+                        backgroundColor: AppColors.accent.withValues(alpha: 0.12),
+                        child: Text(
+                          entityName.isNotEmpty ? entityName[0].toUpperCase() : '?',
+                          style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(title, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 4),
+                            Text(
+                              subtitle,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textMuted),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right, color: AppColors.textMuted),
+                    ],
+                  ),
                 ),
               ),
-              const Icon(Icons.chevron_right, color: AppColors.textMuted),
             ],
           ),
         ),

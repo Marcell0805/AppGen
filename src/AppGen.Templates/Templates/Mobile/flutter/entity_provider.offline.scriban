@@ -1,0 +1,48 @@
+import 'dart:convert';
+
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/offline/offline_cache.dart';
+import '../models/{{ entity_snake }}_model.dart';
+import '../services/{{ entity_snake }}_service.dart';
+
+final offlineCacheProvider = FutureProvider<OfflineCache>((ref) => OfflineCache.open());
+
+final {{ entity_snake }}ListProvider = FutureProvider<List<{{ entity_name }}Model>>((ref) async {
+  final service = ref.watch({{ entity_snake }}ServiceProvider);
+  final cache = await ref.watch(offlineCacheProvider.future);
+  const cacheKey = '{{ entity_snake }}_list';
+
+  try {
+    final connectivity = await Connectivity().checkConnectivity();
+    final offline = connectivity.every((r) => r == ConnectivityResult.none);
+    if (offline) {
+      final cached = await cache.get(cacheKey);
+      if (cached != null) {
+        final list = (jsonDecode(cached) as List<dynamic>)
+            .map((e) => {{ entity_name }}Model.fromJson(e as Map<String, dynamic>))
+            .toList();
+        return list;
+      }
+      rethrow;
+    }
+
+    final items = await service.getAll();
+    await cache.put(cacheKey, items.map((e) => e.toJson()).toList());
+    return items;
+  } catch (_) {
+    final cached = await cache.get(cacheKey);
+    if (cached != null) {
+      return (jsonDecode(cached) as List<dynamic>)
+          .map((e) => {{ entity_name }}Model.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+    rethrow;
+  }
+});
+
+final {{ entity_snake }}DetailProvider = FutureProvider.family<{{ entity_name }}Model, {{ key_dart_type }}>((ref, id) async {
+  final service = ref.watch({{ entity_snake }}ServiceProvider);
+  return service.getById(id);
+});

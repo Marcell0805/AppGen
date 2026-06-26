@@ -17,6 +17,7 @@ Thin-slice work is **complete**. Phase 2 (shared Project tab) and Phase 3 (Flutt
 | **G. Tests** | Done | Portal, mobile CRUD, v5 round-trip, v3 normalize, generation output paths |
 | **H. Shared entity workflow** | Done | `WizardStateService` (Web ↔ Mobile session state), **Save manifest** (`appgen.json` without full API generate), **Load draft** on Mobile |
 | **I. Project tab (Phase 2)** | Done | `Project.razor` hub, `ProjectWorkspace` shared entity editor, layer toggles, **Generate all**, per-layer output folders (`{AppName} Doc/Web/Mobile`) |
+| **J. Project metadata + READMEs + tab help** | Done | Schema v6 `project` (tagline, description), per-layer READMEs, **?** help drawer on Project/Documentation/Web/Mobile |
 
 ### Shared entity workflow (Phase 2)
 
@@ -35,7 +36,9 @@ Web, Mobile, and **Project** tabs share entity definitions via `WizardStateServi
 | Web | `output/{AppName} Web/` |
 | Mobile | `output/{AppName} Mobile/` |
 
-**Not yet done** (see long-term phases below): JWT auth scaffold, offline cache, per-target incremental sync, OpenAPI client gen.
+**Not yet done** (see long-term phases below): per-target incremental sync, OpenAPI client gen.
+
+**Phase 4 (done):** JWT auth scaffold (Web toggle + mobile login), optional SQLite offline cache (independent Mobile toggle), generated API/MVC xUnit integration tests with EF InMemory.
 
 ---
 

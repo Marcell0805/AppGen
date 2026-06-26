@@ -30,8 +30,9 @@ public sealed class PortalGenerationService(PortalGenerator portalGenerator)
 
         try
         {
-            var prepared = PortalGenerator.PrepareSpec(spec);
+            var prepared = PortalGenerator.PrepareSpec(ProjectInfoSeeder.ApplyToPortalSpec(spec));
             await portalGenerator.GenerateAsync(prepared, outputDir, overwritePortal: overwrite || exists, ct);
+            await ReadmeGenerator.WriteDocumentationAsync(new ReadmeContext(spec, outputDir), ct);
             return PortalGenerationResult.Ok(
                 outputDir,
                 $"Portal generated at {Path.Combine(outputDir, "portal")}. Open portal/index.html with Live Server.");

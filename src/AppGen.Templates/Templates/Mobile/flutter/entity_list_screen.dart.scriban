@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/widgets/app_page_header.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../providers/{{ entity_snake }}_provider.dart';
 
@@ -12,31 +13,36 @@ class {{ entity_name }}ListScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final asyncItems = ref.watch({{ entity_snake }}ListProvider);
 
-    return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => context.push('/{{ entity_snake }}/new'),
-        child: const Icon(Icons.add),
-      ),
-      body: asyncItems.when(
-        data: (items) => RefreshIndicator(
-          onRefresh: () async => ref.invalidate({{ entity_snake }}ListProvider),
-          child: EntityListLayout(
-            entityName: '{{ entity_name }}',
-            itemCount: items.length,
-            itemBuilder: (context, index) {
-              final item = items[index];
-              return EntityRecordCard(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const AppPageHeader(
+          title: '{{ entity_name }}',
+          subtitle: '{{ entity_description }}',
+        ),
+        Expanded(
+          child: asyncItems.when(
+            data: (items) => RefreshIndicator(
+              onRefresh: () async => ref.invalidate({{ entity_snake }}ListProvider),
+              child: EntityListLayout(
                 entityName: '{{ entity_name }}',
-                title: item.{{ key_field }}.toString(),
-                subtitle: {{ if has_display_field }}item.{{ display_field }}.toString(){{ else }}'{{ entity_name }} record'{{ end }},
-                onTap: () => context.push('/{{ entity_snake }}/${item.{{ key_field }}}'),
-              );
-            },
+                itemCount: items.length,
+                itemBuilder: (context, index) {
+                  final item = items[index];
+                  return EntityRecordCard(
+                    entityName: '{{ entity_name }}',
+                    title: item.{{ key_field }}.toString(),
+                    subtitle: {{ if has_display_field }}item.{{ display_field }}.toString(){{ else }}'{{ entity_name }} record'{{ end }},
+                    onTap: () => context.push('/{{ entity_snake }}/${item.{{ key_field }}}'),
+                  );
+                },
+              ),
+            ),
+            loading: () => const AppLoadingState(message: 'Loading {{ entity_name }}…'),
+            error: (error, _) => AppErrorState(message: error.toString()),
           ),
         ),
-        loading: () => const AppLoadingState(message: 'Loading {{ entity_name }}…'),
-        error: (error, _) => AppErrorState(message: error.toString()),
-      ),
+      ],
     );
   }
 }

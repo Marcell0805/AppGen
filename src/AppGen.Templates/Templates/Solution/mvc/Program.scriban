@@ -2,7 +2,11 @@ using {{ root_namespace }}.MVC.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllersWithViews();
+builder.Services.AddControllersWithViews(options =>
+{
+    if (builder.Environment.IsEnvironment("Testing"))
+        options.Filters.Add(new Microsoft.AspNetCore.Mvc.IgnoreAntiforgeryTokenAttribute());
+});
 
 builder.Services.AddHttpClient("Api", (sp, client) =>
 {
@@ -32,3 +36,8 @@ app.MapControllerRoute(
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
 app.Run();
+
+namespace {{ root_namespace }}.MVC
+{
+    public partial class Program { }
+}

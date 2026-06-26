@@ -36,7 +36,11 @@ cd AppGen
 dotnet run --project src/AppGen.UI --urls "http://localhost:5099"
 ```
 
-Open `http://localhost:5099` — use **Documentation**, **Web**, or **Mobile** in the sidebar.
+Open `http://localhost:5099` — start on **Project** to define entities and layers; use **?** on any tab for in-app help.
+
+## Project metadata and READMEs
+
+On the **Project** tab, **About this app** stores a tagline and description in `appgen.json` (schema v6 `project` section). Generated outputs include per-layer `README.md` files (hub, Documentation, Web, Mobile) with first-run steps and troubleshooting.
 
 ## Evolution roadmap
 

@@ -1,0 +1,23 @@
+using {{ root_namespace }}.Application.Interfaces;
+
+namespace {{ root_namespace }}.API.Auth;
+
+public static class DevAuthSeeder
+{
+    public static async Task SeedAsync(IServiceProvider services, CancellationToken ct = default)
+    {
+        using var scope = services.CreateScope();
+        var auth = scope.ServiceProvider.GetRequiredService<IAuthService>();
+        await auth.EnsureDevUserAsync(
+            AuthTestConstants.DevEmail,
+            AuthTestConstants.DevPassword,
+            "AppGen Dev User",
+            ct);
+    }
+}
+
+public static class AuthTestConstants
+{
+    public const string DevEmail = "dev@appgen.local";
+    public const string DevPassword = "AppGen123!";
+}

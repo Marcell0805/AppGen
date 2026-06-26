@@ -1,0 +1,23 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'auth_service.dart';
+
+final authStateProvider = AsyncNotifierProvider<AuthController, bool>(AuthController.new);
+
+class AuthController extends AsyncNotifier<bool> {
+  @override
+  Future<bool> build() async => ref.read(authServiceProvider).hasToken();
+
+  Future<void> login(String email, String password) async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      await ref.read(authServiceProvider).login(email, password);
+      return true;
+    });
+  }
+
+  Future<void> logout() async {
+    await ref.read(authServiceProvider).logout();
+    state = const AsyncData(false);
+  }
+}

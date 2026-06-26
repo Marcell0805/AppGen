@@ -1,0 +1,16 @@
+using {{ root_namespace }}.Tests.Infrastructure;
+using Xunit;
+
+namespace {{ root_namespace }}.Tests.Api;
+
+public class HealthEndpointTests(ApiWebApplicationFactory factory) : IClassFixture<ApiWebApplicationFactory>
+{
+    private readonly HttpClient _client = factory.CreateClient();
+
+    [Fact]
+    public async Task Health_returns_ok()
+    {
+        var response = await _client.GetAsync("/api/v1/health");
+        response.EnsureSuccessStatusCode();
+    }
+}

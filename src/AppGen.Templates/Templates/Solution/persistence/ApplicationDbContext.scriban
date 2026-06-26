@@ -8,11 +8,17 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 {
     // <AppGen-DbSets>
     // </AppGen-DbSets>
+{{ if auth_enabled }}
+    public DbSet<AppUser> AppUsers => Set<AppUser>();
+{{ end }}
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
         // <AppGen-Configurations>
         // </AppGen-Configurations>
+{{ if auth_enabled }}
+        modelBuilder.ApplyConfiguration(new AppUserConfiguration());
+{{ end }}
     }
 }

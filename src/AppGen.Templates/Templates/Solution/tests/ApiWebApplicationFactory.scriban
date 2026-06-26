@@ -1,0 +1,16 @@
+{{ if include_mvc_web }}
+extern alias ApiHost;
+using ApiProgram = ApiHost::{{ root_namespace }}.API.Program;
+{{ end }}
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Testing;
+
+namespace {{ root_namespace }}.Tests.Infrastructure;
+
+public sealed class ApiWebApplicationFactory : WebApplicationFactory<{{ if include_mvc_web }}ApiProgram{{ else }}{{ root_namespace }}.API.Program{{ end }}>
+{
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        builder.UseEnvironment("Testing");
+    }
+}

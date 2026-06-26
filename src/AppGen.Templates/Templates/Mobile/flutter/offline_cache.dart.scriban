@@ -1,0 +1,45 @@
+import 'dart:convert';
+
+import 'package:path/path.dart' as p;
+import 'package:sqflite/sqflite.dart';
+
+class OfflineCache {
+  OfflineCache._(this._db);
+
+  final Database _db;
+
+  static Future<OfflineCache> open() async {
+    final db = await openDatabase(
+      p.join(await getDatabasesPath(), 'appgen_offline.db'),
+      version: 1,
+      onCreate: (db, _) async {
+        await db.execute('''
+          CREATE TABLE entity_cache (
+            cache_key TEXT PRIMARY KEY,
+            json_body TEXT NOT NULL,
+            cached_at TEXT NOT NULL
+          )
+        ''');
+      },
+    );
+    return OfflineCache._(db);
+  }
+
+  Future<void> put(String key, Object value) async {
+    await _db.insert(
+      'entity_cache',
+      {
+        'cache_key': key,
+        'json_body': jsonEncode(value),
+        'cached_at': DateTime.now().toUtc().toIso8601String(),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<String?> get(String key) async {
+    final rows = await _db.query('entity_cache', where: 'cache_key = ?', whereArgs: [key], limit: 1);
+    if (rows.isEmpty) return null;
+    return rows.first['json_body'] as String?;
+  }
+}

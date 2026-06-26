@@ -24,6 +24,12 @@ public static class AppSettingsGenerator
             devJson.ToJsonString(new JsonSerializerOptions { WriteIndented = true }),
             ct);
 
+        var testingJson = BuildTestingAppSettings(spec);
+        await File.WriteAllTextAsync(
+            Path.Combine(apiDir, "appsettings.Testing.json"),
+            testingJson.ToJsonString(new JsonSerializerOptions { WriteIndented = true }),
+            ct);
+
         if (spec.UiTargets.HasFlag(UiTarget.MvcWeb))
         {
             var mvcDir = Path.Combine(outputDirectory, $"src/{spec.MvcProject}");
@@ -78,6 +84,39 @@ public static class AppSettingsGenerator
             connStrings["Dev"] = NamingHelper.DefaultDevConnection(spec.Database).Value ?? string.Empty;
 
         ApplyAppSettings(root, spec);
+        if (TargetFlags.AuthEnabled(spec))
+        {
+            root["Jwt"] = new JsonObject
+            {
+                ["Issuer"] = spec.ApplicationName,
+                ["Key"] = "CHANGE-ME-use-user-secrets-or-env-in-production",
+                ["LifetimeMinutes"] = spec.Targets?.Web.Auth.TokenLifetimeMinutes ?? 60
+            };
+        }
+
+        return root;
+    }
+
+    private static JsonObject BuildTestingAppSettings(SolutionSpec spec)
+    {
+        var root = new JsonObject
+        {
+            ["Database"] = new JsonObject
+            {
+                ["EnsureCreated"] = true
+            }
+        };
+
+        if (TargetFlags.AuthEnabled(spec))
+        {
+            root["Jwt"] = new JsonObject
+            {
+                ["Issuer"] = spec.ApplicationName,
+                ["Key"] = "AppGen-Testing-Signing-Key-32chars!",
+                ["LifetimeMinutes"] = 60
+            };
+        }
+
         return root;
     }
 
@@ -101,6 +140,16 @@ public static class AppSettingsGenerator
         };
 
         ApplyAppSettings(root, spec);
+        if (TargetFlags.AuthEnabled(spec))
+        {
+            root["Jwt"] = new JsonObject
+            {
+                ["Issuer"] = spec.ApplicationName,
+                ["Key"] = "AppGen-Development-Signing-Key-32c!",
+                ["LifetimeMinutes"] = spec.Targets?.Web.Auth.TokenLifetimeMinutes ?? 60
+            };
+        }
+
         return root;
     }
 

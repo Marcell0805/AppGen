@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/app_colors.dart';
+import '../../../core/widgets/app_page_header.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../models/{{ entity_snake }}_model.dart';
 import '../providers/{{ entity_snake }}_provider.dart';
@@ -125,11 +126,23 @@ class _{{ entity_name }}FormScreenState extends ConsumerState<{{ entity_name }}F
   }
 
   Widget _buildForm(BuildContext context) {
-    return Form(
-      key: _formKey,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-        children: [
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AppPageHeader(
+          title: _isEdit ? 'Edit {{ entity_name }}' : 'New {{ entity_name }}',
+          subtitle: _isEdit ? 'Update record fields' : 'Create a new {{ entity_name }} record',
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => context.canPop() ? context.pop() : context.go('/{{ entity_snake }}'),
+          ),
+        ),
+        Expanded(
+          child: Form(
+            key: _formKey,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+              children: [
 {{ for p in editable_properties }}
           {{ if p.dart_type == "bool" }}
           SwitchListTile(
@@ -160,8 +173,11 @@ class _{{ entity_name }}FormScreenState extends ConsumerState<{{ entity_name }}F
             onPressed: _saving ? null : _save,
             child: Text(_saving ? 'Saving…' : (_isEdit ? 'Save changes' : 'Create {{ entity_name }}')),
           ),
-        ],
-      ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

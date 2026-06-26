@@ -31,9 +31,28 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
         await WriteTemplateAsync("Mobile/flutter/api_client.dart.scriban", flutterRoot, "lib/core/network/api_client.dart", firstModel, ct);
         await WriteTemplateAsync("Mobile/flutter/theme.dart.scriban", flutterRoot, "lib/app/theme.dart", firstModel, ct);
         await WriteTemplateAsync("Mobile/flutter/app_colors.dart.scriban", flutterRoot, "lib/app/app_colors.dart", firstModel, ct);
+        await WriteTemplateAsync("Mobile/flutter/app_theme_config.dart.scriban", flutterRoot, "lib/app/app_theme_config.dart", firstModel, ct);
+        await WriteTemplateAsync("Mobile/flutter/app_drawer.dart.scriban", flutterRoot, "lib/app/app_drawer.dart", appModel, ct);
+        await WriteTemplateAsync("Mobile/flutter/app_page_header.dart.scriban", flutterRoot, "lib/core/widgets/app_page_header.dart", firstModel, ct);
         await WriteTemplateAsync("Mobile/flutter/app_shell.dart.scriban", flutterRoot, "lib/app/app_shell.dart", appModel, ct);
         await WriteTemplateAsync("Mobile/flutter/app_widgets.dart.scriban", flutterRoot, "lib/core/widgets/app_widgets.dart", firstModel, ct);
         await WriteTemplateAsync("Mobile/flutter/router.dart.scriban", flutterRoot, "lib/app/router.dart", appModel, ct);
+
+        if (TargetFlags.AuthEnabled(spec))
+        {
+            await WriteTemplateAsync("Mobile/flutter/token_storage.dart.scriban", flutterRoot, "lib/core/auth/token_storage.dart", firstModel, ct);
+            await WriteTemplateAsync("Mobile/flutter/auth_service.dart.scriban", flutterRoot, "lib/core/auth/auth_service.dart", firstModel, ct);
+            await WriteTemplateAsync("Mobile/flutter/auth_provider.dart.scriban", flutterRoot, "lib/core/auth/auth_provider.dart", firstModel, ct);
+            await WriteTemplateAsync("Mobile/flutter/auth_interceptor.dart.scriban", flutterRoot, "lib/core/network/auth_interceptor.dart", firstModel, ct);
+            await WriteTemplateAsync("Mobile/flutter/login_screen.dart.scriban", flutterRoot, "lib/features/auth/screens/login_screen.dart", firstModel, ct);
+            await WriteTemplateAsync("Mobile/flutter/api_client.auth.scriban", flutterRoot, "lib/core/network/api_client.dart", firstModel, ct);
+        }
+
+        if (TargetFlags.OfflineEnabled(spec))
+        {
+            await WriteTemplateAsync("Mobile/flutter/offline_cache.dart.scriban", flutterRoot, "lib/core/offline/offline_cache.dart", firstModel, ct);
+            await WriteTemplateAsync("Mobile/flutter/offline_banner.dart.scriban", flutterRoot, "lib/core/widgets/offline_banner.dart", firstModel, ct);
+        }
 
         foreach (var entity in entities)
         {
@@ -41,7 +60,10 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
             var model = BuildModel(spec, entity, mobile, entitySnake);
             await WriteTemplateAsync("Mobile/flutter/entity_model.dart.scriban", flutterRoot, $"lib/features/{entitySnake}/models/{entitySnake}_model.dart", model, ct);
             await WriteTemplateAsync("Mobile/flutter/entity_service.dart.scriban", flutterRoot, $"lib/features/{entitySnake}/services/{entitySnake}_service.dart", model, ct);
-            await WriteTemplateAsync("Mobile/flutter/entity_provider.dart.scriban", flutterRoot, $"lib/features/{entitySnake}/providers/{entitySnake}_provider.dart", model, ct);
+            var providerTemplate = TargetFlags.OfflineEnabled(spec)
+                ? "Mobile/flutter/entity_provider.offline.scriban"
+                : "Mobile/flutter/entity_provider.dart.scriban";
+            await WriteTemplateAsync(providerTemplate, flutterRoot, $"lib/features/{entitySnake}/providers/{entitySnake}_provider.dart", model, ct);
             await WriteTemplateAsync("Mobile/flutter/entity_list_screen.dart.scriban", flutterRoot, $"lib/features/{entitySnake}/screens/{entitySnake}_list_screen.dart", model, ct);
             await WriteTemplateAsync("Mobile/flutter/entity_detail_screen.dart.scriban", flutterRoot, $"lib/features/{entitySnake}/screens/{entitySnake}_detail_screen.dart", model, ct);
             await WriteTemplateAsync("Mobile/flutter/entity_form_screen.dart.scriban", flutterRoot, $"lib/features/{entitySnake}/screens/{entitySnake}_form_screen.dart", model, ct);
@@ -54,7 +76,9 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
             Framework = mobile.Framework,
             PackageName = string.IsNullOrWhiteSpace(mobile.PackageName) ? legacyTargets.Mobile.PackageName : mobile.PackageName,
             ApiBaseUrl = mobile.ApiBaseUrl,
-            StateManagement = mobile.StateManagement
+            StateManagement = mobile.StateManagement,
+            Theme = mobile.Theme,
+            Offline = mobile.Offline
         };
 
         var updated = new SolutionSpec
@@ -108,6 +132,10 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
     {
         var firstEntity = entities[0];
         var firstSnake = ToSnakeCase(firstEntity.Name);
+        var theme = FlutterThemeResolver.Resolve(spec, mobile);
+        var tagline = ResolveTagline(spec);
+        var version = spec.Portal?.Settings.Version ?? "1.0.0";
+
         return new
         {
             app_name = spec.ApplicationName,
@@ -118,13 +146,32 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
                 : mobile.PackageName,
             api_base_url = mobile.ApiBaseUrl,
             first_entity_snake = firstSnake,
-            entities = entities.Select(e =>
+            project_tagline = tagline,
+            app_version = version,
+            theme_preset = theme.Preset,
+            theme_sidebar = theme.Sidebar,
+            theme_sidebar_accent = theme.SidebarAccent,
+            theme_accent = theme.Accent,
+            theme_accent_muted = theme.AccentMuted,
+            theme_background = theme.Background,
+            theme_surface = theme.Surface,
+            theme_border = theme.Border,
+            theme_text = theme.Text,
+            theme_text_muted = theme.TextMuted,
+            theme_highlight = theme.Highlight,
+            theme_success = theme.Success,
+            theme_error = theme.Error,
+            auth_enabled = TargetFlags.AuthEnabled(spec),
+            offline_enabled = TargetFlags.OfflineEnabled(spec),
+            entities = entities.Select((e, index) =>
             {
                 var keyProp = e.Properties.FirstOrDefault(p => p.IsKey);
                 return new
                 {
                     entity_name = e.Name,
                     entity_snake = ToSnakeCase(e.Name),
+                    entity_number = index + 1,
+                    entity_description = ResolveEntityDescription(spec, e.Name),
                     key_dart_type = keyProp is null ? "int" : ToDartType(keyProp.ClrType)
                 };
             }).ToList()
@@ -135,6 +182,8 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
     {
         var keyProp = entity.Properties.FirstOrDefault(p => p.IsKey);
         var displayProp = entity.Properties.FirstOrDefault(p => !p.IsKey);
+        var theme = FlutterThemeResolver.Resolve(spec, mobile);
+        var tagline = ResolveTagline(spec);
         var dartProps = entity.Properties.Select(p => new
         {
             name = ToDartFieldName(p.Name),
@@ -161,8 +210,25 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
                 ? $"com.{NamingHelper.NormalizeAppName(spec.ApplicationName).ToLowerInvariant()}.app"
                 : mobile.PackageName,
             api_base_url = mobile.ApiBaseUrl,
+            project_tagline = tagline,
+            theme_preset = theme.Preset,
+            theme_sidebar = theme.Sidebar,
+            theme_sidebar_accent = theme.SidebarAccent,
+            theme_accent = theme.Accent,
+            theme_accent_muted = theme.AccentMuted,
+            theme_background = theme.Background,
+            theme_surface = theme.Surface,
+            theme_border = theme.Border,
+            theme_text = theme.Text,
+            theme_text_muted = theme.TextMuted,
+            theme_highlight = theme.Highlight,
+            theme_success = theme.Success,
+            theme_error = theme.Error,
+            auth_enabled = TargetFlags.AuthEnabled(spec),
+            offline_enabled = TargetFlags.OfflineEnabled(spec),
             entity_name = entity.Name,
             entity_snake = entitySnake,
+            entity_description = ResolveEntityDescription(spec, entity.Name),
             entity_var = ToCamelCase(entity.Name),
             key_field = keyProp is null ? "id" : ToDartFieldName(keyProp.Name),
             key_dart_type = keyProp is null ? "int" : ToDartType(keyProp.ClrType),
@@ -215,6 +281,33 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
             return ToCamelCase(propertyName[..^3]) + "Id";
         return ToCamelCase(propertyName);
     }
+
+    private static string ResolveTagline(SolutionSpec spec)
+    {
+        string tagline;
+        if (!string.IsNullOrWhiteSpace(spec.Project?.Tagline))
+            tagline = spec.Project.Tagline.Trim();
+        else if (!string.IsNullOrWhiteSpace(spec.Portal?.Settings.Tagline))
+            tagline = spec.Portal.Settings.Tagline!.Trim();
+        else
+            tagline = "Generated by AppGen";
+
+        return SanitizeDartString(tagline);
+    }
+
+    private static string ResolveEntityDescription(SolutionSpec spec, string entityName)
+    {
+        var sketch = spec.EntitySketches.FirstOrDefault(s =>
+            s.Name.Equals(entityName, StringComparison.OrdinalIgnoreCase));
+
+        if (!string.IsNullOrWhiteSpace(sketch?.Description))
+            return SanitizeDartString(sketch.Description.Trim());
+
+        return SanitizeDartString($"Browse and manage {entityName} records.");
+    }
+
+    private static string SanitizeDartString(string value) =>
+        value.Replace('\\', '/').Replace("'", "\\'").Replace('\n', ' ').Replace('\r', ' ');
 }
 
 public sealed class MobileApplicationGenerator(FlutterGenerator flutterGenerator) : IApplicationGenerator

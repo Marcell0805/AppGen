@@ -47,11 +47,20 @@ public sealed class ProjectGenerationService(
 
         var wizardState = new WizardStateService();
         wizardState.Update(draft);
-        var spec = wizardState.ToSolutionSpec();
+        var spec = ProjectInfoSeeder.ApplyToPortalSpec(wizardState.ToSolutionSpec());
 
         var saveResult = await manifestSave.SaveAsync(spec, hubDir, ct);
         if (!saveResult.Success)
             return ProjectGenerationResult.Fail(saveResult.Message);
+
+        await ReadmeGenerator.WriteHubAsync(new ReadmeContext(
+            spec,
+            hubDir,
+            outputRoot,
+            draft.MobileApiBaseUrl,
+            draft.EnableDocumentation,
+            draft.EnableWeb,
+            draft.EnableMobile), ct);
 
         var messages = new List<string> { $"Manifest → {hubDir}" };
         var success = true;
@@ -70,6 +79,7 @@ public sealed class ProjectGenerationService(
                     SchemaVersion = loaded.SchemaVersion,
                     ApplicationName = loaded.ApplicationName,
                     RootNamespace = loaded.RootNamespace,
+                    Project = loaded.Project ?? spec.Project,
                     Phase = loaded.Phase,
                     Portal = spec.Portal,
                     EntitySketches = loaded.EntitySketches.Count > 0 ? loaded.EntitySketches : spec.EntitySketches,
@@ -80,6 +90,8 @@ public sealed class ProjectGenerationService(
                     Setup = loaded.Setup,
                     Entities = loaded.Entities
                 };
+
+            docSpec = ProjectInfoSeeder.ApplyToPortalSpec(docSpec);
 
             if (docSpec.Portal is null)
             {
@@ -94,6 +106,8 @@ public sealed class ProjectGenerationService(
                     docDir,
                     new GeneratorOptions { Force = overwriteDoc },
                     ct);
+                if (docResult.Success)
+                    await ReadmeGenerator.WriteDocumentationAsync(new ReadmeContext(docSpec, docDir), ct);
                 messages.Add(docResult.Success
                     ? $"Documentation → {docDir}"
                     : $"Documentation failed: {docResult.Message}");
@@ -150,6 +164,11 @@ public sealed class ProjectGenerationService(
                 ? $"Web → {webDir}"
                 : $"Web failed: {webResult.Message}");
             success &= webResult.Success;
+            if (webResult.Success)
+            {
+                var webLoaded = await SpecLoader.LoadAsync(webDir, ct);
+                await ReadmeGenerator.WriteWebAsync(new ReadmeContext(webLoaded, webDir, EnableWeb: true), ct);
+            }
         }
 
         if (draft.EnableMobile)
@@ -176,6 +195,15 @@ public sealed class ProjectGenerationService(
                 ? $"Mobile → {mobileDir}"
                 : $"Mobile failed: {mobileResult.Message}");
             success &= mobileResult.Success;
+            if (mobileResult.Success)
+            {
+                var mobileLoaded = await SpecLoader.LoadAsync(mobileDir, ct);
+                await ReadmeGenerator.WriteMobileAsync(new ReadmeContext(
+                    mobileLoaded,
+                    mobileDir,
+                    ApiBaseUrl: draft.MobileApiBaseUrl,
+                    EnableMobile: true), ct);
+            }
         }
 
         var summary = string.Join(" | ", messages);

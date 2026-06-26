@@ -1,0 +1,187 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+import 'app_colors.dart';
+
+class AppDrawer extends StatelessWidget {
+  const AppDrawer({
+    super.key,
+    required this.selectedPath,
+    this.onNavigate,
+  });
+
+  final String selectedPath;
+  final VoidCallback? onNavigate;
+
+  static const _destinations = [
+{{ for e in entities }}
+    _DrawerDestination(number: {{ e.entity_number }}, path: '/{{ e.entity_snake }}', label: '{{ e.entity_name }}'),
+{{ end }}
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: AppColors.sidebar,
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _DrawerHeader(
+              appName: '{{ app_name }}',
+              tagline: '{{ project_tagline }}',
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                children: [
+                  for (final destination in _destinations)
+                    _DrawerNavTile(
+                      destination: destination,
+                      selected: selectedPath == destination.path ||
+                          selectedPath.startsWith('${destination.path}/'),
+                      onTap: () {
+                        context.go(destination.path);
+                        onNavigate?.call();
+                      },
+                    ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: Text(
+                'v{{ app_version }} · AppGen',
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  color: Colors.white.withValues(alpha: 0.45),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DrawerHeader extends StatelessWidget {
+  const _DrawerHeader({required this.appName, required this.tagline});
+
+  final String appName;
+  final String tagline;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+      decoration: const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: Colors.white12),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            height: 3,
+            width: 48,
+            decoration: BoxDecoration(
+              color: AppColors.accent,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            appName.toUpperCase(),
+            style: GoogleFonts.playfairDisplay(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+              letterSpacing: 0.4,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            tagline,
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              height: 1.35,
+              color: Colors.white.withValues(alpha: 0.72),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DrawerDestination {
+  const _DrawerDestination({
+    required this.number,
+    required this.path,
+    required this.label,
+  });
+
+  final int number;
+  final String path;
+  final String label;
+}
+
+class _DrawerNavTile extends StatelessWidget {
+  const _DrawerNavTile({
+    required this.destination,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _DrawerDestination destination;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final background = selected ? AppColors.accent.withValues(alpha: 0.18) : Colors.transparent;
+    final foreground = selected ? AppColors.accent : Colors.white.withValues(alpha: 0.88);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Material(
+        color: background,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+            child: Row(
+              children: [
+                Text(
+                  '${destination.number}.',
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: selected ? AppColors.accent : Colors.white.withValues(alpha: 0.5),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    destination.label,
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                      color: foreground,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

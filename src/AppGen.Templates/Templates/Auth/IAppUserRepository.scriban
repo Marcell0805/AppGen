@@ -1,0 +1,9 @@
+using {{ root_namespace }}.Domain.Entities;
+
+namespace {{ root_namespace }}.Application.Interfaces;
+
+public interface IAppUserRepository
+{
+    Task<AppUser?> FindByEmailAsync(string email, CancellationToken ct = default);
+    Task<AppUser> AddAsync(AppUser user, CancellationToken ct = default);
+}

@@ -1,6 +1,9 @@
 using {{ root_namespace }}.Application;
 using {{ root_namespace }}.Persistence;
 using {{ root_namespace }}.Persistence.Contexts;
+{{ if auth_enabled }}
+using {{ root_namespace }}.API.Auth;
+{{ end }}
 using Asp.Versioning;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
@@ -12,6 +15,27 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo { Title = "{{ app_name }} API", Version = "v1" });
+{{ if auth_enabled }}
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "JWT Authorization header using the Bearer scheme.",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT"
+    });
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
+            },
+            Array.Empty<string>()
+        }
+    });
+{{ end }}
 });
 builder.Services.AddApiVersioning(options =>
 {
@@ -22,6 +46,9 @@ builder.Services.AddApiVersioning(options =>
 
 builder.Services.AddApplicationServices();
 builder.Services.AddPersistenceServices(builder.Configuration);
+{{ if auth_enabled }}
+builder.Services.AddJwtAuth(builder.Configuration);
+{{ end }}
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
@@ -32,12 +59,14 @@ builder.Services.AddCors(options =>
                 .AllowAnyHeader()
                 .AllowAnyMethod();
         }
-        else if ({{ include_mvc_web }})
+{{ if include_mvc_web }}
+        else
         {
             policy.WithOrigins("https://localhost:5101", "http://localhost:5100")
                 .AllowAnyHeader()
                 .AllowAnyMethod();
         }
+{{ else }}
         else
         {
             policy.SetIsOriginAllowed(static origin =>
@@ -49,28 +78,44 @@ builder.Services.AddCors(options =>
                 .AllowAnyHeader()
                 .AllowAnyMethod();
         }
+{{ end }}
     });
 });
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
+var isTesting = app.Environment.IsEnvironment("Testing");
+if (app.Environment.IsDevelopment() || isTesting)
 {
-    app.UseSwagger();
-    app.UseSwaggerUI(options => options.SwaggerEndpoint("/swagger/v1/swagger.json", "{{ app_name }} API v1"));
-    app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
+    if (!isTesting)
+    {
+        app.UseSwagger();
+        app.UseSwaggerUI(options => options.SwaggerEndpoint("/swagger/v1/swagger.json", "{{ app_name }} API v1"));
+        app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
+    }
 
-    if (app.Configuration.GetValue<bool>("Database:EnsureCreated"))
+    if (app.Configuration.GetValue<bool>("Database:EnsureCreated") || isTesting)
     {
         using var scope = app.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         db.Database.EnsureCreated();
+{{ if auth_enabled }}
+        await DevAuthSeeder.SeedAsync(app.Services);
+{{ end }}
     }
 }
 
 app.UseCors();
 if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
+{{ if auth_enabled }}
+app.UseAuthentication();
+{{ end }}
 app.UseAuthorization();
 app.MapControllers().RequireCors();
 app.Run();
+
+namespace {{ root_namespace }}.API
+{
+    public partial class Program { }
+}
