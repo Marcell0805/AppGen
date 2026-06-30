@@ -1,5 +1,6 @@
 ﻿using AppGen.Core;
 using AppGen.Core.Models;
+using AppGen.Core.Models.SpecWorkbook;
 using AppGen.Engine;
 using System.CommandLine;
 
@@ -135,7 +136,7 @@ promoteCmd.SetHandler(async (project, force) =>
 }, promoteProjectOpt, promoteForceOpt);
 
 var mobileCmd = new Command("mobile", "Mobile app operations");
-var mobileCreateCmd = new Command("create", "Generate Flutter POC from appgen.json");
+var mobileCreateCmd = new Command("create", "Generate Flutter mobile client from appgen.json");
 var mobileProjectOpt = new Option<string>("--project", () => ".", "Path to project root");
 var mobileEntityOpt = new Option<string?>("--entity", "Single entity to scaffold (defaults to all UI entities)");
 var mobileForceOpt = new Option<bool>("--force", "Overwrite existing mobile output");
@@ -145,14 +146,17 @@ mobileCreateCmd.AddOption(mobileEntityOpt);
 mobileCreateCmd.AddOption(mobileForceOpt);
 mobileCreateCmd.SetHandler(async (project, entity, force) =>
 {
-    var projectDir = Path.GetFullPath(project);
-    var spec = await SpecLoader.LoadAsync(projectDir);
+    var manifestDir = Path.GetFullPath(project);
+    var spec = await SpecLoader.LoadAsync(manifestDir);
+    var outputRoot = GenerationOutputHelper.ResolveOutputRootFromManifestDirectory(manifestDir, spec.ApplicationName);
+    IReadOnlyList<string>? entityNames = string.IsNullOrWhiteSpace(entity) ? null : [entity.Trim()];
     var renderer = new TemplateRenderer();
-    var generator = new MobileApplicationGenerator(new FlutterGenerator(renderer));
-    var result = await generator.GenerateAsync(
+    var service = new MobileGenerationService(new MobileApplicationGenerator(new FlutterGenerator(renderer)));
+    var result = await service.GenerateAsync(
         spec,
-        projectDir,
-        new GeneratorOptions { EntityName = entity, Force = force });
+        outputRoot,
+        entityNames,
+        forceRegenerate: force);
 
     if (!result.Success)
     {
@@ -219,11 +223,79 @@ addCmd.SetHandler(async (entityName, project) =>
 }, entityNameArg, projectOpt);
 
 entityCmd.AddCommand(addCmd);
+
+var specCmd = new Command("spec", "Import and export AppGen spec workbooks (Excel)");
+var specExportCmd = new Command("export", "Export appgen.json to an Excel workbook");
+var specImportCmd = new Command("import", "Import an Excel workbook into appgen.json");
+var specOutputOpt = new Option<string>("--output", "Output .xlsx path") { IsRequired = true };
+var specInputOpt = new Option<string>("--input", "Input .xlsx path") { IsRequired = true };
+var specProjectOpt = new Option<string>("--project", () => ".", "Path to project root (hub folder with appgen.json)");
+var specTemplateOpt = new Option<bool>("--template", () => false, "Export an empty template (ignores --project)");
+var specMergeOpt = new Option<bool>("--merge", () => false, "Merge imported entities with existing manifest entities");
+var specValidateOnlyOpt = new Option<bool>("--validate-only", () => false, "Validate workbook without writing files");
+
+specExportCmd.AddOption(specOutputOpt);
+specExportCmd.AddOption(specProjectOpt);
+specExportCmd.AddOption(specTemplateOpt);
+specExportCmd.SetHandler(async (output, project, template) =>
+{
+    try
+    {
+        await SpecExportService.ExportAsync(
+            Path.GetFullPath(output),
+            template ? null : Path.GetFullPath(project),
+            template);
+        Console.WriteLine($"Exported workbook: {Path.GetFullPath(output)}");
+    }
+    catch (Exception ex)
+    {
+        Console.Error.WriteLine(ex.Message);
+        Environment.ExitCode = 1;
+    }
+}, specOutputOpt, specProjectOpt, specTemplateOpt);
+
+specImportCmd.AddOption(specInputOpt);
+specImportCmd.AddOption(specProjectOpt);
+specImportCmd.AddOption(specMergeOpt);
+specImportCmd.AddOption(specValidateOnlyOpt);
+specImportCmd.SetHandler(async (input, project, merge, validateOnly) =>
+{
+    try
+    {
+        var result = await SpecImportService.ImportAsync(
+            Path.GetFullPath(project),
+            Path.GetFullPath(input),
+            new SpecImportOptions
+            {
+                MergeEntities = merge,
+                ValidateOnly = validateOnly
+            });
+
+        if (!result.Success)
+        {
+            Console.Error.WriteLine(result.Message);
+            Environment.ExitCode = 1;
+            return;
+        }
+
+        Console.WriteLine(result.Message);
+    }
+    catch (Exception ex)
+    {
+        Console.Error.WriteLine(ex.Message);
+        Environment.ExitCode = 1;
+    }
+}, specInputOpt, specProjectOpt, specMergeOpt, specValidateOnlyOpt);
+
+specCmd.AddCommand(specExportCmd);
+specCmd.AddCommand(specImportCmd);
+
 root.AddCommand(createCmd);
 root.AddCommand(portalCmd);
 root.AddCommand(promoteCmd);
 root.AddCommand(mobileCmd);
 root.AddCommand(entityCmd);
+root.AddCommand(specCmd);
 
 return await root.InvokeAsync(args);
 

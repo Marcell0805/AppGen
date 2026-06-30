@@ -426,6 +426,19 @@ a, .btn-link {
     gap: 8px;
 }
 
+.file-btn input[type=file] {
+    display: none;
+}
+
+.spec-workbook-actions {
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.merge-checkbox {
+    margin: 0;
+}
+
 .status-panel {
     padding: 12px;
     border-radius: 4px;

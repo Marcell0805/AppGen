@@ -1,0 +1,11 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import 'package:{{ app_name_lower }}/main.dart';
+
+void main() {
+  testWidgets('{{ app_name }} app smoke test', (WidgetTester tester) async {
+    await tester.pumpWidget(const ProviderScope(child: {{ app_class_name }}App()));
+    expect(find.byType({{ app_class_name }}App), findsOneWidget);
+  });
+}

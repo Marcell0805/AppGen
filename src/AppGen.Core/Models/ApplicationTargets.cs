@@ -41,6 +41,13 @@ public sealed class MobileTargetSpec
     public MobileThemeSpec Theme { get; init; } = new();
     public MobileOfflineTargetSpec Offline { get; init; } = new();
     public MobileCapabilitiesSpec Capabilities { get; init; } = new();
+    public MobilePublishTargetSpec Publish { get; init; } = new();
+}
+
+public sealed class MobilePublishTargetSpec
+{
+    public string BaseUrl { get; init; } = string.Empty;
+    public string ApkFileName { get; init; } = string.Empty;
 }
 
 public sealed class MobileOfflineTargetSpec

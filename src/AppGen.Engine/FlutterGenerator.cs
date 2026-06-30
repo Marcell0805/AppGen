@@ -79,6 +79,20 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
 
         await _capabilityEmitter.EmitAsync(spec, flutterRoot, firstModel, ct);
 
+        await WriteTemplateAsync(
+            "Mobile/flutter/scripts/publish-mobile.ps1.scriban",
+            flutterRoot,
+            "scripts/publish-mobile.ps1",
+            appModel,
+            ct);
+
+        await WriteTemplateAsync(
+            "Mobile/flutter/widget_test.dart.scriban",
+            flutterRoot,
+            "test/widget_test.dart",
+            firstModel,
+            ct);
+
         var legacyTargets = SpecNormalizer.BuildTargetsFromLegacy(spec);
         var mobileTarget = new MobileTargetSpec
         {
@@ -89,7 +103,8 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
             StateManagement = mobile.StateManagement,
             Theme = mobile.Theme,
             Offline = mobile.Offline,
-            Capabilities = spec.Targets?.Mobile.Capabilities ?? mobile.Capabilities
+            Capabilities = spec.Targets?.Mobile.Capabilities ?? mobile.Capabilities,
+            Publish = spec.Targets?.Mobile.Publish ?? mobile.Publish
         };
 
         var updated = new SolutionSpec
@@ -146,6 +161,7 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
         var theme = FlutterThemeResolver.Resolve(spec, mobile);
         var tagline = ResolveTagline(spec);
         var version = spec.Portal?.Settings.Version ?? "1.0.0";
+        var publish = ResolvePublishFields(spec, mobile);
 
         return new
         {
@@ -156,6 +172,9 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
                 ? $"com.{NamingHelper.NormalizeAppName(spec.ApplicationName).ToLowerInvariant()}.app"
                 : mobile.PackageName,
             api_base_url = mobile.ApiBaseUrl,
+            publish_base_url = publish.BaseUrl,
+            apk_file_name = publish.ApkFileName,
+            downloads_dir = publish.DownloadsDir,
             first_entity_snake = firstSnake,
             project_tagline = tagline,
             app_version = version,
@@ -326,6 +345,16 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
 
     private static string SanitizeDartString(string value) =>
         value.Replace('\\', '/').Replace("'", "\\'").Replace('\n', ' ').Replace('\r', ' ');
+
+    private static (string BaseUrl, string ApkFileName, string DownloadsDir) ResolvePublishFields(
+        SolutionSpec spec,
+        MobileTargetSpec mobile)
+    {
+        var publish = mobile.Publish;
+        var kebab = NamingHelper.NormalizeAppName(spec.ApplicationName).ToLowerInvariant().Replace('_', '-');
+        var apkFileName = string.IsNullOrWhiteSpace(publish.ApkFileName) ? $"{kebab}.apk" : publish.ApkFileName.Trim();
+        return (publish.BaseUrl.Trim(), apkFileName, "dist");
+    }
 }
 
 public sealed class MobileApplicationGenerator(FlutterGenerator flutterGenerator) : IApplicationGenerator

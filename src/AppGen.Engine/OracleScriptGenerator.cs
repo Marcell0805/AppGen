@@ -6,7 +6,14 @@ namespace AppGen.Engine;
 
 public static class OracleScriptGenerator
 {
-    public static async Task WriteAsync(SolutionSpec spec, string outputDirectory, CancellationToken ct = default)
+    public static Task WriteAsync(SolutionSpec spec, string outputDirectory, CancellationToken ct = default) =>
+        WriteAsync(spec, outputDirectory, entityData: null, ct);
+
+    public static async Task WriteAsync(
+        SolutionSpec spec,
+        string outputDirectory,
+        IReadOnlyDictionary<string, List<Dictionary<string, string>>>? entityData,
+        CancellationToken ct = default)
     {
         if (spec.Database != DatabaseProvider.Oracle || spec.Entities.Count == 0)
             return;
@@ -18,7 +25,9 @@ public static class OracleScriptGenerator
         var create = BuildCreateScript(spec, schemaPrefix);
         await File.WriteAllTextAsync(Path.Combine(scriptDir, "001-create-tables.sql"), create, ct);
 
-        var seed = BuildSeedScript(spec, schemaPrefix);
+        var seed = entityData is not null
+            ? ImportedSeedScriptBuilder.BuildOracle(spec, entityData, schemaPrefix)
+            : BuildSeedScript(spec, schemaPrefix);
         await File.WriteAllTextAsync(Path.Combine(scriptDir, "002-seed-data.sql"), seed, ct);
     }
 

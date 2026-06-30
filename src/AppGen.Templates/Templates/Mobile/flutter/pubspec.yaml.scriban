@@ -13,14 +13,6 @@ dependencies:
   go_router: ^14.2.0
   dio: ^5.4.3
   google_fonts: ^6.2.1
-{{ if auth_enabled }}
-  flutter_secure_storage: ^9.2.2
-{{ end }}
-{{ if offline_enabled }}
-  sqflite: ^2.3.3
-  path: ^1.9.0
-  connectivity_plus: ^6.0.5
-{{ end }}
 {{ for package in capability_packages }}
   {{ package.name }}: {{ package.version }}
 {{ end }}

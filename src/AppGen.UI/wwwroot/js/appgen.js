@@ -14,6 +14,18 @@ window.appgen = {
         a.remove();
         URL.revokeObjectURL(url);
     },
+    downloadBytesFile: function (filename, bytes, contentType) {
+        const blob = new Blob([new Uint8Array(bytes)], { type: contentType ?? 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    },
     pickTextFile: function (accept) {
         return new Promise((resolve) => {
             const input = document.createElement('input');

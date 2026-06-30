@@ -33,7 +33,8 @@ public sealed class MobileGenerationService(MobileApplicationGenerator mobileGen
             StateManagement = mobile.StateManagement,
             Theme = mobile.Theme,
             Offline = mobile.Offline,
-            Capabilities = mobile.Capabilities
+            Capabilities = mobile.Capabilities,
+            Publish = mobile.Publish
         };
 
         normalized = new SolutionSpec

@@ -144,4 +144,103 @@ public static class ProjectManifestMapper
         Phase = sketch.Phase,
         Status = sketch.Status
     };
+
+    public static PortalUiDraft ToPortalUiDraft(
+        string applicationName,
+        string outputRoot,
+        string portalName,
+        string? tagline,
+        string? homeQuote,
+        bool passwordGate,
+        bool searchEnabled,
+        IEnumerable<PortalSectionDraft> sections,
+        IEnumerable<EntitySketchDraft> sketches) => new()
+    {
+        ApplicationName = NamingHelper.NormalizeAppName(applicationName),
+        OutputRoot = outputRoot.Trim(),
+        PortalName = portalName,
+        Tagline = tagline,
+        HomeQuote = homeQuote,
+        PasswordGate = passwordGate,
+        SearchEnabled = searchEnabled,
+        Sections = sections.Select(CloneSection).ToList(),
+        EntitySketches = sketches.Select(CloneSketch).ToList()
+    };
+
+    public static PortalUiDraft ToPortalUiDraft(SolutionSpec spec, string outputRoot) => new()
+    {
+        ApplicationName = spec.ApplicationName,
+        OutputRoot = outputRoot.Trim(),
+        PortalName = spec.Portal?.Settings.PortalName ?? $"{spec.ApplicationName} Engineering Portal",
+        Tagline = spec.Portal?.Settings.Tagline ?? spec.Project?.Tagline,
+        HomeQuote = spec.Portal?.Settings.HomeQuote,
+        PasswordGate = spec.Portal?.Features.PasswordGate ?? true,
+        SearchEnabled = spec.Portal?.Features.Search ?? true,
+        Sections = spec.Portal?.Sections
+            .Where(s => s.Id != "entities")
+            .Select(ToSectionDraft)
+            .ToList() ?? [],
+        EntitySketches = spec.EntitySketches.Select(ToSketchDraft).ToList()
+    };
+
+    public static void ApplyPortalUiDraft(
+        PortalUiDraft source,
+        List<PortalSectionDraft> sections,
+        List<EntitySketchDraft> sketches,
+        out string applicationName,
+        out string outputRoot,
+        out string portalName,
+        out string? tagline,
+        out string? homeQuote,
+        out bool passwordGate,
+        out bool searchEnabled)
+    {
+        applicationName = source.ApplicationName;
+        outputRoot = source.OutputRoot;
+        portalName = source.PortalName;
+        tagline = source.Tagline;
+        homeQuote = source.HomeQuote;
+        passwordGate = source.PasswordGate;
+        searchEnabled = source.SearchEnabled;
+
+        sections.Clear();
+        foreach (var section in source.Sections)
+            sections.Add(CloneSection(section));
+
+        sketches.Clear();
+        foreach (var sketch in source.EntitySketches)
+            sketches.Add(CloneSketch(sketch));
+    }
+
+    private static PortalSectionDraft CloneSection(PortalSectionDraft section)
+    {
+        var clone = new PortalSectionDraft
+        {
+            Id = section.Id,
+            Title = section.Title,
+            Status = section.Status,
+            Summary = section.Summary
+        };
+        foreach (var block in section.Blocks)
+        {
+            var blockClone = new PortalBlockDraft
+            {
+                Id = block.Id,
+                Heading = block.Heading,
+                Content = block.Content
+            };
+            blockClone.Bullets.AddRange(block.Bullets);
+            clone.Blocks.Add(blockClone);
+        }
+
+        return clone;
+    }
+
+    private static EntitySketchDraft CloneSketch(EntitySketchDraft sketch) => new()
+    {
+        Name = sketch.Name,
+        Description = sketch.Description,
+        Phase = sketch.Phase,
+        Status = sketch.Status
+    };
 }

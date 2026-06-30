@@ -26,7 +26,8 @@ public static class TabHelpContent
             <section class="help-section"><h3>What happens here</h3><ul><li>Generates a static documentation portal under portal/ — vision, roadmap, entities, and shareable HTML.</li></ul></section>
             <section class="help-section"><h3>What you can configure</h3><ul><li>Portal title, tagline, and home quote</li><li>Sections and content blocks</li><li>Entity sketches (names and descriptions for the portal)</li><li>Password gate and search</li></ul></section>
             <section class="help-section"><h3>Typical workflow</h3><ul><li>1. Configure site settings and sections (or use Project → Generate all).</li><li>2. Click Generate portal.</li><li>3. Preview portal/index.html with Live Server.</li><li>4. Edit portal/data/*.json locally, then Import from portal folder.</li></ul></section>
-            <section class="help-section"><h3>Common issues</h3><ul><li>Blank page when opening file:// — use Live Server or another HTTP server.</li><li>Default password is the lowercased app name.</li><li>Import overwrites appgen.json portal sections from the portal folder.</li></ul></section>
+            <section class="help-section"><h3>Workbook import</h3><ul><li>Import the spec workbook on the <strong>Project</strong> tab — sections are written to the hub <code>appgen.json</code> (folder name matches <strong>ApplicationName</strong> on the Application sheet).</li><li>Open Documentation after import, or click <strong>Load from manifest</strong>. Do not use <strong>Import from portal folder</strong> unless you edited generated portal JSON files.</li></ul></section>
+            <section class="help-section"><h3>Common issues</h3><ul><li>Blank page when opening file:// — use Live Server or another HTTP server.</li><li>Default password is the lowercased app name.</li><li>Stale sections usually mean Documentation read an old <code>{AppName} Doc</code> manifest — reload from the hub manifest instead.</li></ul></section>
             </div>
             """,
         "web" => """
@@ -39,7 +40,7 @@ public static class TabHelpContent
             """,
         "mobile" => """
             <div class="help-body">
-            <section class="help-section"><h3>What happens here</h3><ul><li>Generates a Flutter proof-of-concept in the <code>{AppName} Mobile/</code> folder with API client, routes, and CRUD screens per entity.</li></ul></section>
+            <section class="help-section"><h3>What happens here</h3><ul><li>Generates a Flutter mobile client in the <code>{AppName} Mobile/</code> folder with API client, routes, and CRUD screens per entity.</li></ul></section>
             <section class="help-section"><h3>Capabilities</h3><ul><li>Each capability shows read-only <strong>Chrome</strong> / <strong>Android</strong> ticks on the Project tab.</li><li>Native plugins (camera, NFC, Bluetooth, ML Kit, etc.) need an Android emulator — Chrome cannot compile them.</li><li>Clipboard, share, place search, and WiFi are web-friendly.</li></ul></section>
             <section class="help-section"><h3>Typical workflow</h3><ul><li>1. Define entities on Project and enable Mobile (or generate here).</li><li>2. Start the Web API first.</li><li>3. Generate mobile.</li><li>4. Open the <code>{AppName} Mobile</code> folder, then <code>flutter pub get</code> and <code>flutter run</code>.</li></ul></section>
             <section class="help-section"><h3>Common issues</h3><ul><li>Connection refused — start the Web API; confirm apiBaseUrl matches Swagger.</li><li>Android emulator — use http://10.0.2.2:&lt;port&gt; instead of localhost.</li><li>Empty list — verify the API returns data and CORS is configured.</li><li>HTTPS errors — use HTTP in dev or trust the development certificate.</li></ul></section>

@@ -25,7 +25,7 @@ final {{ entity_snake }}ListProvider = FutureProvider<List<{{ entity_name }}Mode
             .toList();
         return list;
       }
-      rethrow;
+      throw StateError('No cached {{ entity_snake }} data while offline.');
     }
 
     final items = await service.getAll();

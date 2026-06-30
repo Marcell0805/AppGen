@@ -1,23 +1,27 @@
 ﻿# AppGen Evolution — Feedback and Thin-Slice Roadmap
 
-## Implementation status (2026-06-25)
+## Implementation status (2026-06-23)
 
-Thin-slice work is **complete**. Phase 2 (shared Project tab) and Phase 3 (Flutter CRUD) are **done**. Use this section as the changelog for what landed in the repo.
+Thin-slice work is **complete**. Phases 2–5 below are **done** unless noted. Use this section as the changelog for what landed in the repo.
 
 | Area | Status | Notes |
 |------|--------|-------|
 | **0. Roadmap in repo** | Done | This file + README link |
 | **A. Nav rename** | Done | Documentation (`/documentation`, `/portal` redirect), Web (`/web`), Mobile (`/mobile`), **Project** (`/`, `/project`) |
 | **A2. UI branding** | Done | Inter font, slate sidebar, CSS tokens, logo/favicon, `PageHeader`, stacked-layers icon. **AppGen** is the product name; **Application factory** is the tagline under the logo (not a replacement title) |
-| **B. Schema v5** | Done | `ApplicationTargets`, `GenerationMetadata`, `SpecNormalizer`, v3–v4 load compat |
+| **B. Schema v5–v8** | Done | `ApplicationTargets`, `GenerationMetadata`, `SpecNormalizer`, v3–v7 load compat; **v8** adds `targets.mobile.capabilities` |
 | **C. Generator plugins** | Done | `IApplicationGenerator`; `DocumentationApplicationGenerator`, `MobileApplicationGenerator` |
 | **D. Flutter CRUD** | Done | `FlutterGenerator` + Scriban templates — list, detail, create/edit form, delete per entity; `go_router` nested routes |
 | **E. Mobile tab UI** | Done | Entity picker, package name, API URL, Generate / Load project |
-| **F. CLI** | Done | `appgen mobile create --project <path> [--entity X] [--force]` |
-| **G. Tests** | Done | Portal, mobile CRUD, v5 round-trip, v3 normalize, generation output paths |
-| **H. Shared entity workflow** | Done | `WizardStateService` (Web ↔ Mobile session state), **Save manifest** (`appgen.json` without full API generate), **Load draft** on Mobile |
+| **F. CLI** | Done | `appgen mobile create`, `spec export`, `spec import` |
+| **G. Tests** | Done | Portal, mobile CRUD, capabilities, spec workbook, v5+ round-trip, generation output paths |
+| **H. Shared entity workflow** | Done | `WizardStateService` (Web ↔ Mobile ↔ Project session state), **Save manifest**, **Load draft** |
 | **I. Project tab (Phase 2)** | Done | `Project.razor` hub, `ProjectWorkspace` shared entity editor, layer toggles, **Generate all**, per-layer output folders (`{AppName} Doc/Web/Mobile`) |
-| **J. Project metadata + READMEs + tab help** | Done | Schema v6 `project` (tagline, description), per-layer READMEs, **?** help drawer on Project/Documentation/Web/Mobile |
+| **J. Project metadata + READMEs + tab help** | Done | Schema v6 `project` (tagline, description), per-layer READMEs, **?** help drawer |
+| **K. Spec workbook** | Done | Excel export/import (Application, Sections, Entities, Properties, Data_* → seed SQL); Project tab panel; see [`docs/plans/appgen-spec-workbook.md`](plans/appgen-spec-workbook.md) |
+| **L. Documentation session state** | Done | `PortalUiDraft` — section edits persist when switching Project ↔ Documentation; hub manifest load after workbook import |
+| **M. Mobile capabilities** | Done | Schema v8 catalog, Flutter services, platform permission patcher; see [`docs/plans/mobile-capabilities-system.md`](plans/mobile-capabilities-system.md) |
+| **N. Mobile publish script** | Done | Generated `scripts/publish-mobile.ps1` → `dist/` + `mobile-version.json`; `targets.mobile.publish`; see [`docs/plans/mobile-publish-script.md`](plans/mobile-publish-script.md) |
 
 ### Shared entity workflow (Phase 2)
 
@@ -36,11 +40,13 @@ Web, Mobile, and **Project** tabs share entity definitions via `WizardStateServi
 | Web | `output/{AppName} Web/` |
 | Mobile | `output/{AppName} Mobile/` |
 
-**Not yet done** (see long-term phases below): per-target incremental sync, OpenAPI client gen.
+**Not yet done** (see long-term phases below): per-target incremental sync, OpenAPI client gen, AppGen UI publish button, in-app update checker in generic Flutter templates.
 
 **Phase 4 (done):** JWT auth scaffold (Web toggle + mobile login), optional SQLite offline cache (independent Mobile toggle), generated API/MVC xUnit integration tests with EF InMemory.
 
-**Phase 5 (done):** Mobile **Capabilities** system — schema v8, full capability catalog (connectivity, location, media, device, intelligence), Flutter services/packages/permissions generation.
+**Phase 5 (done):** Mobile **Capabilities** system — schema v8, capability catalog, Flutter services/packages/permissions generation.
+
+**Phase 6 (partial):** Spec workbook (done), mobile publish script (done), documentation tab persistence (done).
 
 ---
 
@@ -157,18 +163,18 @@ This enables your future â€œUpdate Mobile onlyâ€ sync story.
 
 | Phase | Flutter output | Skip for now |
 |-------|----------------|--------------|
-| **POC (done)** | `pubspec.yaml`, folder structure, entity model, Dio service, Riverpod provider, list screen, `main.dart` + routes | — |
+| **Initial mobile (done)** | `pubspec.yaml`, folder structure, entity model, Dio service, Riverpod provider, list screen, `main.dart` + routes | — |
 | **v1 (done — Phase 3)** | Full CRUD screens per entity, `go_router` routes, theme scaffold | Isar, biometrics |
 | **v2** | JWT login flow, secure storage, interceptors | MAUI, React Native |
 
-Default stack for POC (sensible, popular, matches your proposal):
+Default stack for the mobile client (sensible, popular, matches your proposal):
 
 - **Riverpod** + **go_router** + **dio**
 - Material 3 theme stub with brand colors from portal theme (optional link)
 
 ### 7. API integration strategy
 
-**POC:** Template-generated Dart from entity name + property types, mirroring API controller routes:
+**Initial mobile:** Template-generated Dart from entity name + property types, mirroring API controller routes:
 
 ```
 GET    /api/v1/{Entity}
@@ -352,7 +358,7 @@ New [`Pages/Mobile.razor`](src\AppGen.UI\Pages\Mobile.razor):
 
 - Package name (default: `com.{appname}.app`)
 - API base URL (default: `https://localhost:5001`)
-- State management: Riverpod (fixed for POC)
+- State management: Riverpod (fixed for initial mobile)
 - Entity picker (dropdown from loaded manifest entities)
 - **Save manifest** / **Load draft** (shared with Web workflow)
 - **Generate Mobile** button
@@ -388,18 +394,18 @@ flowchart LR
     P1[Phase1_ThinSlice] --> P2[Phase2_SharedProjectTab]
     P2 --> P3[Phase3_FlutterCRUD]
     P3 --> P4[Phase4_AuthAndOffline]
-    P4 --> P5[Phase5_SyncUpdates]
-    P5 --> P6[Phase6_MoreGenerators]
+    P4 --> P5[Phase5_Capabilities]
+    P5 --> P6[Phase6_SyncAndPolish]
 ```
 
 | Phase | Focus |
 |-------|--------|
-| 1 | ~~Rename nav, UI branding, targets model, Flutter POC~~ **Done** |
+| 1 | ~~Rename nav, UI branding, targets model, Flutter mobile~~ **Done** |
 | 2 | ~~Dedicated **Project** tab with single entity editor; layer checkboxes; one **Generate All**~~ **Done** |
 | 3 | ~~Full Flutter CRUD + navigation per entity~~ **Done** |
-| 4 | JWT auth scaffold + optional SQLite cache |
-| 5 | Per-target incremental sync (`entity add` → update mobile) |
-| 6 | MAUI, CI/CD templates, OpenAPI client gen |
+| 4 | ~~JWT auth scaffold + optional SQLite cache~~ **Done** |
+| 5 | ~~Mobile capabilities catalog + Flutter emission~~ **Done** |
+| 6 | Spec workbook, publish script, doc tab persistence — **partial**; remaining: incremental sync, OpenAPI client, MAUI, CI/CD templates |
 
 ---
 
@@ -409,7 +415,7 @@ Your proposal is **coherent and achievable** because AppGen already generates mu
 
 1. **One entity model, many generators** (formalize v5 targets)
 2. **Generator plugin interface** (keeps Documentation/Web/Mobile independent)
-3. **Flutter POC with conventions, not OpenAPI** (ship fast, harden later)
+3. **Flutter mobile client with conventions, not OpenAPI** (ship fast, harden later)
 4. **Rename UI now** to match the story (Documentation / Web / Mobile)
 5. **Rebrand the shell** so AppGen feels like a product, not a Blazor starter template
 

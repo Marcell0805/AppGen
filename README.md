@@ -46,6 +46,8 @@ On the **Project** tab, **About this app** stores a tagline and description in `
 
 See [docs/EVOLUTION_ROADMAP.md](docs/EVOLUTION_ROADMAP.md) for the Application Factory vision (shared manifest, Flutter, UI branding, and phased delivery).
 
+**Plans** (`docs/plans/`): [spec workbook](docs/plans/appgen-spec-workbook.md), [mobile capabilities](docs/plans/mobile-capabilities-system.md), [mobile publish script](docs/plans/mobile-publish-script.md).
+
 ## Documentation workflow
 
 ```powershell
@@ -88,7 +90,7 @@ src/
 
 | Command | Description |
 |---------|-------------|
-| `appgen mobile create --project <path> [--entity Product]` | Generate Flutter POC in `{AppName} Mobile/` |
+| `appgen mobile create --project <path> [--entity Product]` | Generate Flutter mobile client in `{AppName} Mobile/` |
 | `appgen portal create <Name> --output <path> [--preset engineering-portal]` | Scaffold static portal + appgen.json manifest |
 | `appgen portal import --project <path>` | Merge portal/data edits into appgen.json |
 | `appgen promote --project <path> [--force]` | Generate API solution from manifest |

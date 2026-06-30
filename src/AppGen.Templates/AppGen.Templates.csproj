@@ -13,6 +13,7 @@
     <EmbeddedResource Include="Templates\Portal\**\*.js" />
     <EmbeddedResource Include="Templates\Portal\**\*.svg" />
     <EmbeddedResource Include="Templates\Portal\**\*.ps1" />
+    <EmbeddedResource Include="Templates\Mobile\**\*.ps1" />
     <None Include="Templates\**\*.scriban" />
     <None Include="Templates\Portal\**\*" />
     <Compile Remove="Templates\**\**" />

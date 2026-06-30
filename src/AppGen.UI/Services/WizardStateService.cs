@@ -10,10 +10,19 @@ public sealed class WizardStateService
     public event Action? Changed;
 
     private WizardDraft? _draft;
+    private SolutionSpec? _lastManifestSpec;
+    private string? _lastHubDirectory;
+    private PortalUiDraft? _portalDraft;
 
     public bool HasData => _draft is not null && _draft.Entities.Count > 0;
 
     public WizardDraft? Current => _draft;
+
+    public SolutionSpec? LastManifestSpec => _lastManifestSpec;
+
+    public string? LastHubDirectory => _lastHubDirectory;
+
+    public PortalUiDraft? PortalDraft => _portalDraft;
 
     public IReadOnlyList<string> EntityNames =>
         _draft?.Entities.Select(e => e.Name).ToList() ?? [];
@@ -22,6 +31,32 @@ public sealed class WizardStateService
     {
         _draft = draft;
         Changed?.Invoke();
+    }
+
+    public void NotifyManifestLoaded(SolutionSpec spec, string hubDirectory)
+    {
+        _lastManifestSpec = spec;
+        _lastHubDirectory = Path.GetFullPath(hubDirectory);
+        if (spec.Portal is not null && spec.Portal.Sections.Count > 0)
+        {
+            var outputRoot = _draft?.OutputRoot;
+            if (string.IsNullOrWhiteSpace(outputRoot))
+            {
+                var parent = Path.GetDirectoryName(_lastHubDirectory);
+                outputRoot = parent is not null ? Path.GetDirectoryName(parent) ?? parent : string.Empty;
+            }
+
+            _portalDraft = ProjectManifestMapper.ToPortalUiDraft(spec, outputRoot);
+        }
+
+        Changed?.Invoke();
+    }
+
+    public void UpdatePortalDraft(PortalUiDraft draft, bool notify = true)
+    {
+        _portalDraft = draft;
+        if (notify)
+            Changed?.Invoke();
     }
 
     public SolutionSpec ToSolutionSpec()

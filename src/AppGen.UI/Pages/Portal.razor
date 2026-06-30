@@ -7,8 +7,10 @@
 @using AppGen.UI.Services
 @inject PortalGenerationService PortalService
 @inject OutputFolderService FolderService
+@inject WizardStateService WizardState
 @inject IWebHostEnvironment HostEnvironment
 @inject IJSRuntime Js
+@implements IDisposable
 
 <PageTitle>AppGen — Documentation</PageTitle>
 
@@ -57,6 +59,9 @@
         </button>
         <button type="button" class="btn btn-outline-secondary" @onclick="RegeneratePortal" disabled="@(!CanRegenerate)">
             Regenerate portal
+        </button>
+        <button type="button" class="btn btn-outline-secondary" @onclick="LoadFromManifest" disabled="@IsWorking">
+            Load from manifest
         </button>
         <button type="button" class="btn btn-outline-secondary" @onclick="ImportPortal" disabled="@IsWorking">
             Import from portal folder
@@ -133,16 +138,218 @@
         }
     }
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         OutputRoot = FolderService.GetDefaultOutputRoot(HostEnvironment.ContentRootPath);
-        if (Sections.Count == 0)
+        SyncFromWizardState();
+        WizardState.Changed += OnWizardStateChanged;
+
+        if (TryLoadPortalDraft())
+            return;
+
+        if (await TryApplyManifestFromWizardStateAsync())
+            return;
+
+        if (!await TryLoadPortalFromManifestAsync(showStatus: false))
+            LoadDefaultSections();
+    }
+
+    private bool TryLoadPortalDraft()
+    {
+        if (WizardState.PortalDraft is not { Sections.Count: > 0 } draft)
+            return false;
+
+        if (!draft.MatchesProject(ApplicationName, OutputRoot))
+            return false;
+
+        ApplyPortalUiDraft(draft);
+        return true;
+    }
+
+    private async Task<bool> TryApplyManifestFromWizardStateAsync()
+    {
+        if (WizardState.LastManifestSpec?.Portal is not { Sections.Count: > 0 })
+            return false;
+
+        ApplyPortalFromSpec(WizardState.LastManifestSpec);
+        await InvokeAsync(StateHasChanged);
+        return true;
+    }
+
+    private void OnWizardStateChanged() => _ = InvokeAsync(async () =>
+    {
+        SyncFromWizardState();
+
+        if (TryLoadPortalDraft())
         {
-            var defaults = SpecLoader.CreatePortalDefault(ApplicationName, null);
-            foreach (var section in defaults.Portal!.Sections.Where(s => s.Id != "entities"))
-                Sections.Add(ProjectManifestMapper.ToSectionDraft(section));
-            SelectedSection = Sections.FirstOrDefault();
+            await InvokeAsync(StateHasChanged);
+            return;
         }
+
+        if (WizardState.LastManifestSpec?.Portal is { Sections.Count: > 0 })
+        {
+            ApplyPortalFromSpec(WizardState.LastManifestSpec);
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        await TryLoadPortalFromManifestAsync(showStatus: false);
+        await InvokeAsync(StateHasChanged);
+    });
+
+    private void SyncFromWizardState()
+    {
+        if (WizardState.Current is not { } draft)
+            return;
+
+        ApplicationName = draft.ApplicationName;
+        if (!string.IsNullOrWhiteSpace(draft.OutputRoot))
+            OutputRoot = draft.OutputRoot;
+        if (!string.IsNullOrWhiteSpace(draft.Tagline))
+            Tagline = draft.Tagline;
+    }
+
+    private void LoadDefaultSections()
+    {
+        if (Sections.Count > 0)
+            return;
+
+        var defaults = SpecLoader.CreatePortalDefault(ApplicationName, null);
+        foreach (var section in defaults.Portal!.Sections.Where(s => s.Id != "entities"))
+            Sections.Add(ProjectManifestMapper.ToSectionDraft(section));
+        SelectedSection = Sections.FirstOrDefault();
+    }
+
+    private string? ResolveHubManifestDirectory()
+    {
+        if (!string.IsNullOrWhiteSpace(WizardState.LastHubDirectory) &&
+            File.Exists(Path.Combine(WizardState.LastHubDirectory, "appgen.json")))
+        {
+            return WizardState.LastHubDirectory;
+        }
+
+        if (string.IsNullOrWhiteSpace(ApplicationName) || string.IsNullOrWhiteSpace(OutputRoot))
+            return null;
+
+        var hubDir = ProjectOutputPaths.HubDirectory(OutputRoot, ApplicationName);
+        return File.Exists(Path.Combine(hubDir, "appgen.json")) ? hubDir : null;
+    }
+
+    private async Task LoadFromManifest()
+    {
+        IsWorking = true;
+        try
+        {
+            if (!await TryLoadPortalFromManifestAsync(showStatus: true))
+            {
+                StatusMessage = "No appgen.json found in the hub project folder. Import a workbook on the Project tab first.";
+                IsSuccess = false;
+            }
+        }
+        finally
+        {
+            IsWorking = false;
+        }
+    }
+
+    private async Task<bool> TryLoadPortalFromManifestAsync(bool showStatus)
+    {
+        var dir = ResolveHubManifestDirectory();
+        if (dir is null)
+            return false;
+
+        try
+        {
+            var spec = await SpecLoader.LoadAsync(dir);
+            if (spec.Portal is null || spec.Portal.Sections.Count == 0)
+                return false;
+
+            ApplyPortalFromSpec(spec);
+            if (showStatus)
+            {
+                StatusMessage = $"Loaded {Sections.Count} section(s) from {Path.Combine(dir, "appgen.json")}.";
+                IsSuccess = true;
+            }
+
+            WizardState.NotifyManifestLoaded(spec, dir);
+            await InvokeAsync(StateHasChanged);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            if (showStatus)
+            {
+                StatusMessage = ex.Message;
+                IsSuccess = false;
+            }
+
+            return false;
+        }
+    }
+
+    private void ApplyPortalFromSpec(SolutionSpec spec)
+    {
+        if (spec.Portal is null)
+            return;
+
+        ApplicationName = spec.ApplicationName;
+        Sections.Clear();
+        foreach (var section in spec.Portal.Sections.Where(s => s.Id != "entities"))
+            Sections.Add(ProjectManifestMapper.ToSectionDraft(section));
+        SelectedSection = Sections.FirstOrDefault();
+
+        EntitySketches.Clear();
+        foreach (var sketch in spec.EntitySketches)
+            EntitySketches.Add(ProjectManifestMapper.ToSketchDraft(sketch));
+
+        PortalName = spec.Portal.Settings.PortalName;
+        Tagline = spec.Portal.Settings.Tagline ?? spec.Project?.Tagline;
+        HomeQuote = spec.Portal.Settings.HomeQuote;
+        PasswordGate = spec.Portal.Features.PasswordGate;
+        SearchEnabled = spec.Portal.Features.Search;
+
+        PersistPortalDraft();
+    }
+
+    private void ApplyPortalUiDraft(PortalUiDraft draft)
+    {
+        ProjectManifestMapper.ApplyPortalUiDraft(
+            draft,
+            Sections,
+            EntitySketches,
+            out var appName,
+            out var outputRoot,
+            out var portalName,
+            out var tagline,
+            out var homeQuote,
+            out var passwordGate,
+            out var searchEnabled);
+
+        ApplicationName = appName;
+        OutputRoot = outputRoot;
+        PortalName = portalName;
+        Tagline = tagline;
+        HomeQuote = homeQuote;
+        PasswordGate = passwordGate;
+        SearchEnabled = searchEnabled;
+        SelectedSection = Sections.FirstOrDefault();
+    }
+
+    private void PersistPortalDraft()
+    {
+        if (string.IsNullOrWhiteSpace(ApplicationName) || string.IsNullOrWhiteSpace(OutputRoot))
+            return;
+
+        WizardState.UpdatePortalDraft(ProjectManifestMapper.ToPortalUiDraft(
+            ApplicationName,
+            OutputRoot,
+            PortalName,
+            Tagline,
+            HomeQuote,
+            PasswordGate,
+            SearchEnabled,
+            Sections,
+            EntitySketches), notify: false);
     }
 
     private Task OnSectionSelected(PortalSectionDraft? section)
@@ -214,23 +421,7 @@
             if (result.Success)
             {
                 var spec = await SpecLoader.LoadAsync(dir);
-                if (spec.Portal is not null)
-                {
-                    Sections.Clear();
-                    foreach (var section in spec.Portal.Sections.Where(s => s.Id != "entities"))
-                        Sections.Add(ProjectManifestMapper.ToSectionDraft(section));
-                    SelectedSection = Sections.FirstOrDefault();
-
-                    EntitySketches.Clear();
-                    foreach (var sketch in spec.EntitySketches)
-                        EntitySketches.Add(ProjectManifestMapper.ToSketchDraft(sketch));
-
-                    PortalName = spec.Portal.Settings.PortalName;
-                    Tagline = spec.Portal.Settings.Tagline;
-                    HomeQuote = spec.Portal.Settings.HomeQuote;
-                    PasswordGate = spec.Portal.Features.PasswordGate;
-                    SearchEnabled = spec.Portal.Features.Search;
-                }
+                ApplyPortalFromSpec(spec);
             }
         }
         catch (Exception ex)
@@ -264,5 +455,11 @@
             StatusMessage = ex.Message;
             IsSuccess = false;
         }
+    }
+
+    public void Dispose()
+    {
+        PersistPortalDraft();
+        WizardState.Changed -= OnWizardStateChanged;
     }
 }

@@ -23,7 +23,8 @@ public static class MobileTargetMerger
             StateManagement = existing.StateManagement,
             Theme = mobileSettings.Theme ?? existing.Theme,
             Offline = mobileSettings.Offline ?? existing.Offline,
-            Capabilities = mobileSettings.Capabilities ?? existing.Capabilities
+            Capabilities = mobileSettings.Capabilities ?? existing.Capabilities,
+            Publish = existing.Publish
         };
 
         var targets = spec.Targets ?? new ApplicationTargets();

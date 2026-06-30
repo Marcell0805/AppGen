@@ -157,6 +157,37 @@ public class AuthAndOfflineTests
         }
     }
 
+    [Fact]
+    public async Task Flutter_generate_with_offline_emits_unique_pubspec_dependencies()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), "AppGenTests", Guid.NewGuid().ToString("N"));
+        var outputDir = Path.Combine(tempRoot, "OfflinePubspecApp");
+
+        try
+        {
+            var spec = BuildMobileSpec(offline: true, auth: false);
+            Directory.CreateDirectory(outputDir);
+            await ProjectSpecWriter.WriteAsync(spec, outputDir);
+
+            var renderer = new TemplateRenderer();
+            var result = await new MobileApplicationGenerator(new FlutterGenerator(renderer)).GenerateAsync(spec, outputDir, new GeneratorOptions());
+            Assert.True(result.Success, result.Message);
+
+            var pubspec = await File.ReadAllTextAsync(Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "pubspec.yaml"));
+            Assert.Equal(1, CountPackageOccurrences(pubspec, "sqflite:"));
+            Assert.Equal(1, CountPackageOccurrences(pubspec, "path:"));
+            Assert.Equal(1, CountPackageOccurrences(pubspec, "connectivity_plus:"));
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+                Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
+    private static int CountPackageOccurrences(string pubspec, string packageLine) =>
+        pubspec.Split('\n').Count(line => line.TrimStart().StartsWith(packageLine, StringComparison.Ordinal));
+
     private static SolutionSpec BuildMobileSpec(bool offline, bool auth)
     {
         var spec = SpecLoader.CreateDefault("MobileAuth", null, DatabaseProvider.SqlServer);

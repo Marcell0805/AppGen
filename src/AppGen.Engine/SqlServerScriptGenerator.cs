@@ -5,7 +5,14 @@ namespace AppGen.Engine;
 
 public static class SqlServerScriptGenerator
 {
-    public static async Task WriteAsync(SolutionSpec spec, string outputDirectory, CancellationToken ct = default)
+    public static Task WriteAsync(SolutionSpec spec, string outputDirectory, CancellationToken ct = default) =>
+        WriteAsync(spec, outputDirectory, entityData: null, ct);
+
+    public static async Task WriteAsync(
+        SolutionSpec spec,
+        string outputDirectory,
+        IReadOnlyDictionary<string, List<Dictionary<string, string>>>? entityData,
+        CancellationToken ct = default)
     {
         if (spec.Database != DatabaseProvider.SqlServer || spec.Entities.Count == 0)
             return;
@@ -18,9 +25,13 @@ public static class SqlServerScriptGenerator
             BuildCreateScript(spec),
             ct);
 
+        var seed = entityData is not null
+            ? ImportedSeedScriptBuilder.BuildSqlServer(spec, entityData)
+            : BuildSeedScript(spec);
+
         await File.WriteAllTextAsync(
             Path.Combine(scriptDir, "002-seed-data.sql"),
-            BuildSeedScript(spec),
+            seed,
             ct);
     }
 

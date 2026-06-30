@@ -57,7 +57,7 @@
     }
     <label class="checkbox-row">
         <input type="checkbox" @bind="EnableMobile" @bind:after="OnMobileLayerChanged" />
-        Mobile — Flutter proof-of-concept
+        Mobile — Flutter mobile client
     </label>
 </fieldset>
 
@@ -157,6 +157,8 @@
     </fieldset>
 }
 
+<SpecWorkbookPanel OutputRoot="@OutputRoot" ApplicationName="@ApplicationName" OnStatus="OnStatus" OnImported="LoadProject" />
+
 <div class="actions">
     <button type="button" class="btn btn-outline-secondary" @onclick="LoadProject" disabled="@IsBusy">
         Load project
@@ -200,7 +202,7 @@
     private EntityDraft? SelectedEntity { get; set; }
     private bool IsBusy { get; set; }
 
-    private IReadOnlyList<string> ClrTypes => ClrTypeCatalog.GetTypes(Database);
+    private IReadOnlyList<string> ClrTypes => AppGen.UI.Models.ClrTypeCatalog.GetTypes(Database);
 
     private bool CanSaveManifest =>
         !IsBusy &&
@@ -244,7 +246,9 @@
 
     private async Task LoadProject()
     {
-        var dir = ResolvedOutputDirectory ?? ProjectOutputPaths.HubDirectory(OutputRoot, ApplicationName);
+        var dir = WizardState.LastHubDirectory
+            ?? ProjectOutputPaths.FindManifestDirectory(OutputRoot, ApplicationName, ProjectOutputLayer.Hub)
+            ?? ProjectOutputPaths.HubDirectory(OutputRoot, ApplicationName);
         if (!File.Exists(Path.Combine(dir, "appgen.json")))
         {
             await ReportAsync("appgen.json not found in the output project folder.", success: false);
@@ -299,7 +303,11 @@
 
             SelectedEntity = Entities.FirstOrDefault();
             SyncState();
-            await ReportAsync($"Loaded project from appgen.json ({Entities.Count} entities).", success: true, dir);
+            if (spec.Portal is not null)
+                WizardState.NotifyManifestLoaded(spec, dir);
+            var sectionCount = spec.Portal?.Sections.Count ?? 0;
+            var sectionNote = sectionCount > 0 ? $", {sectionCount} portal section(s)" : string.Empty;
+            await ReportAsync($"Loaded project from appgen.json ({Entities.Count} entities{sectionNote}).", success: true, dir);
         }
         catch (Exception ex)
         {
