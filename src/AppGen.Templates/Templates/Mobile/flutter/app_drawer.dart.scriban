@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'app_colors.dart';
+import 'app_theme_config.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({
@@ -56,7 +57,7 @@ class AppDrawer extends StatelessWidget {
                 'v{{ app_version }} · AppGen',
                 style: GoogleFonts.inter(
                   fontSize: 11,
-                  color: Colors.white.withValues(alpha: 0.45),
+                  color: AppColors.onSidebar.withValues(alpha: 0.45),
                 ),
               ),
             ),
@@ -83,8 +84,40 @@ class _DrawerHeader extends StatelessWidget {
         ),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: AppThemeConfig.preset == 'cookbook'
+            ? CrossAxisAlignment.center
+            : CrossAxisAlignment.start,
         children: [
+{{ if theme_preset == "cookbook" }}
+          Container(
+            height: 3,
+            width: 48,
+            decoration: BoxDecoration(
+              color: AppColors.accent,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            appName.toUpperCase(),
+            textAlign: TextAlign.center,
+            style: GoogleFonts.cormorantGaramond(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: AppColors.onSidebar,
+              letterSpacing: 1.5,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            tagline,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.dancingScript(
+              fontSize: 16,
+              color: AppColors.accent,
+            ),
+          ),
+{{ else }}
           Container(
             height: 3,
             width: 48,
@@ -99,7 +132,7 @@ class _DrawerHeader extends StatelessWidget {
             style: GoogleFonts.playfairDisplay(
               fontSize: 22,
               fontWeight: FontWeight.w700,
-              color: Colors.white,
+              color: AppColors.onSidebar,
               letterSpacing: 0.4,
             ),
           ),
@@ -109,9 +142,10 @@ class _DrawerHeader extends StatelessWidget {
             style: GoogleFonts.inter(
               fontSize: 12,
               height: 1.35,
-              color: Colors.white.withValues(alpha: 0.72),
+              color: AppColors.onSidebar.withValues(alpha: 0.72),
             ),
           ),
+{{ end }}
         ],
       ),
     );
@@ -143,8 +177,8 @@ class _DrawerNavTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final background = selected ? AppColors.accent.withValues(alpha: 0.18) : Colors.transparent;
-    final foreground = selected ? AppColors.accent : Colors.white.withValues(alpha: 0.88);
+    final background = selected ? AppColors.sidebarSelectedBackground : Colors.transparent;
+    final foreground = selected ? AppColors.accent : AppColors.onSidebar.withValues(alpha: 0.88);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
@@ -163,7 +197,7 @@ class _DrawerNavTile extends StatelessWidget {
                   style: GoogleFonts.inter(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: selected ? AppColors.accent : Colors.white.withValues(alpha: 0.5),
+                    color: selected ? AppColors.accent : AppColors.onSidebar.withValues(alpha: 0.5),
                   ),
                 ),
                 const SizedBox(width: 10),

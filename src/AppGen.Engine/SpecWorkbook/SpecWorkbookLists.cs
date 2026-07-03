@@ -1,5 +1,6 @@
 using AppGen.Core;
 using AppGen.Core.Models;
+using AppGen.Core.Themes;
 
 namespace AppGen.Engine;
 
@@ -18,7 +19,7 @@ internal static class SpecWorkbookLists
 
     public static readonly string[] Booleans = ["true", "false"];
 
-    public static readonly string[] MobileThemePresets = ["appgen", "portal", "cookbook"];
+    public static readonly string[] MobileThemePresets = MobileThemeCatalog.PresetIds;
 
     public static readonly string[] DocumentationPresets = ["engineering-portal"];
 

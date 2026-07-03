@@ -2,6 +2,7 @@
 @using AppGen.Core
 @using AppGen.Core.Capabilities
 @using AppGen.Core.Models
+@using AppGen.Core.Themes
 @using AppGen.Engine
 @using AppGen.UI.Models
 @using AppGen.UI.Services
@@ -98,6 +99,13 @@
         }
     </fieldset>
 
+    <AppThemePanel Preset="@MobileThemePreset"
+                   PresetChanged="OnThemeSelected"
+                   DocumentationEnabled="@EnableDocumentation"
+                   MobileEnabled="true"
+                   WebEnabled="false"
+                   UseGallery="true" />
+
     <div class="actions">
         <button type="button" class="btn btn-outline-secondary" @onclick="() => LoadProject()" disabled="@IsWorking">Load project</button>
         <button type="button" class="btn btn-outline-secondary" @onclick="LoadDraft" disabled="@IsWorking">Load draft</button>
@@ -134,6 +142,8 @@
     private string PackageName { get; set; } = "com.myproduct.app";
     private string ApiBaseUrl { get; set; } = "http://localhost:5000";
     private string OutputRoot { get; set; } = string.Empty;
+    private string MobileThemePreset { get; set; } = "appgen";
+    private bool EnableDocumentation { get; set; }
     private readonly List<string> EntityNames = [];
     private readonly HashSet<string> SelectedEntityNames = new(StringComparer.OrdinalIgnoreCase);
     private bool _manifestLoaded;
@@ -246,6 +256,9 @@
         if (!string.IsNullOrWhiteSpace(draft.MobileApiBaseUrl))
             ApiBaseUrl = draft.MobileApiBaseUrl;
 
+        MobileThemePreset = draft.MobileThemePreset;
+        EnableDocumentation = draft.EnableDocumentation;
+
         EntityNames.Clear();
         EntityNames.AddRange(draft.Entities.Select(e => e.Name));
         SelectAllEntities();
@@ -305,6 +318,44 @@
             SelectAllEntities();
         else
             SelectedEntityNames.Clear();
+    }
+
+    private async Task OnThemeSelected(string preset)
+    {
+        MobileThemePreset = MobileThemeCatalog.NormalizePreset(preset);
+        if (WizardState.Current is not { } draft)
+            return;
+
+        WizardState.Update(WizardDraft.FromWizard(
+            draft.ApplicationName,
+            draft.RootNamespace,
+            draft.Database,
+            draft.OutputRoot,
+            draft.IncludeMvcWeb,
+            draft.ActiveConnectionName,
+            draft.OracleSchemaPrefix,
+            draft.EnsureCreatedInDevelopment,
+            draft.ConfigEntries.Select(e => new ConfigEntryRow
+            {
+                Name = e.Name,
+                Kind = e.Kind,
+                Key = e.Key,
+                Value = e.Value
+            }),
+            WizardEntityHelper.ToEntityDrafts(draft.Entities),
+            draft.EnableDocumentation,
+            draft.EnableWeb,
+            draft.EnableMobile,
+            draft.EnableWebAuth,
+            draft.EnableMobileOffline,
+            MobileThemePreset,
+            PackageName,
+            ApiBaseUrl,
+            draft.Tagline,
+            draft.Description,
+            draft.MobileCapabilities));
+
+        await InvokeAsync(StateHasChanged);
     }
 
     private string? ResolvedMobileDirectory

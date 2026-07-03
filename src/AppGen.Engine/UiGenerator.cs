@@ -38,7 +38,7 @@ public sealed class UiGenerator(TemplateRenderer renderer)
 
         var navRegion =
             "<!-- <AppGen-Nav-" + entity.Name + "> -->" + Environment.NewLine +
-            "                <a class=\"nav-link\" asp-controller=\"" + entity.Name + "\" asp-action=\"Index\">" + entity.Name + "</a>" + Environment.NewLine +
+            "                <a class=\"nav-link@(ViewContext.RouteData.Values[\"controller\"]?.ToString() == \"" + entity.Name + "\" ? \" is-active\" : null)\" asp-controller=\"" + entity.Name + "\" asp-action=\"Index\">" + entity.Name + "</a>" + Environment.NewLine +
             "<!-- </AppGen-Nav-" + entity.Name + "> -->";
 
         var layoutPath = Path.Combine(projectDirectory, $"src/{spec.MvcProject}/Views/Shared/_Layout.cshtml");

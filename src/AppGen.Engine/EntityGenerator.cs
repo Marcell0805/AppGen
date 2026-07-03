@@ -136,6 +136,8 @@ public sealed class EntityGenerator(TemplateRenderer renderer)
             .DistinctBy(fk => fk.ReferencedEntity)
             .ToList();
 
+        var displayProperty = expandedProperties.FirstOrDefault(p => !p.IsKey);
+
         return new
         {
             app_name = spec.ApplicationName,
@@ -149,6 +151,10 @@ public sealed class EntityGenerator(TemplateRenderer renderer)
             entity_plural = entity.Name,
             entity_plural_lower = entity.Name.ToLowerInvariant(),
             entity_camel = NamingHelper.ToCamelCase(entity.Name),
+            entity_description = GenerationCopyHelper.ResolveEntityDescription(spec, entity.Name),
+            entity_initial = entity.Name.Length > 0 ? entity.Name[0].ToString() : "?",
+            display_property_name = displayProperty?.Name ?? primaryKey.Name,
+            has_display_property = displayProperty is not null,
             primary_key_name = primaryKey.Name,
             primary_key_clr_type = primaryKey.ClrType,
             primary_key_route_constraint = pkRouteConstraint,

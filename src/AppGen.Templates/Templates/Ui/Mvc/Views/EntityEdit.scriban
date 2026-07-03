@@ -4,13 +4,20 @@
     ViewData["Title"] = id.HasValue ? "Edit {{ entity_name }}" : "Create {{ entity_name }}";
 }
 
-<h1>@ViewData["Title"]</h1>
+<header class="page-header">
+    <div>
+        <h1>@ViewData["Title"]</h1>
+        <p class="page-header__subtitle">{{ entity_description }}</p>
+    </div>
+</header>
 
+<div class="page-body">
 @if (!ViewData.ModelState.IsValid)
 {
-    <div class="text-danger">Please correct the errors and try again.</div>
+    <div class="text-danger" style="margin: 0 1rem 1rem;">Please correct the errors and try again.</div>
 }
 
+<div class="form-panel">
 <form asp-action="Save" method="post">
     @Html.AntiForgeryToken()
     @if (id.HasValue)
@@ -68,3 +75,5 @@
         }
     </div>
 </form>
+</div>
+</div>

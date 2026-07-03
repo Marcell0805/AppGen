@@ -118,11 +118,15 @@ public sealed class SolutionGenerator(TemplateRenderer renderer)
             .ToList();
 
         var firstEntity = spec.Entities.FirstOrDefault()?.Name ?? "Entity";
+        var theme = WebThemeResolver.Resolve(spec);
+        var tagline = GenerationCopyHelper.ResolveTagline(spec);
 
         return new
         {
             app_name = spec.ApplicationName,
             root_namespace = spec.RootNamespace,
+            project_tagline = tagline,
+            theme_preset = theme.Preset,
             database = spec.Database.ToString(),
             use_oracle = spec.Database == DatabaseProvider.Oracle,
             use_sqlserver = spec.Database == DatabaseProvider.SqlServer,
@@ -131,6 +135,21 @@ public sealed class SolutionGenerator(TemplateRenderer renderer)
             auth_enabled = TargetFlags.AuthEnabled(spec),
             first_entity_name = firstEntity,
             ui_targets = uiTargetNames,
+            theme_sidebar = theme.Sidebar,
+            theme_sidebar_accent = theme.SidebarAccent,
+            theme_accent = theme.Accent,
+            theme_on_accent = theme.OnAccent,
+            theme_on_sidebar = theme.OnSidebar,
+            theme_background = theme.Background,
+            theme_surface = theme.Surface,
+            theme_border = theme.Border,
+            theme_text = theme.Text,
+            theme_text_muted = theme.TextMuted,
+            theme_highlight = theme.Highlight,
+            theme_error = theme.Error,
+            theme_corner_radius = theme.CornerRadius,
+            theme_is_dark = theme.IsDark,
+            theme_heading_font = theme.HeadingFont,
             setup = new
             {
                 active_connection_name = spec.Setup.ActiveConnectionName,

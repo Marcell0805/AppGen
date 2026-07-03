@@ -50,7 +50,10 @@ class AppEmptyState extends StatelessWidget {
               child: const Icon(Icons.inbox_outlined, color: AppColors.accent, size: 28),
             ),
             const SizedBox(height: 16),
-            Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+            Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: AppColors.text,
+            )),
             const SizedBox(height: 8),
             Text(
               subtitle,
@@ -87,7 +90,10 @@ class AppErrorState extends StatelessWidget {
               child: const Icon(Icons.cloud_off_outlined, color: AppColors.error, size: 28),
             ),
             const SizedBox(height: 16),
-            Text('Could not load data', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+            Text('Could not load data', style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: AppColors.text,
+            )),
             const SizedBox(height: 8),
             Text(
               message,
@@ -144,7 +150,10 @@ class EntityRecordCard extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(title, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                            Text(title, style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.text,
+                            )),
                             const SizedBox(height: 4),
                             Text(
                               subtitle,

@@ -2,40 +2,61 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'app_colors.dart';
+import 'app_theme_config.dart';
 
 ThemeData buildAppTheme() {
+  final brightness = AppThemeConfig.isDark ? Brightness.dark : Brightness.light;
+  final radius = BorderRadius.circular(AppThemeConfig.cornerRadius);
+
   final base = ThemeData(
     useMaterial3: true,
-    brightness: Brightness.light,
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: AppColors.accent,
-      brightness: Brightness.light,
+    brightness: brightness,
+    colorScheme: ColorScheme(
+      brightness: brightness,
+      primary: AppColors.accent,
+      onPrimary: AppColors.onAccent,
+      secondary: AppColors.accentMuted,
+      onSecondary: AppColors.onAccent,
       surface: AppColors.surface,
+      onSurface: AppColors.text,
+      onSurfaceVariant: AppColors.textMuted,
+      error: AppColors.error,
+      onError: Colors.white,
     ),
     scaffoldBackgroundColor: AppColors.background,
     dividerColor: AppColors.border,
-    textTheme: GoogleFonts.interTextTheme().apply(
-      bodyColor: AppColors.text,
-      displayColor: AppColors.text,
-    ),
   );
 
-  final headingFont = GoogleFonts.playfairDisplayTextTheme(base.textTheme);
+  final baseText = _withReadableColors(
+    _bodyTextTheme(ThemeData(brightness: brightness).textTheme),
+  );
+
+  final headingTheme = _headingTextTheme(baseText);
 
   return base.copyWith(
-    textTheme: base.textTheme.copyWith(
-      headlineSmall: headingFont.headlineSmall?.copyWith(
+    textTheme: baseText.copyWith(
+      headlineSmall: headingTheme.headlineSmall?.copyWith(
         fontWeight: FontWeight.w700,
         color: AppColors.text,
       ),
-      titleLarge: headingFont.titleLarge?.copyWith(
+      titleLarge: headingTheme.titleLarge?.copyWith(
         fontWeight: FontWeight.w700,
         color: AppColors.text,
       ),
-      titleMedium: base.textTheme.titleMedium?.copyWith(
+      titleMedium: _buttonTextTheme(baseText).titleMedium?.copyWith(
         fontWeight: FontWeight.w600,
         color: AppColors.text,
       ),
+      titleSmall: baseText.titleSmall?.copyWith(
+        fontWeight: FontWeight.w600,
+        color: AppColors.text,
+      ),
+      bodyLarge: baseText.bodyLarge?.copyWith(color: AppColors.text),
+      bodyMedium: baseText.bodyMedium?.copyWith(color: AppColors.text),
+      bodySmall: baseText.bodySmall?.copyWith(color: AppColors.textMuted),
+      labelLarge: baseText.labelLarge?.copyWith(color: AppColors.text),
+      labelMedium: baseText.labelMedium?.copyWith(color: AppColors.textMuted),
+      labelSmall: baseText.labelSmall?.copyWith(color: AppColors.textMuted),
     ),
     appBarTheme: AppBarTheme(
       elevation: 0,
@@ -44,7 +65,7 @@ ThemeData buildAppTheme() {
       backgroundColor: AppColors.surface,
       foregroundColor: AppColors.text,
       surfaceTintColor: Colors.transparent,
-      titleTextStyle: GoogleFonts.inter(
+      titleTextStyle: _buttonTextStyle(
         fontSize: 17,
         fontWeight: FontWeight.w600,
         color: AppColors.text,
@@ -55,11 +76,11 @@ ThemeData buildAppTheme() {
       surfaceTintColor: Colors.transparent,
     ),
     cardTheme: CardThemeData(
-      elevation: 0,
+      elevation: AppThemeConfig.isDark ? 0 : 0,
       color: AppColors.surface,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: AppColors.border),
+        borderRadius: radius,
+        side: BorderSide(color: AppColors.border),
       ),
       margin: EdgeInsets.zero,
     ),
@@ -67,41 +88,142 @@ ThemeData buildAppTheme() {
       filled: true,
       fillColor: AppColors.surface,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: radius,
         borderSide: const BorderSide(color: AppColors.border),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: radius,
         borderSide: const BorderSide(color: AppColors.border),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: radius,
         borderSide: const BorderSide(color: AppColors.accent, width: 1.5),
       ),
-      labelStyle: GoogleFonts.inter(color: AppColors.textMuted),
+      labelStyle: _buttonTextStyle(color: AppColors.textMuted),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         backgroundColor: AppColors.accent,
-        foregroundColor: Colors.white,
+        foregroundColor: AppColors.onAccent,
+        disabledBackgroundColor: AppColors.accent.withValues(alpha: 0.35),
+        disabledForegroundColor: AppColors.onAccent.withValues(alpha: 0.6),
+        minimumSize: Size(0, AppThemeConfig.minButtonHeight),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        textStyle: GoogleFonts.inter(fontWeight: FontWeight.w600),
+        shape: RoundedRectangleBorder(borderRadius: radius),
+        textStyle: _buttonTextStyle(fontWeight: FontWeight.w600),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         foregroundColor: AppColors.text,
         side: const BorderSide(color: AppColors.border),
+        minimumSize: Size(0, AppThemeConfig.minButtonHeight),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: radius),
+        textStyle: _buttonTextStyle(fontWeight: FontWeight.w600),
       ),
     ),
-    floatingActionButtonTheme: const FloatingActionButtonThemeData(
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        foregroundColor: AppColors.accent,
+        minimumSize: Size(0, AppThemeConfig.minButtonHeight),
+        textStyle: _buttonTextStyle(fontWeight: FontWeight.w600),
+      ),
+    ),
+    iconButtonTheme: IconButtonThemeData(
+      style: IconButton.styleFrom(foregroundColor: AppColors.text),
+    ),
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
       backgroundColor: AppColors.accent,
-      foregroundColor: Colors.white,
+      foregroundColor: AppColors.onAccent,
       elevation: 2,
     ),
     progressIndicatorTheme: const ProgressIndicatorThemeData(color: AppColors.accent),
   );
+}
+
+TextTheme _withReadableColors(TextTheme base) {
+  TextStyle? paint(TextStyle? style, Color color) => style?.copyWith(color: color);
+
+  return base.copyWith(
+    displayLarge: paint(base.displayLarge, AppColors.text),
+    displayMedium: paint(base.displayMedium, AppColors.text),
+    displaySmall: paint(base.displaySmall, AppColors.text),
+    headlineLarge: paint(base.headlineLarge, AppColors.text),
+    headlineMedium: paint(base.headlineMedium, AppColors.text),
+    headlineSmall: paint(base.headlineSmall, AppColors.text),
+    titleLarge: paint(base.titleLarge, AppColors.text),
+    titleMedium: paint(base.titleMedium, AppColors.text),
+    titleSmall: paint(base.titleSmall, AppColors.text),
+    bodyLarge: paint(base.bodyLarge, AppColors.text),
+    bodyMedium: paint(base.bodyMedium, AppColors.text),
+    bodySmall: paint(base.bodySmall, AppColors.textMuted),
+    labelLarge: paint(base.labelLarge, AppColors.text),
+    labelMedium: paint(base.labelMedium, AppColors.textMuted),
+    labelSmall: paint(base.labelSmall, AppColors.textMuted),
+  );
+}
+
+TextTheme _bodyTextTheme(TextTheme base) {
+  switch (AppThemeConfig.bodyFont) {
+    case 'cormorantGaramond':
+      return GoogleFonts.cormorantGaramondTextTheme(base);
+    case 'jetBrainsMono':
+      return GoogleFonts.jetBrainsMonoTextTheme(base);
+    case 'playfairDisplay':
+      return GoogleFonts.playfairDisplayTextTheme(base);
+    case 'roboto':
+      return GoogleFonts.robotoTextTheme(base);
+    default:
+      return GoogleFonts.interTextTheme(base);
+  }
+}
+
+TextTheme _headingTextTheme(TextTheme base) {
+  switch (AppThemeConfig.headingFont) {
+    case 'cormorantGaramond':
+      return GoogleFonts.cormorantGaramondTextTheme(base);
+    case 'jetBrainsMono':
+      return GoogleFonts.jetBrainsMonoTextTheme(base);
+    case 'playfairDisplay':
+      return GoogleFonts.playfairDisplayTextTheme(base);
+    case 'roboto':
+      return GoogleFonts.robotoTextTheme(base);
+    default:
+      return GoogleFonts.interTextTheme(base);
+  }
+}
+
+TextTheme _buttonTextTheme(TextTheme base) {
+  switch (AppThemeConfig.buttonFont) {
+    case 'cormorantGaramond':
+      return GoogleFonts.cormorantGaramondTextTheme(base);
+    case 'jetBrainsMono':
+      return GoogleFonts.jetBrainsMonoTextTheme(base);
+    case 'playfairDisplay':
+      return GoogleFonts.playfairDisplayTextTheme(base);
+    case 'roboto':
+      return GoogleFonts.robotoTextTheme(base);
+    default:
+      return GoogleFonts.interTextTheme(base);
+  }
+}
+
+TextStyle _buttonTextStyle({
+  double? fontSize,
+  FontWeight? fontWeight,
+  Color? color,
+}) {
+  switch (AppThemeConfig.buttonFont) {
+    case 'cormorantGaramond':
+      return GoogleFonts.cormorantGaramond(fontSize: fontSize, fontWeight: fontWeight, color: color);
+    case 'jetBrainsMono':
+      return GoogleFonts.jetBrainsMono(fontSize: fontSize, fontWeight: fontWeight, color: color);
+    case 'playfairDisplay':
+      return GoogleFonts.playfairDisplay(fontSize: fontSize, fontWeight: fontWeight, color: color);
+    case 'roboto':
+      return GoogleFonts.roboto(fontSize: fontSize, fontWeight: fontWeight, color: color);
+    default:
+      return GoogleFonts.inter(fontSize: fontSize, fontWeight: fontWeight, color: color);
+  }
 }

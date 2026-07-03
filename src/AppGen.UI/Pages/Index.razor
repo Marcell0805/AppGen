@@ -372,26 +372,27 @@ else
 
         try
         {
-            var uiTargets = IncludeMvcWeb ? UiTarget.MvcWeb : UiTarget.None;
-            var allNames = Entities.Select(e => e.Name).ToList();
-            var entities = Entities.Select(e => e.ToSpec(allNames)).ToList();
+            SyncSharedState();
+            var spec = WizardState.ToSolutionSpec();
+            spec = new SolutionSpec
+            {
+                SchemaVersion = spec.SchemaVersion,
+                ApplicationName = spec.ApplicationName,
+                RootNamespace = spec.RootNamespace,
+                Project = spec.Project,
+                Phase = ProjectPhase.Solution,
+                EntitySketches = spec.EntitySketches,
+                Targets = spec.Targets,
+                Generation = spec.Generation,
+                Database = Database,
+                UiTargets = IncludeMvcWeb ? UiTarget.MvcWeb : UiTarget.None,
+                Setup = BuildSetup(),
+                Entities = Entities.Select(e => e.ToSpec(Entities.Select(x => x.Name).ToList())).ToList()
+            };
+
             var result = overwrite
-                ? await Generator.RegenerateAsync(
-                    ApplicationName.Trim(),
-                    string.IsNullOrWhiteSpace(RootNamespace) ? null : RootNamespace.Trim(),
-                    Database,
-                    uiTargets,
-                    OutputRoot.Trim(),
-                    BuildSetup(),
-                    entities)
-                : await Generator.GenerateAsync(
-                    ApplicationName.Trim(),
-                    string.IsNullOrWhiteSpace(RootNamespace) ? null : RootNamespace.Trim(),
-                    Database,
-                    uiTargets,
-                    OutputRoot.Trim(),
-                    BuildSetup(),
-                    entities);
+                ? await Generator.RegenerateFromSpecAsync(spec, OutputRoot.Trim())
+                : await Generator.GenerateFromSpecAsync(spec, OutputRoot.Trim());
 
             StatusMessage = result.Message;
             IsSuccess = result.Success;

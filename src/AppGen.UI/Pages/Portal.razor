@@ -2,6 +2,7 @@
 @page "/portal"
 @using AppGen.Core
 @using AppGen.Core.Models
+@using AppGen.Core.Themes
 @using AppGen.UI.Models
 @using AppGen.Engine
 @using AppGen.UI.Services
@@ -31,8 +32,11 @@
             <label>Tagline</label>
             <input @bind="Tagline" />
 
-            <label>Home quote</label>
-            <input @bind="HomeQuote" />
+            <label>Attribution</label>
+            <div>
+                <input @bind="HomeQuote" placeholder="e.g. Created by Marcell van Niekerk" />
+                <p class="hint">Optional. Shown on the portal home page only when set.</p>
+            </div>
 
             <label>Output folder</label>
             <input @bind="OutputRoot" placeholder="e.g. output/MyProduct" />
@@ -46,6 +50,13 @@
             Search (Ctrl+K)
         </label>
     </fieldset>
+
+    <AppThemePanel Preset="@AppThemePreset"
+                   PresetChanged="OnThemePresetChanged"
+                   DocumentationEnabled="true"
+                   MobileEnabled="@EnableMobile"
+                   WebEnabled="false"
+                   UseGallery="true" />
 
     <PortalSectionList Sections="Sections"
                        SelectedSection="SelectedSection"
@@ -92,10 +103,12 @@
     private string ApplicationName { get; set; } = "MyProduct";
     private string PortalName { get; set; } = "MyProduct Engineering Portal";
     private string? Tagline { get; set; } = "Share the vision, architecture and roadmap";
-    private string? HomeQuote { get; set; } = "Built with AppGen.";
+    private string? HomeQuote { get; set; }
     private string OutputRoot { get; set; } = string.Empty;
     private bool PasswordGate { get; set; } = true;
     private bool SearchEnabled { get; set; } = true;
+    private string AppThemePreset { get; set; } = "appgen";
+    private bool EnableMobile { get; set; }
 
     private List<PortalSectionDraft> Sections { get; } = [];
     private PortalSectionDraft? SelectedSection { get; set; }
@@ -207,6 +220,51 @@
             OutputRoot = draft.OutputRoot;
         if (!string.IsNullOrWhiteSpace(draft.Tagline))
             Tagline = draft.Tagline;
+
+        AppThemePreset = MobileThemeCatalog.NormalizePreset(draft.MobileThemePreset);
+        EnableMobile = draft.EnableMobile;
+    }
+
+    private Task OnThemePresetChanged(string preset)
+    {
+        AppThemePreset = MobileThemeCatalog.NormalizePreset(preset);
+        SyncThemeToWizard();
+        return Task.CompletedTask;
+    }
+
+    private void SyncThemeToWizard()
+    {
+        if (WizardState.Current is not { } draft)
+            return;
+
+        WizardState.Update(WizardDraft.FromWizard(
+            draft.ApplicationName,
+            draft.RootNamespace,
+            draft.Database,
+            draft.OutputRoot,
+            draft.IncludeMvcWeb,
+            draft.ActiveConnectionName,
+            draft.OracleSchemaPrefix,
+            draft.EnsureCreatedInDevelopment,
+            draft.ConfigEntries.Select(e => new ConfigEntryRow
+            {
+                Name = e.Name,
+                Kind = e.Kind,
+                Key = e.Key,
+                Value = e.Value
+            }),
+            WizardEntityHelper.ToEntityDrafts(draft.Entities),
+            draft.EnableDocumentation,
+            draft.EnableWeb,
+            draft.EnableMobile,
+            draft.EnableWebAuth,
+            draft.EnableMobileOffline,
+            AppThemePreset,
+            string.IsNullOrWhiteSpace(draft.MobilePackageName) ? null : draft.MobilePackageName,
+            draft.MobileApiBaseUrl,
+            draft.Tagline,
+            draft.Description,
+            draft.MobileCapabilities));
     }
 
     private void LoadDefaultSections()
@@ -307,6 +365,7 @@
         HomeQuote = spec.Portal.Settings.HomeQuote;
         PasswordGate = spec.Portal.Features.PasswordGate;
         SearchEnabled = spec.Portal.Features.Search;
+        AppThemePreset = MobileThemeCatalog.NormalizePreset(spec.Targets?.Mobile.Theme.Preset);
 
         PersistPortalDraft();
     }
@@ -370,7 +429,9 @@
         PasswordGate,
         SearchEnabled,
         Sections,
-        EntitySketches);
+        EntitySketches,
+        appThemePreset: AppThemePreset,
+        mobileEnabled: EnableMobile);
 
     private async Task GeneratePortal() => await RunGenerateAsync(overwrite: false);
 

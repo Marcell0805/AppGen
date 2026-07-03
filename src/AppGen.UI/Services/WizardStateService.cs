@@ -1,5 +1,6 @@
 using AppGen.Core;
 using AppGen.Core.Models;
+using AppGen.Core.Themes;
 using AppGen.Engine;
 using AppGen.UI.Models;
 
@@ -145,7 +146,15 @@ public sealed class WizardStateService
                 uiTargets,
                 setup: setup,
                 entitySketches: sketches);
-            portal = portalDefault.Portal;
+            var basePortal = portalDefault.Portal!;
+            portal = new PortalSpec
+            {
+                Preset = basePortal.Preset,
+                Settings = MobileThemeCatalog.WithAppTheme(basePortal.Settings, _draft.MobileThemePreset),
+                Sections = basePortal.Sections,
+                Nav = basePortal.Nav,
+                Features = basePortal.Features
+            };
         }
 
         return new SolutionSpec

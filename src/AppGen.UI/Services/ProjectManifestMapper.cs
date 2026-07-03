@@ -1,5 +1,6 @@
 using AppGen.Core;
 using AppGen.Core.Models;
+using AppGen.Core.Themes;
 using AppGen.UI.Models;
 
 namespace AppGen.UI.Services;
@@ -19,16 +20,30 @@ public static class ProjectManifestMapper
         bool searchEnabled,
         IEnumerable<PortalSectionDraft> sections,
         IEnumerable<EntitySketchDraft> sketches,
-        IEnumerable<EntitySpec>? entities = null) => new()
+        IEnumerable<EntitySpec>? entities = null,
+        string? appThemePreset = null,
+        bool mobileEnabled = false) => new()
     {
         SchemaVersion = SolutionSpec.CurrentSchemaVersion,
         ApplicationName = NamingHelper.NormalizeAppName(applicationName),
         RootNamespace = NamingHelper.NormalizeAppName(rootNamespace ?? applicationName),
         Phase = ProjectPhase.Portal,
+        Targets = new ApplicationTargets
+        {
+            Documentation = new DocumentationTargetSpec { Enabled = true },
+            Mobile = new MobileTargetSpec
+            {
+                Enabled = mobileEnabled,
+                Theme = new MobileThemeSpec
+                {
+                    Preset = MobileThemeCatalog.NormalizePreset(appThemePreset)
+                }
+            }
+        },
         Portal = new PortalSpec
         {
             Preset = "engineering-portal",
-            Settings = new PortalSettings
+            Settings = MobileThemeCatalog.WithAppTheme(new PortalSettings
             {
                 PortalName = portalName,
                 Tagline = tagline,
@@ -38,7 +53,7 @@ public static class ProjectManifestMapper
                     Password = NamingHelper.NormalizeAppName(applicationName).ToLowerInvariant(),
                     StorageKey = $"{NamingHelper.NormalizeAppName(applicationName).ToLowerInvariant()}_portal_auth"
                 }
-            },
+            }, appThemePreset),
             Sections = sections.Select(ToSection).ToList(),
             Features = new PortalFeatures
             {

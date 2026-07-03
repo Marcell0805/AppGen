@@ -14,4 +14,7 @@ abstract final class AppColors {
   static const highlight = AppThemeConfig.highlight;
   static const success = AppThemeConfig.success;
   static const error = AppThemeConfig.error;
+  static const onAccent = AppThemeConfig.onAccent;
+  static const onSidebar = AppThemeConfig.onSidebar;
+  static const sidebarSelectedBackground = AppThemeConfig.sidebarSelectedBackground;
 }

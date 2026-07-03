@@ -142,14 +142,8 @@ a, .btn-link {
     background: var(--ag-bg);
 }
 
-.mobile-settings-panel .mobile-theme-settings {
-    margin-bottom: 0;
-    padding-bottom: 1.25rem;
-    border-bottom: 1px solid var(--ag-border);
-}
-
 .mobile-settings-panel .capabilities-panel {
-    margin-top: 1.25rem;
+    margin-top: 0;
     padding: 14px 16px 16px;
 }
 

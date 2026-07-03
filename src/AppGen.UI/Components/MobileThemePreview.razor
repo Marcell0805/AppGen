@@ -1,0 +1,68 @@
+@using AppGen.Core.Themes
+
+<div class="mobile-theme-preview @CssClass @(IsCookbook ? "is-cookbook" : null)" style="@StyleAttribute">
+    <div class="mobile-theme-preview__device">
+        <div class="mobile-theme-preview__screen">
+            @if (ShowDashboard)
+            {
+                <div class="mobile-theme-preview__appbar">
+                    <span class="mobile-theme-preview__menu">☰</span>
+                    <span>Dashboard</span>
+                </div>
+                <div class="mobile-theme-preview__kpi-grid">
+                    <div class="mobile-theme-preview__kpi"><strong>128</strong><span>Active</span></div>
+                    <div class="mobile-theme-preview__kpi"><strong>94%</strong><span>SLA</span></div>
+                    <div class="mobile-theme-preview__kpi"><strong>12</strong><span>Open</span></div>
+                    <div class="mobile-theme-preview__kpi"><strong>3</strong><span>Alerts</span></div>
+                </div>
+            }
+            else
+            {
+                <div class="mobile-theme-preview__layout">
+                    <div class="mobile-theme-preview__sidebar"></div>
+                    <div class="mobile-theme-preview__main">
+                        <div class="mobile-theme-preview__appbar compact">
+                            <span class="mobile-theme-preview__menu">☰</span>
+                            <span>Employees</span>
+                        </div>
+                        <div class="mobile-theme-preview__card">
+                            <div class="mobile-theme-preview__card-title">Sample record</div>
+                            <div class="mobile-theme-preview__card-sub">Entity list row preview</div>
+                        </div>
+                    </div>
+                </div>
+            }
+            <button type="button" class="mobile-theme-preview__button">Primary action</button>
+        </div>
+    </div>
+    @if (ShowCaption)
+    {
+        <div class="mobile-theme-preview__caption">
+            <strong>@Definition.DisplayName</strong>
+            <span>@Definition.Description</span>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string Preset { get; set; } = "appgen";
+    [Parameter] public bool ShowCaption { get; set; }
+    [Parameter] public string? CssClass { get; set; }
+
+    private MobileThemeDefinition Definition => MobileThemeCatalog.Get(Preset);
+
+    private bool ShowDashboard => Definition.UsesDashboardNav;
+
+    private bool IsCookbook => Definition.Id == "cookbook";
+
+    private string StyleAttribute =>
+        $"--mtp-sidebar:{ThemeColorHelper.DartToCssHex(Definition.Sidebar)};" +
+        $"--mtp-accent:{ThemeColorHelper.DartToCssHex(Definition.Accent)};" +
+        $"--mtp-on-accent:{ThemeColorHelper.DartToCssHex(ThemeColorHelper.ResolveOnAccent(Definition.Accent, Definition.OnAccent))};" +
+        $"--mtp-background:{ThemeColorHelper.DartToCssHex(Definition.Background)};" +
+        $"--mtp-surface:{ThemeColorHelper.DartToCssHex(Definition.Surface)};" +
+        $"--mtp-border:{ThemeColorHelper.DartToCssHex(Definition.Border)};" +
+        $"--mtp-text:{ThemeColorHelper.DartToCssHex(Definition.Text)};" +
+        $"--mtp-text-muted:{ThemeColorHelper.DartToCssHex(Definition.TextMuted)};" +
+        $"--mtp-radius:{Definition.CornerRadius}px;";
+}

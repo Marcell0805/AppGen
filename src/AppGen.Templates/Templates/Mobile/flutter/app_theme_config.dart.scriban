@@ -16,4 +16,15 @@ abstract final class AppThemeConfig {
   static const highlight = Color({{ theme_highlight }});
   static const success = Color({{ theme_success }});
   static const error = Color({{ theme_error }});
+  static const onAccent = Color({{ theme_on_accent }});
+  static const onSidebar = Color({{ theme_on_sidebar }});
+  static const sidebarSelectedBackground = Color({{ theme_sidebar_selected }});
+
+  static const headingFont = '{{ theme_heading_font }}';
+  static const bodyFont = '{{ theme_body_font }}';
+  static const buttonFont = '{{ theme_button_font }}';
+  static const double cornerRadius = {{ theme_corner_radius }};
+  static const isDark = {{ theme_is_dark }};
+  static const double minButtonHeight = {{ theme_min_button_height }};
+  static const usesDashboardNav = {{ theme_uses_dashboard_nav }};
 }

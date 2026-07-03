@@ -64,6 +64,9 @@ public class MobileGenerationServiceTests
                 Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "lib", "app", "app_theme_config.dart"));
             Assert.Contains("preset = 'cookbook'", themeConfig);
             Assert.Contains("0xFFC9A227", themeConfig);
+            Assert.Contains("onAccent = Color(0xFF1A3D2E)", themeConfig);
+            Assert.Contains("sidebar = Color(0xFF1A3D2E)", themeConfig);
+            Assert.Contains("isDark = false", themeConfig);
             Assert.DoesNotContain("0xFF3B82F6", themeConfig);
         }
         finally

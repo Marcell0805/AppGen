@@ -3,39 +3,41 @@
     ViewData["Title"] = "{{ entity_name }}";
 }
 
-<h1>{{ entity_name }}</h1>
+<header class="page-header">
+    <div>
+        <h1>{{ entity_name }}</h1>
+        <p class="page-header__subtitle">{{ entity_description }}</p>
+    </div>
+</header>
 
-<p>
-    <a class="btn btn-primary" asp-action="Create">Create new</a>
-</p>
-
+<div class="page-body">
 @if (Model.Count == 0)
 {
-    <p>No records found.</p>
+    <div class="empty-state">
+        <div class="empty-state__icon">☰</div>
+        <div class="empty-state__title">No {{ entity_name }} records yet</div>
+        <p>Create records in the API to see them here.</p>
+    </div>
 }
 else
 {
-    <table class="data-table">
-        <thead>
-            <tr>
-{{ for property in properties }}
-                <th>{{ property.name }}</th>
-{{ end }}
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var item in Model)
-            {
-                <tr>
-{{ for property in properties }}
-                    <td>@item.{{ property.name }}</td>
-{{ end }}
-                    <td>
-                        <a asp-action="Edit" asp-route-id="@item.{{ primary_key_name }}">Edit</a>
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
+    <div class="entity-list">
+        @foreach (var item in Model)
+        {
+            <a class="entity-card" asp-action="Edit" asp-route-id="@item.{{ primary_key_name }}">
+                <div class="entity-card__accent"></div>
+                <div class="entity-card__content">
+                    <div class="entity-card__avatar">{{ entity_initial }}</div>
+                    <div class="entity-card__text">
+                        <div class="entity-card__title">@item.{{ primary_key_name }}</div>
+                        <div class="entity-card__subtitle">@item.{{ display_property_name }}</div>
+                    </div>
+                    <div class="entity-card__chevron">›</div>
+                </div>
+            </a>
+        }
+    </div>
 }
+</div>
+
+<a class="btn-fab" asp-action="Create">+ Add {{ entity_name }}</a>

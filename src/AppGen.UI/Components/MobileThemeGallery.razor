@@ -1,0 +1,32 @@
+@using AppGen.Core.Themes
+
+<div class="mobile-theme-gallery">
+    @foreach (var theme in Themes)
+    {
+        var selected = string.Equals(SelectedPreset, theme.Id, StringComparison.OrdinalIgnoreCase);
+        <button type="button"
+                class="mobile-theme-gallery__card @(selected ? "is-selected" : null)"
+                @onclick="() => SelectTheme(theme.Id)">
+            <MobileThemePreview Preset="@theme.Id" />
+            <div class="mobile-theme-gallery__meta">
+                <strong>@theme.DisplayName</strong>
+                <span>@theme.Description</span>
+            </div>
+        </button>
+    }
+</div>
+
+@code {
+    [Parameter] public string SelectedPreset { get; set; } = "appgen";
+    [Parameter] public bool DocumentationEnabled { get; set; }
+    [Parameter] public EventCallback<string> SelectedPresetChanged { get; set; }
+
+    private IReadOnlyList<MobileThemeDefinition> Themes =>
+        MobileThemeCatalog.GetSelectable(DocumentationEnabled);
+
+    private async Task SelectTheme(string preset)
+    {
+        SelectedPreset = preset;
+        await SelectedPresetChanged.InvokeAsync(preset);
+    }
+}

@@ -91,6 +91,9 @@ public sealed class ProjectGenerationService(
                     Entities = loaded.Entities
                 };
 
+            docSpec = MobileTargetMerger.ApplyAppThemePreset(
+                docSpec,
+                spec.Targets?.Mobile.Theme?.Preset ?? draft.MobileThemePreset);
             docSpec = ProjectInfoSeeder.ApplyToPortalSpec(docSpec);
 
             if (docSpec.Portal is null)
@@ -139,26 +142,28 @@ public sealed class ProjectGenerationService(
                     .ToList()
             };
 
+            var webSpec = new SolutionSpec
+            {
+                SchemaVersion = spec.SchemaVersion,
+                ApplicationName = spec.ApplicationName,
+                RootNamespace = string.IsNullOrWhiteSpace(draft.RootNamespace)
+                    ? spec.RootNamespace
+                    : NamingHelper.NormalizeAppName(draft.RootNamespace.Trim()),
+                Project = spec.Project,
+                Phase = ProjectPhase.Solution,
+                EntitySketches = spec.EntitySketches,
+                Targets = spec.Targets,
+                Generation = spec.Generation,
+                Database = draft.Database,
+                UiTargets = uiTargets,
+                Setup = setup,
+                Entities = entitySpecs
+            };
+
             var overwriteWeb = forceOverwrite || GenerationOutputHelper.OutputDirectoryExists(webDir);
             var webResult = overwriteWeb
-                ? await webGenerator.RegenerateAsync(
-                    appName,
-                    string.IsNullOrWhiteSpace(draft.RootNamespace) ? null : draft.RootNamespace.Trim(),
-                    draft.Database,
-                    uiTargets,
-                    outputRoot,
-                    setup,
-                    entitySpecs,
-                    ct)
-                : await webGenerator.GenerateAsync(
-                    appName,
-                    string.IsNullOrWhiteSpace(draft.RootNamespace) ? null : draft.RootNamespace.Trim(),
-                    draft.Database,
-                    uiTargets,
-                    outputRoot,
-                    setup,
-                    entitySpecs,
-                    ct: ct);
+                ? await webGenerator.RegenerateFromSpecAsync(webSpec, outputRoot, ct)
+                : await webGenerator.GenerateFromSpecAsync(webSpec, outputRoot, ct);
 
             messages.Add(webResult.Success
                 ? $"Web → {webDir}"

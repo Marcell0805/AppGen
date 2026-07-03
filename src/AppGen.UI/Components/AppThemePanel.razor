@@ -1,0 +1,78 @@
+@using AppGen.Core.Themes
+
+<fieldset class="panel app-theme-panel">
+    <legend>App theme</legend>
+    @if (ShowSharedHint)
+    {
+        <p class="hint">@SharedHint</p>
+    }
+    @if (UseGallery)
+    {
+        <MobileThemeGallery SelectedPreset="@Preset"
+                            DocumentationEnabled="@DocumentationEnabled"
+                            SelectedPresetChanged="OnPresetChanged" />
+    }
+    else
+    {
+        <div class="app-theme-settings">
+            <div class="app-theme-settings__controls">
+                <label class="app-theme-settings__label" for="@_selectId">Theme</label>
+                <select id="@_selectId" class="form-select" @bind="Preset" @bind:after="NotifyPresetChanged">
+                    @foreach (var theme in MobileThemeCatalog.GetSelectable(DocumentationEnabled))
+                    {
+                        <option value="@theme.Id">@theme.DisplayName</option>
+                    }
+                </select>
+                <p class="hint">@MobileThemeCatalog.Get(Preset).Description</p>
+            </div>
+            <div class="app-theme-settings__preview">
+                <MobileThemePreview Preset="@Preset" />
+            </div>
+        </div>
+    }
+</fieldset>
+
+@code {
+    private readonly string _selectId = $"app-theme-{Guid.NewGuid():N}";
+
+    [Parameter] public string Preset { get; set; } = "appgen";
+    [Parameter] public EventCallback<string> PresetChanged { get; set; }
+    [Parameter] public bool DocumentationEnabled { get; set; }
+    [Parameter] public bool MobileEnabled { get; set; }
+    [Parameter] public bool WebEnabled { get; set; }
+    [Parameter] public bool UseGallery { get; set; }
+    [Parameter] public bool ShowSharedHint { get; set; } = true;
+
+    private string SharedHint
+    {
+        get
+        {
+            var layers = new List<string>();
+            if (DocumentationEnabled)
+                layers.Add("documentation");
+            if (MobileEnabled)
+                layers.Add("mobile");
+            if (WebEnabled)
+                layers.Add("web admin (MVC)");
+
+            return layers.Count switch
+            {
+                0 => "Applies to generated documentation, mobile, and MVC admin UI.",
+                1 => $"Used when generating the {layers[0]} layer.",
+                _ => $"Shared by {string.Join(", ", layers)} — changing it here updates all enabled layers."
+            };
+        }
+    }
+
+    private async Task OnPresetChanged(string preset)
+    {
+        Preset = MobileThemeCatalog.NormalizePreset(preset);
+        await PresetChanged.InvokeAsync(Preset);
+    }
+
+    private async Task NotifyPresetChanged()
+    {
+        Preset = MobileThemeCatalog.NormalizePreset(Preset);
+        await PresetChanged.InvokeAsync(Preset);
+    }
+}

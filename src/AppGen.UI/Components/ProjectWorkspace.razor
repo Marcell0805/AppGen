@@ -1,5 +1,6 @@
 @using AppGen.Core
 @using AppGen.Core.Capabilities
+@using AppGen.Core.Themes
 @using AppGen.Core.Models
 @using AppGen.Engine
 @using AppGen.UI.Models
@@ -41,7 +42,7 @@
     <legend>Layers</legend>
     <p class="hint">Each layer generates into its own folder under the output root: <code>{AppName}</code> (manifest), <code>{AppName} Doc</code>, <code>{AppName} Web</code>, <code>{AppName} Mobile</code>.</p>
     <label class="checkbox-row">
-        <input type="checkbox" @bind="EnableDocumentation" @bind:after="SyncState" />
+        <input type="checkbox" @bind="EnableDocumentation" @bind:after="OnDocumentationLayerChanged" />
         Documentation — static portal site
     </label>
     <label class="checkbox-row">
@@ -75,18 +76,19 @@
                         OnChanged="OnPropertyGridChanged" />
 </fieldset>
 
+@if (EnableDocumentation || EnableMobile || EnableWeb)
+{
+    <AppThemePanel Preset="@MobileThemePreset"
+                   PresetChanged="OnThemePresetChanged"
+                   DocumentationEnabled="@EnableDocumentation"
+                   MobileEnabled="@EnableMobile"
+                   WebEnabled="@(EnableWeb && IncludeMvcWeb)" />
+}
+
 @if (EnableMobile)
 {
     <fieldset class="panel mobile-settings-panel">
         <legend>Mobile</legend>
-        <div class="form-grid mobile-theme-settings">
-            <label>Mobile theme</label>
-            <select @bind="MobileThemePreset" @bind:after="SyncState">
-                <option value="appgen">AppGen default</option>
-                <option value="portal">Match documentation portal</option>
-                <option value="cookbook">Cookbook-style</option>
-            </select>
-        </div>
         <fieldset class="capabilities-panel">
             <legend>Capabilities</legend>
             <p class="hint capability-table-legend">Select what the app should do. <strong>X</strong> = supported on that platform; <strong>—</strong> = not supported.</p>
@@ -273,7 +275,7 @@
             EnableWebAuth = spec.Targets?.Web.Auth.Enabled ?? false;
             EnableMobile = spec.Targets?.Mobile.Enabled ?? false;
             EnableMobileOffline = spec.Targets?.Mobile.Offline.Enabled ?? false;
-            MobileThemePreset = spec.Targets?.Mobile.Theme.Preset ?? "appgen";
+            MobileThemePreset = MobileThemeCatalog.NormalizePreset(spec.Targets?.Mobile.Theme.Preset);
             MobilePackageName = spec.Targets?.Mobile.PackageName ?? string.Empty;
             MobileApiBaseUrl = spec.Targets?.Mobile.ApiBaseUrl ?? "http://localhost:5000";
             MobileCapabilities.Clear();
@@ -408,7 +410,7 @@
         EnableWebAuth = draft.EnableWebAuth;
         EnableMobile = draft.EnableMobile;
         EnableMobileOffline = draft.EnableMobileOffline;
-        MobileThemePreset = draft.MobileThemePreset;
+        MobileThemePreset = MobileThemeCatalog.NormalizePreset(draft.MobileThemePreset);
         MobilePackageName = draft.MobilePackageName;
         MobileApiBaseUrl = draft.MobileApiBaseUrl;
         MobileCapabilities.Clear();
@@ -526,10 +528,33 @@
         if (!EnableMobile)
         {
             EnableMobileOffline = false;
-            MobileThemePreset = "appgen";
             MobileCapabilities.Clear();
         }
+
+        NormalizeThemePresetForLayers();
         SyncState();
+    }
+
+    private void OnDocumentationLayerChanged()
+    {
+        NormalizeThemePresetForLayers();
+        SyncState();
+    }
+
+    private Task OnThemePresetChanged(string preset)
+    {
+        MobileThemePreset = MobileThemeCatalog.NormalizePreset(preset);
+        SyncState();
+        return Task.CompletedTask;
+    }
+
+    private void NormalizeThemePresetForLayers()
+    {
+        var selectable = MobileThemeCatalog.GetSelectable(EnableDocumentation)
+            .Select(t => t.Id)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (!selectable.Contains(MobileThemePreset))
+            MobileThemePreset = "appgen";
     }
 
     private async Task ReportAsync(string message, bool success, string? outputDirectory = null)

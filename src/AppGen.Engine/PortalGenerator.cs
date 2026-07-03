@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using AppGen.Core.Models;
+using AppGen.Core.Themes;
 using AppGen.Templates;
 
 namespace AppGen.Engine;
@@ -36,6 +37,7 @@ public sealed class PortalGenerator(TemplateRenderer renderer)
         var preset = portal.Preset;
 
         await WriteDataFilesAsync(portal, portalDir, ct);
+        await WriteThemeOverridesAsync(spec, portalDir, ct);
         await CopyStaticAssetsAsync(preset, portalDir, portal.Features, ct);
         await WriteIndexHtmlAsync(prepared, portalDir, portal.Features, preset, ct);
         await WriteSectionShellsAsync(portal, portalDir, portal.Features, ct);
@@ -70,9 +72,12 @@ public sealed class PortalGenerator(TemplateRenderer renderer)
             SchemaVersion = spec.SchemaVersion,
             ApplicationName = spec.ApplicationName,
             RootNamespace = spec.RootNamespace,
+            Project = spec.Project,
             Phase = ProjectPhase.Portal,
             Portal = portal,
             EntitySketches = spec.EntitySketches,
+            Targets = spec.Targets,
+            Generation = spec.Generation,
             Database = spec.Database,
             UiTargets = spec.UiTargets,
             Setup = spec.Setup,
@@ -114,6 +119,15 @@ public sealed class PortalGenerator(TemplateRenderer renderer)
         }
     };
 
+    private static async Task WriteThemeOverridesAsync(SolutionSpec spec, string portalDir, CancellationToken ct)
+    {
+        var preset = spec.Targets?.Mobile.Theme?.Preset ?? "appgen";
+        var theme = PortalThemeCss.Resolve(preset, spec.Portal?.Settings.Theme);
+        var cssDir = Path.Combine(portalDir, "css");
+        Directory.CreateDirectory(cssDir);
+        await File.WriteAllTextAsync(Path.Combine(cssDir, "theme-overrides.css"), PortalThemeCss.ToCss(theme), ct);
+    }
+
     private async Task WriteIndexHtmlAsync(
         SolutionSpec spec,
         string portalDir,
@@ -129,6 +143,7 @@ public sealed class PortalGenerator(TemplateRenderer renderer)
             app_name = spec.ApplicationName,
             tagline = settings.Tagline ?? string.Empty,
             home_quote = settings.HomeQuote ?? string.Empty,
+            show_attribution = !string.IsNullOrWhiteSpace(settings.HomeQuote),
             password_gate = features.PasswordGate,
             search_enabled = features.Search
         };

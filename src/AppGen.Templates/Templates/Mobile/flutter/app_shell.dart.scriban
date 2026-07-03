@@ -121,7 +121,7 @@ class _AppShellState extends State<AppShell> {
       return FloatingActionButton.extended(
         onPressed: onPressed,
         backgroundColor: AppColors.accent,
-        foregroundColor: Colors.white,
+        foregroundColor: AppColors.onAccent,
         icon: const Icon(Icons.add),
         label: Text('Add ${destination.label}'),
       );
@@ -130,7 +130,7 @@ class _AppShellState extends State<AppShell> {
     return FloatingActionButton(
       onPressed: onPressed,
       backgroundColor: AppColors.accent,
-      foregroundColor: Colors.white,
+      foregroundColor: AppColors.onAccent,
       child: const Icon(Icons.add),
     );
   }

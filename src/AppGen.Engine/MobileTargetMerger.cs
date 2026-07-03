@@ -1,9 +1,49 @@
 using AppGen.Core.Models;
+using AppGen.Core.Themes;
 
 namespace AppGen.Engine;
 
 public static class MobileTargetMerger
 {
+    /// <summary>
+    /// Applies the shared app theme preset to mobile targets and portal settings.
+    /// </summary>
+    public static SolutionSpec ApplyAppThemePreset(SolutionSpec spec, string? presetId)
+    {
+        var preset = MobileThemeCatalog.NormalizePreset(presetId);
+        var withMobile = ApplyWizardMobileSettings(spec, new MobileTargetSpec
+        {
+            Theme = new MobileThemeSpec { Preset = preset }
+        });
+
+        if (withMobile.Portal is null)
+            return withMobile;
+
+        return new SolutionSpec
+        {
+            SchemaVersion = withMobile.SchemaVersion,
+            ApplicationName = withMobile.ApplicationName,
+            RootNamespace = withMobile.RootNamespace,
+            Project = withMobile.Project,
+            Phase = withMobile.Phase,
+            Portal = new PortalSpec
+            {
+                Preset = withMobile.Portal.Preset,
+                Settings = MobileThemeCatalog.WithAppTheme(withMobile.Portal.Settings, preset),
+                Sections = withMobile.Portal.Sections,
+                Nav = withMobile.Portal.Nav,
+                Features = withMobile.Portal.Features
+            },
+            EntitySketches = withMobile.EntitySketches,
+            Targets = withMobile.Targets,
+            Generation = withMobile.Generation,
+            Database = withMobile.Database,
+            UiTargets = withMobile.UiTargets,
+            Setup = withMobile.Setup,
+            Entities = withMobile.Entities
+        };
+    }
+
     /// <summary>
     /// Applies Project-tab mobile settings (theme, capabilities, offline) onto a loaded manifest spec.
     /// </summary>
