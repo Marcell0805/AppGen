@@ -1,4 +1,5 @@
 using AppGen.Core;
+using AppGen.Core.Branding;
 using AppGen.Core.Models;
 using AppGen.Templates;
 
@@ -23,6 +24,7 @@ public sealed class SolutionGenerator(TemplateRenderer renderer)
         ("Solution/shared/csproj.scriban", s => $"src/{s.SharedProject}/{s.SharedProject}.csproj"),
         ("Solution/shared/Response.scriban", s => $"src/{s.SharedProject}/Wrappers/Response.cs"),
         ("Solution/shared/ApiException.scriban", s => $"src/{s.SharedProject}/Exceptions/ApiException.cs"),
+        ("Solution/shared/IAppLogSink.scriban", s => $"src/{s.SharedProject}/Logging/IAppLogSink.cs"),
         ("Solution/shared/ValidationException.scriban", s => $"src/{s.SharedProject}/Exceptions/ValidationException.cs"),
         ("Solution/tests/csproj.scriban", s => $"src/{s.TestsProject}/{s.TestsProject}.csproj"),
         ("Solution/tests/ApiWebApplicationFactory.scriban", s => $"src/{s.TestsProject}/Infrastructure/ApiWebApplicationFactory.cs"),
@@ -55,10 +57,14 @@ public sealed class SolutionGenerator(TemplateRenderer renderer)
         ("Solution/mvc/Properties/launchSettings.scriban", s => $"src/{s.MvcProject}/Properties/launchSettings.json"),
         ("Solution/mvc/Controllers/HomeController.scriban", s => $"src/{s.MvcProject}/Controllers/HomeController.cs"),
         ("Solution/mvc/Services/EntityWebServiceBase.scriban", s => $"src/{s.MvcProject}/Services/EntityWebServiceBase.cs"),
+        ("Solution/mvc/Helpers/ApiErrorHandling.scriban", s => $"src/{s.MvcProject}/Helpers/ApiErrorHandling.cs"),
+        ("Solution/mvc/Logging/FileAppLogSink.scriban", s => $"src/{s.MvcProject}/Logging/FileAppLogSink.cs"),
+        ("Ui/Mvc/Views/_ApiErrorAlert.scriban", s => $"src/{s.MvcProject}/Views/Shared/_ApiErrorAlert.cshtml"),
         ("Solution/mvc/Views/_ViewImports.scriban", s => $"src/{s.MvcProject}/Views/_ViewImports.cshtml"),
         ("Solution/mvc/Views/_ViewStart.scriban", s => $"src/{s.MvcProject}/Views/_ViewStart.cshtml"),
         ("Solution/mvc/Views/Shared/_Layout.scriban", s => $"src/{s.MvcProject}/Views/Shared/_Layout.cshtml"),
         ("Solution/mvc/Views/Home/Index.scriban", s => $"src/{s.MvcProject}/Views/Home/Index.cshtml"),
+        ("Solution/mvc/Views/Home/Error.scriban", s => $"src/{s.MvcProject}/Views/Home/Error.cshtml"),
         ("Solution/mvc/wwwroot/css/site.scriban", s => $"src/{s.MvcProject}/wwwroot/css/site.css"),
         ("Solution/tests/MvcWebApplicationFactory.scriban", s => $"src/{s.TestsProject}/Infrastructure/MvcWebApplicationFactory.cs"),
         ("Solution/solution.slnLaunch.scriban", s => $"{s.ApplicationName}.slnLaunch"),
@@ -126,6 +132,7 @@ public sealed class SolutionGenerator(TemplateRenderer renderer)
             app_name = spec.ApplicationName,
             root_namespace = spec.RootNamespace,
             project_tagline = tagline,
+            branding_enabled = ProjectBrandingHelper.IsConfigured(spec),
             theme_preset = theme.Preset,
             database = spec.Database.ToString(),
             use_oracle = spec.Database == DatabaseProvider.Oracle,

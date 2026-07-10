@@ -1,4 +1,6 @@
+using {{ root_namespace }}.MVC.Helpers;
 using {{ root_namespace }}.MVC.Services;
+using {{ root_namespace }}.Shared.Logging;
 using {{ root_namespace }}.Shared.Requests;
 using {{ root_namespace }}.Shared.Responses;
 using Microsoft.AspNetCore.Mvc;
@@ -7,67 +9,111 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 namespace {{ root_namespace }}.MVC.Controllers;
 
 public class {{ entity_name }}Controller(
-    I{{ entity_name }}Service service{{ for fk in foreign_key_services }},
+    I{{ entity_name }}Service service,
+    IAppLogSink appLog{{ for fk in foreign_key_services }},
     I{{ fk.referenced_entity }}Service {{ fk.service_name }}{{ end }}) : Controller
 {
     public async Task<IActionResult> Index(CancellationToken ct)
     {
-        var items = await service.GetAllAsync(ct);
-        return View(items);
+        try
+        {
+            var items = await service.GetAllAsync(ct);
+            return View(items);
+        }
+        catch (Exception ex) when (ApiErrorHandling.TryHandleApiError(this, ex, appLog, out _))
+        {
+            return View(new List<{{ entity_name }}Response>());
+        }
     }
 
     public async Task<IActionResult> Create(CancellationToken ct)
     {
-        await PopulateLookupsAsync(ct);
-        ViewData["Id"] = null;
-        return View("Edit", new {{ entity_name }}Response());
+        try
+        {
+            await PopulateLookupsAsync(ct);
+            ViewData["Id"] = null;
+{{ if has_identity_key }}
+            ViewBag.PredictedNextId = await service.GetNextIdAsync(ct);
+{{ end }}
+            return View("Edit", new {{ entity_name }}Response());
+        }
+        catch (Exception ex) when (ApiErrorHandling.TryHandleApiError(this, ex, appLog, out _))
+        {
+            ViewData["Id"] = null;
+            return View("Edit", new {{ entity_name }}Response());
+        }
     }
 
     public async Task<IActionResult> Edit({{ primary_key_clr_type }} id, CancellationToken ct)
     {
-        var item = await service.GetByIdAsync(id, ct);
-        if (item is null)
-            return NotFound();
+        try
+        {
+            var item = await service.GetByIdAsync(id, ct);
+            if (item is null)
+                return NotFound();
 
-        await PopulateLookupsAsync(ct);
-        ViewData["Id"] = id;
-        return View(item);
+            await PopulateLookupsAsync(ct);
+            ViewData["Id"] = id;
+            return View(item);
+        }
+        catch (Exception ex) when (ApiErrorHandling.TryHandleApiError(this, ex, appLog, out _))
+        {
+            ViewData["Id"] = id;
+            return View("Edit", new {{ entity_name }}Response());
+        }
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Save({{ primary_key_clr_type }}? id, {{ entity_name }}Response model, CancellationToken ct)
     {
-        if (id.HasValue)
+        try
         {
-            var update = new Update{{ entity_name }}Request
+            if (id.HasValue)
             {
+                var update = new Update{{ entity_name }}Request
+                {
 {{ for property in non_key_properties }}
-                {{ property.name }} = model.{{ property.name }}{{ if !for.last }},{{ end }}
+                    {{ property.name }} = model.{{ property.name }}{{ if !for.last }},{{ end }}
 {{ end }}
-            };
-            await service.UpdateAsync(id.Value, update, ct);
-        }
-        else
-        {
-            var create = new Create{{ entity_name }}Request
+                };
+                await service.UpdateAsync(id.Value, update, ct);
+            }
+            else
             {
+                var create = new Create{{ entity_name }}Request
+                {
 {{ for property in create_properties }}
-                {{ property.name }} = model.{{ property.name }}{{ if !for.last }},{{ end }}
+                    {{ property.name }} = model.{{ property.name }}{{ if !for.last }},{{ end }}
 {{ end }}
-            };
-            await service.CreateAsync(create, ct);
-        }
+                };
+                await service.CreateAsync(create, ct);
+            }
 
-        return RedirectToAction(nameof(Index));
+            return RedirectToAction(nameof(Index));
+        }
+        catch (Exception ex) when (ApiErrorHandling.TryHandleApiError(this, ex, appLog, out _))
+        {
+            await PopulateLookupsAsync(ct);
+            ViewData["Id"] = id;
+            return View("Edit", model);
+        }
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Delete({{ primary_key_clr_type }} id, CancellationToken ct)
     {
-        await service.DeleteAsync(id, ct);
-        return RedirectToAction(nameof(Index));
+        try
+        {
+            await service.DeleteAsync(id, ct);
+            return RedirectToAction(nameof(Index));
+        }
+        catch (Exception ex) when (ApiErrorHandling.TryHandleApiError(this, ex, appLog, out _))
+        {
+            TempData["ApiError"] = ViewBag.ApiError;
+            return RedirectToAction(nameof(Index));
+        }
     }
 
 {{ if has_foreign_keys }}

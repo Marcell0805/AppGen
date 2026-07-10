@@ -1,4 +1,5 @@
 using AppGen.Core;
+using AppGen.Core.Branding;
 using AppGen.Core.Models;
 using AppGen.Templates;
 
@@ -37,6 +38,8 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
         await WriteTemplateAsync("Mobile/flutter/main.dart.scriban", flutterRoot, "lib/main.dart", firstModel, ct);
         await WriteTemplateAsync("Mobile/flutter/api_config.dart.scriban", flutterRoot, "lib/core/config/api_config.dart", firstModel, ct);
         await WriteTemplateAsync("Mobile/flutter/api_client.dart.scriban", flutterRoot, "lib/core/network/api_client.dart", firstModel, ct);
+        await WriteTemplateAsync("Mobile/flutter/api_error_mapper.dart.scriban", flutterRoot, "lib/core/network/api_error_mapper.dart", firstModel, ct);
+        await WriteTemplateAsync("Mobile/flutter/app_log_sink.dart.scriban", flutterRoot, "lib/core/logging/app_log_sink.dart", firstModel, ct);
         await WriteTemplateAsync("Mobile/flutter/theme.dart.scriban", flutterRoot, "lib/app/theme.dart", firstModel, ct);
         await WriteTemplateAsync("Mobile/flutter/app_colors.dart.scriban", flutterRoot, "lib/app/app_colors.dart", firstModel, ct);
         await WriteTemplateAsync("Mobile/flutter/app_theme_config.dart.scriban", flutterRoot, "lib/app/app_theme_config.dart", firstModel, ct);
@@ -203,6 +206,7 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
             theme_uses_dashboard_nav = theme.UsesDashboardNav ? "true" : "false",
             auth_enabled = TargetFlags.AuthEnabled(spec),
             offline_enabled = TargetFlags.OfflineEnabled(spec),
+            branding_enabled = ProjectBrandingHelper.IsConfigured(spec),
             capability_packages = BuildCapabilityPackages(spec),
             entities = entities.Select((e, index) =>
             {
@@ -242,6 +246,9 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
             json_key = ToJsonKey(p.Name)
         }).ToList();
 
+        var keys = entity.Properties.Where(p => p.IsKey).ToList();
+        var hasIdentityKey = keys.Count == 1 && keyProp is not null && keyProp.ClrType is "int" or "long";
+
         return new
         {
             app_name = spec.ApplicationName,
@@ -277,6 +284,7 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
             theme_uses_dashboard_nav = theme.UsesDashboardNav ? "true" : "false",
             auth_enabled = TargetFlags.AuthEnabled(spec),
             offline_enabled = TargetFlags.OfflineEnabled(spec),
+            branding_enabled = ProjectBrandingHelper.IsConfigured(spec),
             capability_packages = BuildCapabilityPackages(spec),
             entity_name = entity.Name,
             entity_snake = entitySnake,
@@ -287,6 +295,8 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
             has_display_field = displayProp is not null,
             display_field = displayProp is null ? "" : ToDartFieldName(displayProp.Name),
             key_json_key = keyProp is null ? "id" : ToJsonKey(keyProp.Name),
+            has_identity_key = hasIdentityKey,
+            primary_key_label = keyProp?.Name ?? "Id",
             has_editable_properties = editableProps.Count > 0,
             editable_properties = editableProps,
             properties = dartProps
@@ -427,6 +437,17 @@ public sealed class MobileApplicationGenerator(FlutterGenerator flutterGenerator
 
             if (!string.IsNullOrWhiteSpace(patch.Message))
                 message += " " + patch.Message;
+
+            var hubDir = ProjectBrandingEmitter.ResolveHubDirectoryFromLayer(projectDirectory);
+            if (hubDir is not null)
+            {
+                var iconPath = ProjectBrandingPaths.TryResolveHubIconPath(hubDir, normalized);
+                if (iconPath is not null)
+                {
+                    await ProjectBrandingEmitter.EmitMobileAsync(iconPath, projectDirectory, ct);
+                    message += " Custom app icon applied.";
+                }
+            }
 
             return GeneratorTargetResult.Ok(flutterRoot, message);
         }

@@ -88,6 +88,20 @@ class _DrawerHeader extends StatelessWidget {
             ? CrossAxisAlignment.center
             : CrossAxisAlignment.start,
         children: [
+{{ if branding_enabled }}
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.asset(
+                'assets/branding/icon.png',
+                width: 56,
+                height: 56,
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+{{ end }}
 {{ if theme_preset == "cookbook" }}
           Container(
             height: 3,

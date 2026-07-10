@@ -14,6 +14,9 @@ public sealed class WizardDraft
     public string? RootNamespace { get; init; }
     public string? Tagline { get; init; }
     public string? Description { get; init; }
+    public string? IconPath { get; init; }
+    public string? IconOriginalFileName { get; init; }
+    public string? IconBase64 { get; init; }
     public DatabaseProvider Database { get; init; } = DatabaseProvider.SqlServer;
     public string OutputRoot { get; init; } = string.Empty;
     public bool IncludeMvcWeb { get; init; } = true;
@@ -99,12 +102,18 @@ public sealed class WizardDraft
         string? mobileApiBaseUrl = null,
         string? tagline = null,
         string? description = null,
-        IEnumerable<string>? mobileCapabilities = null) => new()
+        IEnumerable<string>? mobileCapabilities = null,
+        string? iconPath = null,
+        string? iconOriginalFileName = null,
+        string? iconBase64 = null) => new()
     {
         ApplicationName = applicationName,
         RootNamespace = rootNamespace,
         Tagline = tagline,
         Description = description,
+        IconPath = iconPath,
+        IconOriginalFileName = iconOriginalFileName,
+        IconBase64 = iconBase64,
         Database = database,
         OutputRoot = outputRoot,
         IncludeMvcWeb = includeMvcWeb,

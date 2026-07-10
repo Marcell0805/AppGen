@@ -1,68 +1,170 @@
+using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
+using {{ root_namespace }}.Shared.Exceptions;
+using {{ root_namespace }}.Shared.Logging;
 
 namespace {{ root_namespace }}.MVC.Services;
 
 public abstract class EntityWebServiceBase<TResponse, TCreate, TUpdate>
 {
+    private const string ServiceUnavailableMessage =
+        "The service isn't available. Start the Web API and try again.";
+
+    private const string ServiceErrorMessage =
+        "The service returned an error. Try again later.";
+
     protected HttpClient Client { get; }
     protected JsonSerializerOptions JsonOptions { get; } = new() { PropertyNameCaseInsensitive = true };
     protected string Endpoint { get; }
+    protected IAppLogSink AppLog { get; }
 
-    protected EntityWebServiceBase(IHttpClientFactory httpClientFactory, string endpoint)
+    protected EntityWebServiceBase(
+        IHttpClientFactory httpClientFactory,
+        IAppLogSink appLog,
+        string endpoint)
     {
         Client = httpClientFactory.CreateClient("Api");
+        AppLog = appLog;
         Endpoint = endpoint.Trim('/');
     }
 
     protected async Task<List<TResponse>> GetAllCoreAsync(CancellationToken ct)
     {
-        var resp = await Client.GetAsync(Endpoint, ct);
-        resp.EnsureSuccessStatusCode();
-        var content = await resp.Content.ReadAsStringAsync(ct);
-        using var doc = JsonDocument.Parse(content);
-        var data = doc.RootElement.GetProperty("data").GetRawText();
-        return JsonSerializer.Deserialize<List<TResponse>>(data, JsonOptions) ?? [];
+        try
+        {
+            var resp = await Client.GetAsync(Endpoint, ct);
+            resp.EnsureSuccessStatusCode();
+            var content = await resp.Content.ReadAsStringAsync(ct);
+            using var doc = JsonDocument.Parse(content);
+            var data = doc.RootElement.GetProperty("data").GetRawText();
+            return JsonSerializer.Deserialize<List<TResponse>>(data, JsonOptions) ?? [];
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or SocketException)
+        {
+            throw MapApiFailure(ex, "GET list failed");
+        }
     }
 
     protected async Task<TResponse?> GetByIdCoreAsync(string id, CancellationToken ct)
     {
-        var resp = await Client.GetAsync($"{Endpoint}/{Uri.EscapeDataString(id)}", ct);
-        if (resp.StatusCode == System.Net.HttpStatusCode.NotFound)
-            return default;
+        try
+        {
+            var resp = await Client.GetAsync($"{Endpoint}/{Uri.EscapeDataString(id)}", ct);
+            if (resp.StatusCode == HttpStatusCode.NotFound)
+                return default;
 
-        resp.EnsureSuccessStatusCode();
-        var content = await resp.Content.ReadAsStringAsync(ct);
-        using var doc = JsonDocument.Parse(content);
-        var data = doc.RootElement.GetProperty("data").GetRawText();
-        return JsonSerializer.Deserialize<TResponse>(data, JsonOptions);
+            resp.EnsureSuccessStatusCode();
+            var content = await resp.Content.ReadAsStringAsync(ct);
+            using var doc = JsonDocument.Parse(content);
+            var data = doc.RootElement.GetProperty("data").GetRawText();
+            return JsonSerializer.Deserialize<TResponse>(data, JsonOptions);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or SocketException)
+        {
+            throw MapApiFailure(ex, "GET by id failed");
+        }
     }
 
     protected async Task<TResponse?> CreateCoreAsync(TCreate request, CancellationToken ct)
     {
-        var json = JsonSerializer.Serialize(request, JsonOptions);
-        var resp = await Client.PostAsync(Endpoint, new StringContent(json, Encoding.UTF8, "application/json"), ct);
-        resp.EnsureSuccessStatusCode();
-        var content = await resp.Content.ReadAsStringAsync(ct);
-        using var doc = JsonDocument.Parse(content);
-        var data = doc.RootElement.GetProperty("data").GetRawText();
-        return JsonSerializer.Deserialize<TResponse>(data, JsonOptions);
+        try
+        {
+            var json = JsonSerializer.Serialize(request, JsonOptions);
+            var resp = await Client.PostAsync(
+                Endpoint,
+                new StringContent(json, Encoding.UTF8, "application/json"),
+                ct);
+            resp.EnsureSuccessStatusCode();
+            var content = await resp.Content.ReadAsStringAsync(ct);
+            using var doc = JsonDocument.Parse(content);
+            var data = doc.RootElement.GetProperty("data").GetRawText();
+            return JsonSerializer.Deserialize<TResponse>(data, JsonOptions);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or SocketException)
+        {
+            throw MapApiFailure(ex, "POST create failed");
+        }
     }
 
     protected async Task<TResponse?> UpdateCoreAsync(string id, TUpdate request, CancellationToken ct)
     {
-        var json = JsonSerializer.Serialize(request, JsonOptions);
-        var resp = await Client.PutAsync($"{Endpoint}/{Uri.EscapeDataString(id)}", new StringContent(json, Encoding.UTF8, "application/json"), ct);
-        resp.EnsureSuccessStatusCode();
-        var content = await resp.Content.ReadAsStringAsync(ct);
-        using var doc = JsonDocument.Parse(content);
-        var data = doc.RootElement.GetProperty("data").GetRawText();
-        return JsonSerializer.Deserialize<TResponse>(data, JsonOptions);
+        try
+        {
+            var json = JsonSerializer.Serialize(request, JsonOptions);
+            var resp = await Client.PutAsync(
+                $"{Endpoint}/{Uri.EscapeDataString(id)}",
+                new StringContent(json, Encoding.UTF8, "application/json"),
+                ct);
+            resp.EnsureSuccessStatusCode();
+            var content = await resp.Content.ReadAsStringAsync(ct);
+            using var doc = JsonDocument.Parse(content);
+            var data = doc.RootElement.GetProperty("data").GetRawText();
+            return JsonSerializer.Deserialize<TResponse>(data, JsonOptions);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or SocketException)
+        {
+            throw MapApiFailure(ex, "PUT update failed");
+        }
     }
 
     protected async Task<bool> DeleteCoreAsync(string id, CancellationToken ct)
     {
-        var resp = await Client.DeleteAsync($"{Endpoint}/{Uri.EscapeDataString(id)}", ct);
-        return resp.IsSuccessStatusCode;
+        try
+        {
+            var resp = await Client.DeleteAsync($"{Endpoint}/{Uri.EscapeDataString(id)}", ct);
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or SocketException)
+        {
+            throw MapApiFailure(ex, "DELETE failed");
+        }
+    }
+
+    protected async Task<long> GetNextIdCoreAsync(CancellationToken ct)
+    {
+        try
+        {
+            var resp = await Client.GetAsync($"{Endpoint}/next-id", ct);
+            resp.EnsureSuccessStatusCode();
+            var content = await resp.Content.ReadAsStringAsync(ct);
+            using var doc = JsonDocument.Parse(content);
+            var data = doc.RootElement.GetProperty("data");
+            return data.ValueKind switch
+            {
+                JsonValueKind.Number when data.TryGetInt64(out var value) => value,
+                JsonValueKind.String when long.TryParse(data.GetString(), out var parsed) => parsed,
+                _ => throw new ApiException("The service returned an unexpected next-id response.")
+            };
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or SocketException)
+        {
+            throw MapApiFailure(ex, "GET next-id failed");
+        }
+    }
+
+    private ApiException MapApiFailure(Exception ex, string operation)
+    {
+        AppLog.LogError(ex, operation, new Dictionary<string, object> { ["Endpoint"] = Endpoint });
+        var message = IsConnectivityFailure(ex) ? ServiceUnavailableMessage : ServiceErrorMessage;
+        return new ApiException(message, ex);
+    }
+
+    private static bool IsConnectivityFailure(Exception ex)
+    {
+        for (var current = ex; current is not null; current = current.InnerException)
+        {
+            if (current is SocketException)
+                return true;
+
+            if (current is TaskCanceledException)
+                return true;
+
+            if (current is HttpRequestException { StatusCode: null })
+                return true;
+        }
+
+        return false;
     }
 }

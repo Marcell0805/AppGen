@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app/app_colors.dart';
 import '../../../core/auth/auth_provider.dart';
+import '../../../core/network/api_error_mapper.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -35,7 +36,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.toString()), backgroundColor: AppColors.error),
+          SnackBar(
+            content: Text(ApiErrorMapper.message(error, context: 'Sign in')),
+            backgroundColor: AppColors.error,
+          ),
         );
       }
     } finally {

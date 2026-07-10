@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/app_colors.dart';
+import '../../../core/network/api_error_mapper.dart';
 import '../../../core/widgets/app_page_header.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../providers/{{ entity_snake }}_provider.dart';
@@ -64,7 +65,10 @@ class {{ entity_name }}DetailScreen extends ConsumerWidget {
         ],
       ),
       loading: () => const AppLoadingState(message: 'Loading {{ entity_name }}…'),
-      error: (error, _) => AppErrorState(message: error.toString()),
+      error: (error, stackTrace) => AppErrorState(
+        message: ApiErrorMapper.message(error, context: 'Load {{ entity_name }} details'),
+        onRetry: () => ref.invalidate({{ entity_snake }}DetailProvider(id)),
+      ),
     );
   }
 
@@ -83,9 +87,19 @@ class {{ entity_name }}DetailScreen extends ConsumerWidget {
 
     if (confirmed != true || !context.mounted) return;
 
-    await ref.read({{ entity_snake }}ServiceProvider).delete(id);
-    ref.invalidate({{ entity_snake }}ListProvider);
-    if (context.mounted) context.go('/{{ entity_snake }}');
+    try {
+      await ref.read({{ entity_snake }}ServiceProvider).delete(id);
+      ref.invalidate({{ entity_snake }}ListProvider);
+      if (context.mounted) context.go('/{{ entity_snake }}');
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(ApiErrorMapper.message(error, context: 'Delete {{ entity_name }}')),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
   }
 }
 

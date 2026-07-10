@@ -1,0 +1,66 @@
+import 'package:dio/dio.dart';
+
+import '../logging/app_log_sink.dart';
+
+/// Maps API and network failures to user-friendly messages.
+class ApiErrorMapper {
+  ApiErrorMapper._();
+
+  static const String serviceUnavailableMessage =
+      "The service isn't available. Check that the API is running and try again.";
+
+  static const String authFailedMessage =
+      'Sign in failed. Check your credentials and try again.';
+
+  static const String serverErrorMessage =
+      'The service returned an error. Try again later.';
+
+  static const String genericMessage =
+      'Something went wrong. Please try again.';
+
+  static String message(Object error, {String? context}) {
+    AppLogSink.instance.logError(error, context: context);
+    return _map(error);
+  }
+
+  static String _map(Object error) {
+    if (error is DioException) {
+      switch (error.type) {
+        case DioExceptionType.connectionTimeout:
+        case DioExceptionType.sendTimeout:
+        case DioExceptionType.receiveTimeout:
+        case DioExceptionType.connectionError:
+        case DioExceptionType.transformTimeout:
+          return serviceUnavailableMessage;
+        case DioExceptionType.badResponse:
+          final statusCode = error.response?.statusCode;
+          if (statusCode == 401 || statusCode == 403) {
+            return authFailedMessage;
+          }
+          return serverErrorMessage;
+        case DioExceptionType.cancel:
+          return genericMessage;
+        case DioExceptionType.badCertificate:
+        case DioExceptionType.unknown:
+          return _isConnectivityFailure(error)
+              ? serviceUnavailableMessage
+              : serverErrorMessage;
+      }
+    }
+
+    return genericMessage;
+  }
+
+  static bool _isConnectivityFailure(DioException error) {
+    final underlying = error.error;
+    if (underlying == null) {
+      return error.type == DioExceptionType.connectionError;
+    }
+
+    final description = underlying.toString().toLowerCase();
+    return description.contains('connection refused') ||
+        description.contains('failed host lookup') ||
+        description.contains('network is unreachable') ||
+        description.contains('socketexception');
+  }
+}

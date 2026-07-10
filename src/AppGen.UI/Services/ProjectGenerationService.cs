@@ -1,4 +1,5 @@
 using AppGen.Core;
+using AppGen.Core.Branding;
 using AppGen.Core.Models;
 using AppGen.Engine;
 using AppGen.UI.Models;
@@ -49,6 +50,10 @@ public sealed class ProjectGenerationService(
         wizardState.Update(draft);
         var spec = ProjectInfoSeeder.ApplyToPortalSpec(wizardState.ToSolutionSpec());
 
+        Directory.CreateDirectory(hubDir);
+        await ProjectBrandingService.FlushDraftIconToHubAsync(draft, hubDir, ct);
+        spec = ReloadSpecWithBranding(spec, hubDir);
+
         var saveResult = await manifestSave.SaveAsync(spec, hubDir, ct);
         if (!saveResult.Success)
             return ProjectGenerationResult.Fail(saveResult.Message);
@@ -64,11 +69,14 @@ public sealed class ProjectGenerationService(
 
         var messages = new List<string> { $"Manifest → {hubDir}" };
         var success = true;
+        string? docDir = null;
+        string? webDir = null;
+        string? mobileDir = null;
 
         if (draft.EnableDocumentation)
         {
             ct.ThrowIfCancellationRequested();
-            var docDir = ProjectOutputPaths.DocumentationDirectory(outputRoot, appName);
+            docDir = ProjectOutputPaths.DocumentationDirectory(outputRoot, appName);
             await manifestSave.SaveAsync(spec, docDir, ct);
 
             var loaded = await SpecLoader.LoadAsync(docDir, ct);
@@ -121,7 +129,7 @@ public sealed class ProjectGenerationService(
         if (draft.EnableWeb)
         {
             ct.ThrowIfCancellationRequested();
-            var webDir = ProjectOutputPaths.WebDirectory(outputRoot, appName);
+            webDir = ProjectOutputPaths.WebDirectory(outputRoot, appName);
             await manifestSave.SaveAsync(spec, webDir, ct);
 
             var uiTargets = draft.IncludeMvcWeb ? UiTarget.MvcWeb : UiTarget.None;
@@ -179,7 +187,7 @@ public sealed class ProjectGenerationService(
         if (draft.EnableMobile)
         {
             ct.ThrowIfCancellationRequested();
-            var mobileDir = ProjectOutputPaths.MobileDirectory(outputRoot, appName);
+            mobileDir = ProjectOutputPaths.MobileDirectory(outputRoot, appName);
             await manifestSave.SaveAsync(spec, mobileDir, ct);
 
             var loaded = await SpecLoader.LoadAsync(mobileDir, ct);
@@ -222,6 +230,22 @@ public sealed class ProjectGenerationService(
             }
         }
 
+        if (ProjectBrandingPaths.HasCustomIcon(hubDir, spec))
+        {
+            var brandingResult = await ProjectBrandingEmitter.EmitAllAsync(
+                spec,
+                hubDir,
+                new ProjectBrandingTargets
+                {
+                    DocumentationDirectory = docDir,
+                    WebDirectory = webDir,
+                    MobileDirectory = mobileDir
+                },
+                ct);
+            if (brandingResult.Emitted)
+                messages.Add($"Branding → {brandingResult.Message}");
+        }
+
         var summary = string.Join(" | ", messages);
         return success
             ? ProjectGenerationResult.Ok(hubDir, summary)
@@ -230,6 +254,41 @@ public sealed class ProjectGenerationService(
 
     private static bool DocumentationOutputExists(string docDir) =>
         File.Exists(Path.Combine(docDir, "portal", "index.html"));
+
+    private static SolutionSpec ReloadSpecWithBranding(
+        SolutionSpec spec,
+        string hubDir)
+    {
+        if (!ProjectBrandingPaths.HasCustomIcon(hubDir, spec))
+            return spec;
+
+        var project = spec.Project ?? new ProjectInfoSpec();
+        return new SolutionSpec
+        {
+            SchemaVersion = spec.SchemaVersion,
+            ApplicationName = spec.ApplicationName,
+            RootNamespace = spec.RootNamespace,
+            Project = new ProjectInfoSpec
+            {
+                Tagline = project.Tagline,
+                Description = project.Description,
+                Branding = new ProjectBrandingSpec
+                {
+                    IconPath = ProjectBrandingConstants.DefaultIconRelativePath,
+                    OriginalFileName = project.Branding?.OriginalFileName
+                }
+            },
+            Phase = spec.Phase,
+            Portal = spec.Portal,
+            EntitySketches = spec.EntitySketches,
+            Targets = spec.Targets,
+            Generation = spec.Generation,
+            Database = spec.Database,
+            UiTargets = spec.UiTargets,
+            Setup = spec.Setup,
+            Entities = spec.Entities
+        };
+    }
 }
 
 public sealed record ProjectGenerationResult(bool Success, string Message, string? OutputDirectory)

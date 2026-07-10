@@ -168,6 +168,17 @@ public sealed class AppGenerationService(
         await DatabaseScriptGenerator.WriteAsync(loadedSpec, outputDir, ct);
         await ReadmeGenerator.WriteAsync(loadedSpec, outputDir, ct);
 
+        var hubDir = ProjectBrandingEmitter.ResolveHubDirectoryFromLayer(outputDir)
+            ?? ProjectOutputPaths.HubDirectory(outputRootDirectory.Trim(), spec.ApplicationName);
+        if (ProjectBrandingPaths.HasCustomIcon(hubDir, spec))
+        {
+            await ProjectBrandingEmitter.EmitMvcWebAsync(
+                ProjectBrandingPaths.TryResolveHubIconPath(hubDir, spec)!,
+                outputDir,
+                spec,
+                ct);
+        }
+
         var uiNote = spec.UiTargets.HasFlag(UiTarget.MvcWeb)
             ? " MVC Web UI included — run the API and MVC projects."
             : string.Empty;

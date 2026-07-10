@@ -39,6 +39,7 @@ public static class AppSettingsGenerator
                 ["Api"] = new JsonObject { ["BaseUrl"] = "https://localhost:5001" },
                 ["Logging"] = new JsonObject
                 {
+                    ["FilePath"] = "logs/app.log",
                     ["LogLevel"] = new JsonObject
                     {
                         ["Default"] = "Information",

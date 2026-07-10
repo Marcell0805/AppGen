@@ -68,9 +68,16 @@ class AppEmptyState extends StatelessWidget {
 }
 
 class AppErrorState extends StatelessWidget {
-  const AppErrorState({super.key, required this.message});
+  const AppErrorState({
+    super.key,
+    required this.message,
+    this.title = 'Could not load data',
+    this.onRetry,
+  });
 
   final String message;
+  final String title;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -90,7 +97,7 @@ class AppErrorState extends StatelessWidget {
               child: const Icon(Icons.cloud_off_outlined, color: AppColors.error, size: 28),
             ),
             const SizedBox(height: 16),
-            Text('Could not load data', style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w600,
               color: AppColors.text,
             )),
@@ -100,6 +107,14 @@ class AppErrorState extends StatelessWidget {
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textMuted),
             ),
+            if (onRetry != null) ...[
+              const SizedBox(height: 20),
+              OutlinedButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry'),
+              ),
+            ],
           ],
         ),
       ),

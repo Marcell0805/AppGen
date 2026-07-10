@@ -50,10 +50,20 @@ public class GenerationIntegrationTests
             var repositoryPath = Path.Combine(outputDir, "src/CrudTestApp.Persistence/Repositories/ProductRepository.cs");
             var repositoryContent = await File.ReadAllTextAsync(repositoryPath);
             Assert.Contains("GetTrackedByIdAsync", repositoryContent);
+            Assert.Contains("IsModified = false", repositoryContent);
+            Assert.Contains("GetNextIdentityValueAsync", repositoryContent);
 
             var configurationPath = Path.Combine(outputDir, "src/CrudTestApp.Persistence/Configurations/ProductConfiguration.cs");
             var configurationContent = await File.ReadAllTextAsync(configurationPath);
             Assert.Contains("UseIdentityColumn()", configurationContent);
+
+            var entityPath = Path.Combine(outputDir, "src/CrudTestApp.Domain/Entities/Product.cs");
+            var entityContent = await File.ReadAllTextAsync(entityPath);
+            Assert.Contains("DatabaseGeneratedOption.Identity", entityContent);
+
+            var controllerPath = Path.Combine(outputDir, "src/CrudTestApp.API/Controllers/V1/ProductController.cs");
+            var controllerContent = await File.ReadAllTextAsync(controllerPath);
+            Assert.Contains("[HttpGet(\"next-id\")]", controllerContent);
 
             var servicePath = Path.Combine(outputDir, "src/CrudTestApp.Application/Services/ProductService.cs");
             var serviceContent = await File.ReadAllTextAsync(servicePath);
@@ -61,6 +71,42 @@ public class GenerationIntegrationTests
 
             var exitCode = await RunDotNetBuildAsync(slnPath);
             Assert.Equal(0, exitCode);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+                Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Generate_postgresql_entity_uses_identity_by_default_column()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), "AppGenTests", Guid.NewGuid().ToString("N"));
+        var outputDir = Path.Combine(tempRoot, "PgIdentityApp");
+
+        try
+        {
+            var spec = SpecLoader.CreateDefault("PgIdentityApp", null, DatabaseProvider.PostgreSql);
+            var product = new EntitySpec
+            {
+                Name = "Product",
+                Properties =
+                [
+                    new PropertySpec { Name = "Product_Id", ClrType = "long", IsKey = true },
+                    new PropertySpec { Name = "Name", ClrType = "string" }
+                ]
+            };
+
+            var renderer = new TemplateRenderer();
+            await new SolutionGenerator(renderer).GenerateAsync(spec, outputDir);
+            var loaded = await SpecLoader.LoadAsync(outputDir);
+            await new EntityGenerator(renderer).GenerateAsync(loaded, product, outputDir);
+
+            var configurationPath = Path.Combine(outputDir, "src/PgIdentityApp.Persistence/Configurations/ProductConfiguration.cs");
+            var configurationContent = await File.ReadAllTextAsync(configurationPath);
+            Assert.Contains("UseIdentityByDefaultColumn()", configurationContent);
+            Assert.DoesNotContain("UseIdentityColumn()", configurationContent);
         }
         finally
         {

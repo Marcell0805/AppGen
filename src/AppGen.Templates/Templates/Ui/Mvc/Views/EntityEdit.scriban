@@ -12,6 +12,7 @@
 </header>
 
 <div class="page-body">
+<partial name="_ApiErrorAlert" />
 @if (!ViewData.ModelState.IsValid)
 {
     <div class="text-danger" style="margin: 0 1rem 1rem;">Please correct the errors and try again.</div>
@@ -28,6 +29,17 @@
 {{ for property in properties }}
     <div class="form-field">
         <label for="{{ property.name }}">{{ property.name }}</label>
+{{ if property.is_identity_type }}
+        @if (!id.HasValue)
+        {
+            <input id="{{ property.name }}" class="identity-preview" value="@ViewBag.PredictedNextId" readonly aria-readonly="true" />
+            <p class="form-field__hint">Assigned automatically when you save.</p>
+        }
+        else
+        {
+            <input id="{{ property.name }}" name="{{ property.name }}" value="@Model?.{{ property.name }}" readonly />
+        }
+{{ else }}
         @if (id.HasValue && "{{ property.name }}" == "{{ primary_key_name }}")
         {
             <input id="{{ property.name }}" name="{{ property.name }}" value="@Model?.{{ property.name }}" readonly />
@@ -57,6 +69,7 @@
 {{ end }}
 {{ end }}
         }
+{{ end }}
     </div>
 {{ end }}
 

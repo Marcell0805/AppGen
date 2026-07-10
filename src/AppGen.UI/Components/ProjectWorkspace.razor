@@ -1,4 +1,5 @@
 @using AppGen.Core
+@using AppGen.Core.Branding
 @using AppGen.Core.Capabilities
 @using AppGen.Core.Themes
 @using AppGen.Core.Models
@@ -24,6 +25,38 @@
         <label>Output folder</label>
         <input @bind="OutputRoot" @bind:after="SyncState" placeholder="e.g. output/MyProduct" />
     </div>
+    <div class="form-grid app-icon-grid">
+        <label>App icon</label>
+        <div class="app-icon-controls">
+            @if (!string.IsNullOrWhiteSpace(IconPreviewUrl))
+            {
+                <img src="@IconPreviewUrl" alt="App icon preview" class="app-icon-preview" />
+            }
+            else
+            {
+                <div class="app-icon-preview app-icon-preview-empty">No icon</div>
+            }
+            <div class="app-icon-actions">
+                <label class="btn btn-outline-secondary btn-sm file-btn @(IsBusy ? "disabled" : "")">
+                    @(string.IsNullOrWhiteSpace(IconPreviewUrl) ? "Upload PNG" : "Replace")
+                    <InputFile OnChange="OnIconFileSelected" accept=".png,image/png" disabled="@IsBusy" />
+                </label>
+                @if (!string.IsNullOrWhiteSpace(IconPreviewUrl))
+                {
+                    <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="RemoveIcon" disabled="@IsBusy">Remove</button>
+                }
+            </div>
+            @if (!string.IsNullOrWhiteSpace(IconOriginalFileName))
+            {
+                <div class="hint app-icon-filename">@IconOriginalFileName</div>
+            }
+            @if (!string.IsNullOrWhiteSpace(IconStatusMessage))
+            {
+                <div class="hint app-icon-error">@IconStatusMessage</div>
+            }
+        </div>
+    </div>
+    <p class="hint">Square PNG, 1024×1024 recommended. Used in Documentation, Web UI, and Mobile launcher.</p>
 </fieldset>
 
 <fieldset class="panel">
@@ -199,6 +232,11 @@
     private string MobilePackageName { get; set; } = string.Empty;
     private string MobileApiBaseUrl { get; set; } = "http://localhost:5000";
     private readonly HashSet<string> MobileCapabilities = new(StringComparer.OrdinalIgnoreCase);
+    private string? IconPath { get; set; }
+    private string? IconOriginalFileName { get; set; }
+    private string? IconBase64 { get; set; }
+    private string? IconPreviewUrl { get; set; }
+    private string? IconStatusMessage { get; set; }
 
     private List<EntityDraft> Entities { get; } = [];
     private EntityDraft? SelectedEntity { get; set; }
@@ -265,6 +303,10 @@
             RootNamespace = spec.RootNamespace;
             Tagline = spec.Project?.Tagline;
             Description = spec.Project?.Description;
+            IconPath = spec.Project?.Branding?.IconPath;
+            IconOriginalFileName = spec.Project?.Branding?.OriginalFileName;
+            IconBase64 = null;
+            RefreshIconPreviewFromHub(dir, spec);
             Database = spec.Database;
             IncludeMvcWeb = spec.UiTargets.HasFlag(UiTarget.MvcWeb);
             ActiveConnectionName = spec.Setup.ActiveConnectionName;
@@ -335,6 +377,8 @@
         {
             SyncState();
             var dir = ProjectOutputPaths.HubDirectory(OutputRoot, ApplicationName);
+            if (WizardState.Current is { } draft)
+                await ProjectBrandingService.FlushDraftIconToHubAsync(draft, dir);
             var result = await ManifestSave.SaveAsync(WizardState.ToSolutionSpec(), dir);
             await ReportAsync(result.Message, result.Success, result.ProjectDirectory);
         }
@@ -396,6 +440,11 @@
         RootNamespace = draft.RootNamespace;
         Tagline = draft.Tagline;
         Description = draft.Description;
+        IconPath = draft.IconPath;
+        IconOriginalFileName = draft.IconOriginalFileName;
+        IconBase64 = draft.IconBase64;
+        IconStatusMessage = null;
+        RefreshIconPreviewFromDraft();
         if (!fromWizardOnly || string.IsNullOrWhiteSpace(OutputRoot))
         {
             OutputRoot = string.IsNullOrWhiteSpace(draft.OutputRoot)
@@ -480,7 +529,117 @@
         MobileApiBaseUrl,
         Tagline,
         Description,
-        MobileCapabilities.ToList());
+        MobileCapabilities.ToList(),
+        IconPath,
+        IconOriginalFileName,
+        IconBase64);
+
+    private async Task OnIconFileSelected(InputFileChangeEventArgs e)
+    {
+        IconStatusMessage = null;
+        var file = e.File;
+        if (file.Size > ProjectBrandingConstants.MaxIconBytes)
+        {
+            IconStatusMessage = $"Icon must be {ProjectBrandingConstants.MaxIconBytes / (1024 * 1024)} MB or smaller.";
+            return;
+        }
+
+        await using var stream = file.OpenReadStream(ProjectBrandingConstants.MaxIconBytes);
+        using var memory = new MemoryStream();
+        await stream.CopyToAsync(memory);
+        var bytes = memory.ToArray();
+
+        var (success, error) = await ProjectBrandingService.ValidateAndPrepareUploadAsync(bytes);
+        if (!success)
+        {
+            IconStatusMessage = error;
+            return;
+        }
+
+        string? hubDir = null;
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(OutputRoot) && !string.IsNullOrWhiteSpace(ApplicationName))
+                hubDir = ProjectOutputPaths.HubDirectory(OutputRoot, ApplicationName);
+        }
+        catch
+        {
+            hubDir = null;
+        }
+
+        (IconPath, IconOriginalFileName, IconBase64) =
+            await ProjectBrandingService.ApplyUploadAsync(bytes, file.Name, hubDir);
+        IconPreviewUrl = ProjectBrandingService.CreatePreviewDataUrl(bytes);
+        SyncState();
+    }
+
+    private void RemoveIcon()
+    {
+        IconStatusMessage = null;
+        string? hubDir = null;
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(OutputRoot) && !string.IsNullOrWhiteSpace(ApplicationName))
+                hubDir = ProjectOutputPaths.HubDirectory(OutputRoot, ApplicationName);
+        }
+        catch
+        {
+            hubDir = null;
+        }
+
+        if (hubDir is not null && !string.IsNullOrWhiteSpace(IconPath))
+        {
+            var spec = new SolutionSpec
+            {
+                ApplicationName = ApplicationName,
+                RootNamespace = RootNamespace ?? ApplicationName,
+                Project = new ProjectInfoSpec
+                {
+                    Branding = new ProjectBrandingSpec { IconPath = IconPath }
+                }
+            };
+            ProjectBrandingService.ClearIconState(hubDir, spec);
+        }
+
+        IconPath = null;
+        IconOriginalFileName = null;
+        IconBase64 = null;
+        IconPreviewUrl = null;
+        SyncState();
+    }
+
+    private void RefreshIconPreviewFromDraft()
+    {
+        var bytes = ProjectBrandingService.DecodeFromDraft(IconBase64);
+        IconPreviewUrl = bytes is null ? null : ProjectBrandingService.CreatePreviewDataUrl(bytes);
+
+        if (bytes is null && !string.IsNullOrWhiteSpace(OutputRoot) && !string.IsNullOrWhiteSpace(ApplicationName))
+        {
+            try
+            {
+                var hubDir = ProjectOutputPaths.HubDirectory(OutputRoot, ApplicationName);
+                var spec = new SolutionSpec
+                {
+                    ApplicationName = ApplicationName,
+                    RootNamespace = RootNamespace ?? ApplicationName,
+                    Project = new ProjectInfoSpec
+                    {
+                        Branding = new ProjectBrandingSpec { IconPath = IconPath ?? ProjectBrandingConstants.DefaultIconRelativePath }
+                    }
+                };
+                IconPreviewUrl = ProjectBrandingService.TryGetPreviewFromHub(hubDir, spec) ?? IconPreviewUrl;
+            }
+            catch
+            {
+                // Hub path not available yet.
+            }
+        }
+    }
+
+    private void RefreshIconPreviewFromHub(string hubDir, SolutionSpec spec)
+    {
+        IconPreviewUrl = ProjectBrandingService.TryGetPreviewFromHub(hubDir, spec);
+    }
 
     private bool IsCapabilityEnabled(string id) =>
         MobileCapabilities.Contains(id)

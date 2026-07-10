@@ -1,4 +1,5 @@
 using AppGen.Core;
+using AppGen.Core.Branding;
 using AppGen.Core.Models;
 using AppGen.Core.Themes;
 using AppGen.Engine;
@@ -179,13 +180,36 @@ public sealed class WizardStateService
         if (_draft is null)
             return null;
 
-        if (string.IsNullOrWhiteSpace(_draft.Tagline) && string.IsNullOrWhiteSpace(_draft.Description))
+        var branding = BuildBranding();
+        var hasTagline = !string.IsNullOrWhiteSpace(_draft.Tagline);
+        var hasDescription = !string.IsNullOrWhiteSpace(_draft.Description);
+        if (!hasTagline && !hasDescription && branding is null)
             return null;
 
         return new ProjectInfoSpec
         {
-            Tagline = string.IsNullOrWhiteSpace(_draft.Tagline) ? null : _draft.Tagline.Trim(),
-            Description = string.IsNullOrWhiteSpace(_draft.Description) ? null : _draft.Description.Trim()
+            Tagline = hasTagline ? _draft.Tagline!.Trim() : null,
+            Description = hasDescription ? _draft.Description!.Trim() : null,
+            Branding = branding
+        };
+    }
+
+    private ProjectBrandingSpec? BuildBranding()
+    {
+        if (_draft is null)
+            return null;
+
+        if (string.IsNullOrWhiteSpace(_draft.IconPath) && string.IsNullOrWhiteSpace(_draft.IconBase64))
+            return null;
+
+        return new ProjectBrandingSpec
+        {
+            IconPath = string.IsNullOrWhiteSpace(_draft.IconPath)
+                ? ProjectBrandingConstants.DefaultIconRelativePath
+                : _draft.IconPath.Trim(),
+            OriginalFileName = string.IsNullOrWhiteSpace(_draft.IconOriginalFileName)
+                ? null
+                : _draft.IconOriginalFileName.Trim()
         };
     }
 }

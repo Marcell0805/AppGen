@@ -137,6 +137,7 @@ public sealed class EntityGenerator(TemplateRenderer renderer)
             .ToList();
 
         var displayProperty = expandedProperties.FirstOrDefault(p => !p.IsKey);
+        var hasIdentityKey = keys.Count == 1 && primaryKey.ClrType is "int" or "long";
 
         return new
         {
@@ -183,6 +184,7 @@ public sealed class EntityGenerator(TemplateRenderer renderer)
                 camel = NamingHelper.ToCamelCase(p.Name)
             }).ToList(),
             has_composite_key = keys.Count > 1,
+            has_identity_key = hasIdentityKey,
             non_key_properties = expandedProperties.Where(p => !p.IsKey).Select(p => new
             {
                 name = p.Name,

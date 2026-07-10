@@ -1,4 +1,6 @@
+using {{ root_namespace }}.MVC.Logging;
 using {{ root_namespace }}.MVC.Services;
+using {{ root_namespace }}.Shared.Logging;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,6 +16,10 @@ builder.Services.AddHttpClient("Api", (sp, client) =>
         ?? "https://localhost:5001";
     client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
 });
+
+// Default — local file. Swap this one line for an external sink later:
+builder.Services.AddSingleton<IAppLogSink, FileAppLogSink>();
+// builder.Services.AddSingleton<IAppLogSink, SeqAppLogSink>();
 
 // <AppGen-WebServices>
 // </AppGen-WebServices>

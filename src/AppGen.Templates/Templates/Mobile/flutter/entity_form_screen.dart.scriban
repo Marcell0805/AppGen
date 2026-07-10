@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/app_colors.dart';
+import '../../../core/network/api_error_mapper.dart';
 import '../../../core/widgets/app_page_header.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../models/{{ entity_snake }}_model.dart';
@@ -29,6 +30,9 @@ class _{{ entity_name }}FormScreenState extends ConsumerState<{{ entity_name }}F
 {{ end }}
   bool _initialized = false;
   bool _saving = false;
+{{ if has_identity_key }}
+  {{ key_dart_type }}? _nextId;
+{{ end }}
 
   bool get _isEdit => widget.id != null;
 
@@ -40,7 +44,24 @@ class _{{ entity_name }}FormScreenState extends ConsumerState<{{ entity_name }}F
     _{{ p.name }}Controller = TextEditingController();
     {{ end }}
 {{ end }}
+{{ if has_identity_key }}
+    if (!_isEdit) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _loadNextId());
+    }
   }
+
+  Future<void> _loadNextId() async {
+    try {
+      final nextId = await ref.read({{ entity_snake }}ServiceProvider).getNextId();
+      if (mounted) setState(() => _nextId = nextId);
+    } catch (_) {
+      // Preview is optional; save still works without it.
+    }
+  }
+
+{{ else }}
+  }
+{{ end }}
 
   @override
   void dispose() {
@@ -100,7 +121,10 @@ class _{{ entity_name }}FormScreenState extends ConsumerState<{{ entity_name }}F
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.toString()), backgroundColor: AppColors.error),
+          SnackBar(
+            content: Text(ApiErrorMapper.message(error, context: 'Save {{ entity_name }}')),
+            backgroundColor: AppColors.error,
+          ),
         );
       }
     } finally {
@@ -118,7 +142,10 @@ class _{{ entity_name }}FormScreenState extends ConsumerState<{{ entity_name }}F
           return _buildForm(context);
         },
         loading: () => const AppLoadingState(message: 'Loading {{ entity_name }}…'),
-        error: (error, _) => AppErrorState(message: error.toString()),
+        error: (error, stackTrace) => AppErrorState(
+          message: ApiErrorMapper.message(error, context: 'Load {{ entity_name }} for edit'),
+          onRetry: () => ref.invalidate({{ entity_snake }}DetailProvider(widget.id!)),
+        ),
       );
     }
 
@@ -145,6 +172,19 @@ class _{{ entity_name }}FormScreenState extends ConsumerState<{{ entity_name }}F
             child: ListView(
               padding: EdgeInsets.fromLTRB(16, 16, 16, 24 + bottomInset),
               children: [
+{{ if has_identity_key }}
+                if (!_isEdit)
+                  Card(
+                    child: ListTile(
+                      title: Text('Next {{ primary_key_label }}'),
+                      subtitle: Text(_nextId?.toString() ?? 'Loading…'),
+                      trailing: const Icon(Icons.lock_outline, color: AppColors.textMuted),
+                    ),
+                  ),
+{{ if has_editable_properties }}
+                if (!_isEdit) const SizedBox(height: 12),
+{{ end }}
+{{ end }}
 {{ for p in editable_properties }}
           {{ if p.dart_type == "bool" }}
           SwitchListTile(

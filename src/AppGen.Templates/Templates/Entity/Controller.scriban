@@ -19,6 +19,13 @@ public class {{ entity_name }}Controller(I{{ entity_name }}Service service) : Co
     public async Task<IActionResult> GetAll(CancellationToken ct) =>
         Ok(await service.GetAllAsync(ct));
 
+{{ if has_identity_key }}
+    [HttpGet("next-id")]
+    [ProducesResponseType(typeof(Response<{{ primary_key_clr_type }}>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetNextId(CancellationToken ct) =>
+        Ok(await service.GetNextIdentityValueAsync(ct));
+
+{{ end }}
     [HttpGet("{id}")]
     [ProducesResponseType(typeof(Response<{{ entity_name }}Response>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetById({{ primary_key_clr_type }} id, CancellationToken ct) =>

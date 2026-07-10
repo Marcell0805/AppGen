@@ -1,0 +1,6 @@
+namespace {{ root_namespace }}.Shared.Logging;
+
+public interface IAppLogSink
+{
+    void LogError(Exception exception, string message, IReadOnlyDictionary<string, object>? context = null);
+}

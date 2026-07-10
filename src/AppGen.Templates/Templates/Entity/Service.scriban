@@ -22,6 +22,14 @@ public class {{ entity_name }}Service(I{{ entity_name }}Repository repository) :
         return new Response<{{ entity_name }}Response>(Map(item));
     }
 
+{{ if has_identity_key }}
+    public async Task<Response<{{ primary_key_clr_type }}>> GetNextIdentityValueAsync(CancellationToken ct = default)
+    {
+        var nextId = await repository.GetNextIdentityValueAsync(ct);
+        return new Response<{{ primary_key_clr_type }}>(nextId);
+    }
+
+{{ end }}
     public async Task<Response<{{ entity_name }}Response>> CreateAsync(Create{{ entity_name }}Request request, CancellationToken ct = default)
     {
         var entity = new {{ entity_name }}

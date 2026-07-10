@@ -22,7 +22,8 @@ final {{ entity_snake }}ListProvider = FutureProvider<List<{{ entity_name }}Mode
       if (cached != null) {
         final list = (jsonDecode(cached) as List<dynamic>)
             .map((e) => {{ entity_name }}Model.fromJson(e as Map<String, dynamic>))
-            .toList();
+            .toList()
+          ..sort((a, b) => a.{{ key_field }}.compareTo(b.{{ key_field }}));
         return list;
       }
       throw StateError('No cached {{ entity_snake }} data while offline.');
@@ -36,7 +37,8 @@ final {{ entity_snake }}ListProvider = FutureProvider<List<{{ entity_name }}Mode
     if (cached != null) {
       return (jsonDecode(cached) as List<dynamic>)
           .map((e) => {{ entity_name }}Model.fromJson(e as Map<String, dynamic>))
-          .toList();
+          .toList()
+        ..sort((a, b) => a.{{ key_field }}.compareTo(b.{{ key_field }}));
     }
     rethrow;
   }

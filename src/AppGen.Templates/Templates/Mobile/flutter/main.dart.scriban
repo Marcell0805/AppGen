@@ -3,8 +3,33 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app/router.dart';
 import 'app/theme.dart';
+import 'core/logging/app_log_sink.dart';
 
 void main() {
+  // Default sink is FileAppLogSink (mobile/desktop) or ConsoleAppLogSink (web).
+  // AppLogSink.instance = RemoteAppLogSink();
+
+  ErrorWidget.builder = (details) {
+    AppLogSink.instance.logError(
+      details.exception,
+      stackTrace: details.stack,
+      context: 'Widget build error',
+    );
+    return Material(
+      color: Colors.white,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'Something went wrong loading this screen.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey.shade700),
+          ),
+        ),
+      ),
+    );
+  };
+
   runApp(const ProviderScope(child: {{ app_class_name }}App()));
 }
 

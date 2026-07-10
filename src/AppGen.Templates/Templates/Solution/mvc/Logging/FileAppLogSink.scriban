@@ -1,0 +1,65 @@
+using System.Text;
+using {{ root_namespace }}.Shared.Logging;
+
+namespace {{ root_namespace }}.MVC.Logging;
+
+public sealed class FileAppLogSink : IAppLogSink
+{
+    private readonly string _logFilePath;
+    private readonly object _writeLock = new();
+
+    public FileAppLogSink(IHostEnvironment environment, IConfiguration configuration)
+    {
+        var relativePath = configuration["Logging:FilePath"] ?? "logs/app.log";
+        _logFilePath = Path.IsPathRooted(relativePath)
+            ? relativePath
+            : Path.Combine(environment.ContentRootPath, relativePath);
+    }
+
+    public void LogError(Exception exception, string message, IReadOnlyDictionary<string, object>? context = null)
+    {
+        var entry = BuildEntry(exception, message, context);
+
+        lock (_writeLock)
+        {
+            var directory = Path.GetDirectoryName(_logFilePath)!;
+            Directory.CreateDirectory(directory);
+            File.AppendAllText(_logFilePath, entry, Encoding.UTF8);
+        }
+    }
+
+    internal static string BuildEntry(Exception exception, string message, IReadOnlyDictionary<string, object>? context)
+    {
+        var builder = new StringBuilder();
+        builder.Append('[')
+            .Append(DateTimeOffset.Now.ToString("yyyy-MM-dd HH:mm:ss"))
+            .Append("] [Error] ")
+            .AppendLine(message);
+        builder.Append(exception.GetType().Name)
+            .Append(": ")
+            .AppendLine(exception.Message);
+
+        if (context is { Count: > 0 })
+        {
+            foreach (var pair in context)
+                builder.Append("  ").Append(pair.Key).Append(": ").AppendLine(pair.Value?.ToString());
+        }
+
+        if (!string.IsNullOrWhiteSpace(exception.StackTrace))
+            builder.AppendLine(exception.StackTrace);
+
+        for (var inner = exception.InnerException; inner is not null; inner = inner.InnerException)
+        {
+            builder.Append("  ---> ")
+                .Append(inner.GetType().Name)
+                .Append(": ")
+                .AppendLine(inner.Message);
+
+            if (!string.IsNullOrWhiteSpace(inner.StackTrace))
+                builder.AppendLine(inner.StackTrace);
+        }
+
+        builder.AppendLine();
+        return builder.ToString();
+    }
+}

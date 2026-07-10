@@ -1,45 +1,52 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - {{ app_name }}</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-{{ if theme_heading_font == "cormorantGaramond" }}
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Dancing+Script&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
-{{ else if theme_heading_font == "playfairDisplay" }}
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet" />
-{{ else }}
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
-{{ end }}
-    <link rel="stylesheet" href="~/css/site.css" />
-</head>
-<body>
-    <div class="page">
-        <aside class="sidebar">
-            <div class="sidebar-header {{ if theme_preset == "cookbook" }}is-cookbook{{ end }}">
-{{ if theme_preset == "cookbook" }}
-                <div class="sidebar-accent-bar"></div>
-                <div class="sidebar-brand">{{ app_name }}</div>
-                <div class="sidebar-tagline">{{ project_tagline }}</div>
-{{ else }}
-                <div class="sidebar-accent-bar"></div>
-                <div class="sidebar-brand">{{ app_name }}</div>
-                <div class="sidebar-tagline">{{ project_tagline }}</div>
-{{ end }}
-            </div>
-            <nav class="nav-items">
-                <a class="nav-link@(ViewContext.RouteData.Values["controller"]?.ToString() == "Home" ? " is-active" : null)" asp-controller="Home" asp-action="Index">Home</a>
-                <!-- <AppGen-NavItems> -->
-                <!-- </AppGen-NavItems> -->
-            </nav>
-            <div class="sidebar-footer">AppGen</div>
-        </aside>
-        <main class="content-shell">
-            @RenderBody()
-        </main>
-    </div>
-</body>
-</html>
-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - {{ app_name }}</title>
+    <link rel="icon" type="image/png" href="~/favicon.png" />
+{{ if branding_enabled }}
+    <link rel="apple-touch-icon" href="~/branding/logo.png" />
+{{ end }}
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+{{ if theme_heading_font == "cormorantGaramond" }}
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Dancing+Script&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+{{ else if theme_heading_font == "playfairDisplay" }}
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet" />
+{{ else }}
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+{{ end }}
+    <link rel="stylesheet" href="~/css/site.css" />
+</head>
+<body>
+    <div class="page">
+        <aside class="sidebar">
+            <div class="sidebar-header {{ if theme_preset == "cookbook" }}is-cookbook{{ end }}">
+{{ if branding_enabled }}
+                <img class="sidebar-logo" src="~/branding/logo.png" alt="{{ app_name }}" />
+{{ end }}
+{{ if theme_preset == "cookbook" }}
+                <div class="sidebar-accent-bar"></div>
+                <div class="sidebar-brand">{{ app_name }}</div>
+                <div class="sidebar-tagline">{{ project_tagline }}</div>
+{{ else }}
+                <div class="sidebar-accent-bar"></div>
+                <div class="sidebar-brand">{{ app_name }}</div>
+                <div class="sidebar-tagline">{{ project_tagline }}</div>
+{{ end }}
+            </div>
+            <nav class="nav-items">
+                <a class="nav-link@(ViewContext.RouteData.Values["controller"]?.ToString() == "Home" ? " is-active" : null)" asp-controller="Home" asp-action="Index">Home</a>
+                <!-- <AppGen-NavItems> -->
+                <!-- </AppGen-NavItems> -->
+            </nav>
+            <div class="sidebar-footer">AppGen</div>
+        </aside>
+        <main class="content-shell">
+            @RenderBody()
+        </main>
+    </div>
+</body>
+</html>
+

@@ -15,9 +15,11 @@ class {{ entity_name }}Service {
     final list = data is Map && data['data'] != null
         ? data['data'] as List
         : data as List;
-    return list
+    final items = list
         .map((item) => {{ entity_name }}Model.fromJson(item as Map<String, dynamic>))
         .toList();
+    items.sort((a, b) => a.{{ key_field }}.compareTo(b.{{ key_field }}));
+    return items;
   }
 
   Future<{{ entity_name }}Model> getById({{ key_dart_type }} id) async {
@@ -50,6 +52,18 @@ class {{ entity_name }}Service {
   Future<void> delete({{ key_dart_type }} id) async {
     await _dio.delete('/api/v1/{{ entity_name }}/$id');
   }
+
+{{ if has_identity_key }}
+  Future<{{ key_dart_type }}> getNextId() async {
+    final response = await _dio.get('/api/v1/{{ entity_name }}/next-id');
+    final data = response.data;
+    final value = data is Map && data['data'] != null ? data['data'] : data;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return {{ key_dart_type }}.parse(value.toString());
+  }
+
+{{ end }}
 }
 
 final {{ entity_snake }}ServiceProvider = Provider<{{ entity_name }}Service>((ref) {

@@ -424,6 +424,50 @@ a, .btn-link {
     display: none;
 }
 
+.app-icon-grid {
+    margin-top: 12px;
+    align-items: start;
+}
+
+.app-icon-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.app-icon-preview {
+    width: 72px;
+    height: 72px;
+    border-radius: 12px;
+    object-fit: cover;
+    border: 1px solid var(--ag-border);
+    background: var(--ag-bg);
+}
+
+.app-icon-preview-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ag-text-muted);
+    font-size: 0.78rem;
+}
+
+.app-icon-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.app-icon-filename {
+    margin: 0;
+}
+
+.app-icon-error {
+    margin: 0;
+    color: #b91c1c;
+}
+
 .spec-workbook-actions {
     flex-wrap: wrap;
     align-items: center;

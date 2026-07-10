@@ -3,6 +3,9 @@ namespace {{ root_namespace }}.Domain.Entities;
 public class {{ entity_name }}
 {
 {{ for property in properties }}
+{{ if property.is_identity_type }}
+    [System.ComponentModel.DataAnnotations.Schema.DatabaseGenerated(System.ComponentModel.DataAnnotations.Schema.DatabaseGeneratedOption.Identity)]
+{{ end }}
     public {{ property.clr_type }} {{ property.name }} { get; set; }{{ if property.clr_type == "string" }} = string.Empty;{{ end }}
 {{ end }}
 }
