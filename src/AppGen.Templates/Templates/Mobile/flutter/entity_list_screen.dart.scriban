@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+{{ if api_client_enabled }}
 import '../../../core/network/api_error_mapper.dart';
+{{ else }}
+import '../../../core/errors/error_message.dart';
+{{ end }}
 import '../../../core/widgets/app_page_header.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../providers/{{ entity_snake }}_provider.dart';
@@ -41,7 +45,7 @@ class {{ entity_name }}ListScreen extends ConsumerWidget {
             ),
             loading: () => const AppLoadingState(message: 'Loading {{ entity_name }}…'),
             error: (error, stackTrace) => AppErrorState(
-              message: ApiErrorMapper.message(error, context: 'Load {{ entity_name }} list'),
+              message: {{ if api_client_enabled }}ApiErrorMapper.message(error, context: 'Load {{ entity_name }} list'){{ else }}userFacingError(error, context: 'Load {{ entity_name }} list'){{ end }},
               onRetry: () => ref.invalidate({{ entity_snake }}ListProvider),
             ),
           ),

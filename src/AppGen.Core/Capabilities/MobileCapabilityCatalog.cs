@@ -153,8 +153,12 @@ public static class MobileCapabilityCatalog
             service: "object_detection_service.dart.scriban", file: "object_detection_service.dart", nativeOnly: true),
 
         // Legacy / cross-layer (handled by existing templates when resolved)
-        Def(MobileCapabilityId.OfflineCache, "Device", "Offline cache", "SQLite read-through cache", true,
+        Def(MobileCapabilityId.OfflineCache, "Device", "API offline cache", "SQLite read-through cache when the API is unreachable", true,
             packages: [Pkg("sqflite", "^2.3.3"), Pkg("path", "^1.9.0"), Pkg("connectivity_plus", "^6.0.5")],
+            nativeOnly: true),
+
+        Def(MobileCapabilityId.StandaloneLocalDb, "Device", "Standalone local SQLite", "On-device SQLite CRUD without API", true,
+            packages: [Pkg("sqflite", "^2.3.3"), Pkg("path", "^1.9.0")],
             nativeOnly: true),
 
         Def(MobileCapabilityId.SecureStorage, "Device", "Secure storage", implemented: true,

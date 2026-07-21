@@ -52,7 +52,12 @@ public sealed class MobilePublishTargetSpec
 
 public sealed class MobileOfflineTargetSpec
 {
+    /// <summary>Legacy toggle; prefer <see cref="Mode"/>. True maps to <see cref="MobileOfflineModes.ApiCache"/> on load.</summary>
     public bool Enabled { get; init; }
+
+    /// <summary><see cref="MobileOfflineModes.None"/>, <see cref="MobileOfflineModes.ApiCache"/>, or <see cref="MobileOfflineModes.StandaloneLocal"/>.</summary>
+    public string Mode { get; init; } = MobileOfflineModes.None;
+
     public string Provider { get; init; } = "sqlite";
 }
 

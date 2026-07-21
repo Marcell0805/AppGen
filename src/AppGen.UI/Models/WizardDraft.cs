@@ -25,6 +25,19 @@ public sealed class WizardDraft
     public bool EnableMobile { get; init; }
     public bool EnableWebAuth { get; init; }
     public bool EnableMobileOffline { get; init; }
+    public string MobileOfflineMode { get; init; } = MobileOfflineModes.None;
+
+    public string ResolvedMobileOfflineMode =>
+        !string.IsNullOrWhiteSpace(MobileOfflineMode) &&
+        !MobileOfflineMode.Equals(MobileOfflineModes.None, StringComparison.OrdinalIgnoreCase)
+            ? MobileOfflineMode
+            : EnableMobileOffline ? MobileOfflineModes.ApiCache : MobileOfflineModes.None;
+
+    public MobileOfflineTargetSpec BuildMobileOfflineSpec() =>
+        MobileOfflineTargetNormalizer.Normalize(new MobileOfflineTargetSpec
+        {
+            Mode = EnableMobile ? ResolvedMobileOfflineMode : MobileOfflineModes.None
+        });
     public string MobileThemePreset { get; init; } = "appgen";
     public string MobilePackageName { get; init; } = string.Empty;
     public string MobileApiBaseUrl { get; init; } = "http://localhost:5000";
@@ -97,6 +110,7 @@ public sealed class WizardDraft
         bool enableMobile = false,
         bool enableWebAuth = false,
         bool enableMobileOffline = false,
+        string? mobileOfflineMode = null,
         string mobileThemePreset = "appgen",
         string? mobilePackageName = null,
         string? mobileApiBaseUrl = null,
@@ -122,6 +136,9 @@ public sealed class WizardDraft
         EnableMobile = enableMobile,
         EnableWebAuth = enableWebAuth,
         EnableMobileOffline = enableMobileOffline,
+        MobileOfflineMode = string.IsNullOrWhiteSpace(mobileOfflineMode)
+            ? (enableMobileOffline ? MobileOfflineModes.ApiCache : MobileOfflineModes.None)
+            : mobileOfflineMode.Trim(),
         MobileThemePreset = string.IsNullOrWhiteSpace(mobileThemePreset) ? "appgen" : mobileThemePreset,
         MobilePackageName = mobilePackageName ?? string.Empty,
         MobileApiBaseUrl = string.IsNullOrWhiteSpace(mobileApiBaseUrl) ? "http://localhost:5000" : mobileApiBaseUrl,

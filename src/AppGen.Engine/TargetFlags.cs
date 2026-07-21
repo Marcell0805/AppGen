@@ -8,8 +8,21 @@ public static class TargetFlags
     public static bool AuthEnabled(SolutionSpec spec) =>
         spec.Targets?.Web.Auth.Enabled == true;
 
+    public static string MobileOfflineMode(SolutionSpec spec) =>
+        MobileOfflineTargetNormalizer.ResolveMode(spec.Targets?.Mobile.Offline);
+
+    public static bool ApiOfflineCacheEnabled(SolutionSpec spec) =>
+        MobileOfflineMode(spec) == MobileOfflineModes.ApiCache;
+
+    public static bool StandaloneLocalEnabled(SolutionSpec spec) =>
+        MobileOfflineMode(spec) == MobileOfflineModes.StandaloneLocal;
+
+    public static bool UsesMobileApiClient(SolutionSpec spec) =>
+        !StandaloneLocalEnabled(spec);
+
+    /// <summary>API read-through cache (legacy name).</summary>
     public static bool OfflineEnabled(SolutionSpec spec) =>
-        spec.Targets?.Mobile.Offline.Enabled == true;
+        ApiOfflineCacheEnabled(spec);
 
     public static bool MobileEnabled(SolutionSpec spec) =>
         spec.Targets?.Mobile.Enabled == true;

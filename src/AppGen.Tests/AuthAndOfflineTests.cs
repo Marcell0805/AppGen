@@ -29,7 +29,7 @@ public class AuthAndOfflineTests
                     Mobile = new MobileTargetSpec
                     {
                         Enabled = true,
-                        Offline = new MobileOfflineTargetSpec { Enabled = true }
+                        Offline = new MobileOfflineTargetSpec { Enabled = true, Mode = MobileOfflineModes.ApiCache }
                     }
                 },
                 Entities = []
@@ -37,10 +37,11 @@ public class AuthAndOfflineTests
 
             await ProjectSpecWriter.WriteAsync(spec, tempRoot);
             var loaded = await SpecLoader.LoadAsync(tempRoot);
-            Assert.Equal(8, loaded.SchemaVersion);
+            Assert.Equal(SolutionSpec.CurrentSchemaVersion, loaded.SchemaVersion);
             Assert.True(loaded.Targets!.Web.Auth.Enabled);
             Assert.Equal(90, loaded.Targets.Web.Auth.TokenLifetimeMinutes);
             Assert.True(loaded.Targets.Mobile.Offline.Enabled);
+            Assert.Equal(MobileOfflineModes.ApiCache, loaded.Targets.Mobile.Offline.Mode);
         }
         finally
         {
@@ -188,9 +189,50 @@ public class AuthAndOfflineTests
     private static int CountPackageOccurrences(string pubspec, string packageLine) =>
         pubspec.Split('\n').Count(line => line.TrimStart().StartsWith(packageLine, StringComparison.Ordinal));
 
-    private static SolutionSpec BuildMobileSpec(bool offline, bool auth)
+    [Fact]
+    public async Task Flutter_generate_standalone_local_uses_sqlite_not_api_client()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), "AppGenTests", Guid.NewGuid().ToString("N"));
+        var outputDir = Path.Combine(tempRoot, "StandaloneMobile");
+
+        try
+        {
+            var spec = BuildMobileSpec(MobileOfflineModes.StandaloneLocal, auth: false);
+            Directory.CreateDirectory(outputDir);
+
+            var renderer = new TemplateRenderer();
+            var flutterRoot = FlutterProjectPaths.GetFlutterRoot(outputDir);
+            await new FlutterGenerator(renderer).GenerateAllAsync(
+                spec,
+                spec.Entities,
+                outputDir,
+                spec.Targets!.Mobile,
+                CancellationToken.None);
+
+            Assert.False(File.Exists(Path.Combine(flutterRoot, "lib", "core", "network", "api_client.dart")));
+            Assert.True(File.Exists(Path.Combine(flutterRoot, "lib", "core", "local", "local_database.dart")));
+            Assert.False(File.Exists(Path.Combine(flutterRoot, "lib", "core", "offline", "offline_cache.dart")));
+
+            var pubspec = await File.ReadAllTextAsync(Path.Combine(flutterRoot, "pubspec.yaml"));
+            Assert.DoesNotContain("dio:", pubspec);
+            Assert.Contains("sqflite:", pubspec);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+                Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
+    private static SolutionSpec BuildMobileSpec(string offlineMode, bool auth)
     {
         var spec = SpecLoader.CreateDefault("MobileAuth", null, DatabaseProvider.SqlServer);
+        var offline = MobileOfflineTargetNormalizer.Normalize(new MobileOfflineTargetSpec
+        {
+            Mode = offlineMode,
+            Enabled = offlineMode == MobileOfflineModes.ApiCache
+        });
+
         return new SolutionSpec
         {
             SchemaVersion = spec.SchemaVersion,
@@ -204,7 +246,7 @@ public class AuthAndOfflineTests
                 Mobile = new MobileTargetSpec
                 {
                     Enabled = true,
-                    Offline = new MobileOfflineTargetSpec { Enabled = offline }
+                    Offline = offline
                 }
             },
             Entities =
@@ -222,6 +264,9 @@ public class AuthAndOfflineTests
             ]
         };
     }
+
+    private static SolutionSpec BuildMobileSpec(bool offline, bool auth) =>
+        BuildMobileSpec(offline ? MobileOfflineModes.ApiCache : MobileOfflineModes.None, auth);
 
     private static SolutionSpec EmptyEntities(SolutionSpec spec) => new()
     {

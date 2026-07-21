@@ -133,19 +133,47 @@
                         <td colspan="5">Options</td>
                     </tr>
                     <tr class="cap-item-row">
+                        <td class="cap-name-col" colspan="4">
+                            <fieldset class="mobile-data-source-fieldset">
+                                <legend class="hint">Mobile data source</legend>
+                                <label class="cap-enable-label">
+                                    <input type="radio" name="mobileOfflineMode" checked="@(MobileOfflineMode == MobileOfflineModes.None)" @onchange="@(() => SetMobileOfflineMode(MobileOfflineModes.None))" />
+                                    <span>Web API (online)</span>
+                                </label>
+                                <label class="cap-enable-label" title="SQLite list cache when offline; writes still use the API">
+                                    <input type="radio" name="mobileOfflineMode" checked="@(MobileOfflineMode == MobileOfflineModes.ApiCache)" @onchange="@(() => SetMobileOfflineMode(MobileOfflineModes.ApiCache))" />
+                                    <span>API + offline read-through cache</span>
+                                </label>
+                                <label class="cap-enable-label" title="SQLite CRUD on device; no Dio/API">
+                                    <input type="radio" name="mobileOfflineMode" checked="@(MobileOfflineMode == MobileOfflineModes.StandaloneLocal)" @onchange="@(() => SetMobileOfflineMode(MobileOfflineModes.StandaloneLocal))" />
+                                    <span>Standalone local (SQLite, no API)</span>
+                                </label>
+                                @if (MobileOfflineMode == MobileOfflineModes.StandaloneLocal && EnableWebAuth)
+                                {
+                                    <p class="hint">Standalone mode does not use Web JWT login on mobile; use Web/docs only or disable auth.</p>
+                                }
+                            </fieldset>
+                        </td>
+                        <td></td>
+                    </tr>
+                    <tr class="cap-item-row">
                         <td class="cap-name-col">
-                            <label class="cap-enable-label" title="SQLite read-through cache when the API is unreachable">
-                                <input type="checkbox" @bind="EnableMobileOffline" @bind:after="SyncState" />
-                                <span>Offline cache (SQLite)</span>
-                            </label>
+                            <span class="cap-enable-label">API offline cache</span>
                         </td>
                         <CapabilityPlatformMatrixCells Definition="@OfflineCacheCapability" />
+                    </tr>
+                    <tr class="cap-item-row">
+                        <td class="cap-name-col">
+                            <span class="cap-enable-label">Standalone local SQLite</span>
+                        </td>
+                        <CapabilityPlatformMatrixCells Definition="@StandaloneLocalDbCapability" />
                     </tr>
                     @foreach (var category in MobileCapabilityCatalog.Categories)
                     {
                         var caps = MobileCapabilityCatalog.GetByCategory(category)
                             .Where(c => c.Id is not (
                                 MobileCapabilityId.OfflineCache
+                                or MobileCapabilityId.StandaloneLocalDb
                                 or MobileCapabilityId.SecureStorage
                                 or MobileCapabilityId.JwtAuth
                                 or MobileCapabilityId.Internet))
@@ -221,7 +249,7 @@
     private bool EnableWeb { get; set; } = true;
     private bool EnableWebAuth { get; set; }
     private bool EnableMobile { get; set; }
-    private bool EnableMobileOffline { get; set; }
+    private string MobileOfflineMode { get; set; } = MobileOfflineModes.None;
     private string MobileThemePreset { get; set; } = "appgen";
     private DatabaseProvider Database { get; set; } = DatabaseProvider.SqlServer;
     private bool IncludeMvcWeb { get; set; } = true;
@@ -316,7 +344,7 @@
             EnableWeb = spec.Targets?.Web.Enabled ?? true;
             EnableWebAuth = spec.Targets?.Web.Auth.Enabled ?? false;
             EnableMobile = spec.Targets?.Mobile.Enabled ?? false;
-            EnableMobileOffline = spec.Targets?.Mobile.Offline.Enabled ?? false;
+            MobileOfflineMode = MobileOfflineTargetNormalizer.ResolveMode(spec.Targets?.Mobile.Offline);
             MobileThemePreset = MobileThemeCatalog.NormalizePreset(spec.Targets?.Mobile.Theme.Preset);
             MobilePackageName = spec.Targets?.Mobile.PackageName ?? string.Empty;
             MobileApiBaseUrl = spec.Targets?.Mobile.ApiBaseUrl ?? "http://localhost:5000";
@@ -458,7 +486,7 @@
         EnableWeb = draft.EnableWeb;
         EnableWebAuth = draft.EnableWebAuth;
         EnableMobile = draft.EnableMobile;
-        EnableMobileOffline = draft.EnableMobileOffline;
+        MobileOfflineMode = draft.ResolvedMobileOfflineMode;
         MobileThemePreset = MobileThemeCatalog.NormalizePreset(draft.MobileThemePreset);
         MobilePackageName = draft.MobilePackageName;
         MobileApiBaseUrl = draft.MobileApiBaseUrl;
@@ -523,7 +551,8 @@
         EnableWeb,
         EnableMobile,
         EnableWebAuth,
-        EnableMobileOffline,
+        MobileOfflineMode == MobileOfflineModes.ApiCache,
+        mobileOfflineMode: MobileOfflineMode,
         MobileThemePreset,
         string.IsNullOrWhiteSpace(MobilePackageName) ? null : MobilePackageName,
         MobileApiBaseUrl,
@@ -643,15 +672,16 @@
 
     private bool IsCapabilityEnabled(string id) =>
         MobileCapabilities.Contains(id)
-        || (id == MobileCapabilityId.OfflineCache && EnableMobileOffline)
+        || (id == MobileCapabilityId.OfflineCache && MobileOfflineMode == MobileOfflineModes.ApiCache)
+        || (id == MobileCapabilityId.StandaloneLocalDb && MobileOfflineMode == MobileOfflineModes.StandaloneLocal)
         || (id == MobileCapabilityId.JwtAuth && EnableWebAuth)
         || (id == MobileCapabilityId.SecureStorage && EnableWebAuth);
 
     private bool IsCapabilityLocked(string id) =>
-        id is MobileCapabilityId.OfflineCache or MobileCapabilityId.JwtAuth or MobileCapabilityId.SecureStorage;
+        id is MobileCapabilityId.OfflineCache or MobileCapabilityId.StandaloneLocalDb or MobileCapabilityId.JwtAuth or MobileCapabilityId.SecureStorage;
 
     private bool HasAnyNativeOnlySelection =>
-        EnableMobileOffline ||
+        MobileOfflineMode is MobileOfflineModes.ApiCache or MobileOfflineModes.StandaloneLocal ||
         MobileCapabilities.Any(id =>
         {
             var cap = MobileCapabilityCatalog.TryGet(id);
@@ -660,6 +690,15 @@
 
     private static MobileCapabilityDefinition OfflineCacheCapability =>
         MobileCapabilityCatalog.TryGet(MobileCapabilityId.OfflineCache)!;
+
+    private static MobileCapabilityDefinition StandaloneLocalDbCapability =>
+        MobileCapabilityCatalog.TryGet(MobileCapabilityId.StandaloneLocalDb)!;
+
+    private void SetMobileOfflineMode(string mode)
+    {
+        MobileOfflineMode = mode;
+        SyncState();
+    }
 
     private void ToggleCapability(string id, bool enabled)
     {
@@ -686,7 +725,7 @@
     {
         if (!EnableMobile)
         {
-            EnableMobileOffline = false;
+            MobileOfflineMode = MobileOfflineModes.None;
             MobileCapabilities.Clear();
         }
 

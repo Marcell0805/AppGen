@@ -16,8 +16,11 @@ public static class MobileCapabilityResolver
                 enabledIds.Add(id.Trim());
         }
 
-        if (TargetFlags.OfflineEnabled(spec))
+        if (TargetFlags.ApiOfflineCacheEnabled(spec))
             enabledIds.Add(MobileCapabilityId.OfflineCache);
+
+        if (TargetFlags.StandaloneLocalEnabled(spec))
+            enabledIds.Add(MobileCapabilityId.StandaloneLocalDb);
 
         if (TargetFlags.AuthEnabled(spec))
         {
@@ -39,7 +42,8 @@ public static class MobileCapabilityResolver
         Resolve(spec).Any(c => c.Id.Equals(capabilityId, StringComparison.OrdinalIgnoreCase));
 
     public static bool RequiresNativePlatform(SolutionSpec spec) =>
-        TargetFlags.OfflineEnabled(spec) ||
+        TargetFlags.ApiOfflineCacheEnabled(spec) ||
+        TargetFlags.StandaloneLocalEnabled(spec) ||
         Resolve(spec).Any(c => c.RequiresNativePlatform);
 
     private static void Visit(

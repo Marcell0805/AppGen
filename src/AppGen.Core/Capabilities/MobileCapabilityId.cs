@@ -42,6 +42,7 @@ public static class MobileCapabilityId
 
     // Mapped from legacy toggles / cross-layer
     public const string OfflineCache = "offlineCache";
+    public const string StandaloneLocalDb = "standaloneLocalDb";
     public const string SecureStorage = "secureStorage";
     public const string JwtAuth = "jwtAuth";
 }

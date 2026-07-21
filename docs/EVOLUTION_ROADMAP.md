@@ -22,6 +22,8 @@ Thin-slice work is **complete**. Phases 2–5 below are **done** unless noted. U
 | **L. Documentation session state** | Done | `PortalUiDraft` — section edits persist when switching Project ↔ Documentation; hub manifest load after workbook import |
 | **M. Mobile capabilities** | Done | Schema v8 catalog, Flutter services, platform permission patcher; see [`docs/plans/mobile-capabilities-system.md`](plans/mobile-capabilities-system.md) |
 | **N. Mobile publish script** | Done | Generated `scripts/publish-mobile.ps1` → `dist/` + `mobile-version.json`; `targets.mobile.publish`; see [`docs/plans/mobile-publish-script.md`](plans/mobile-publish-script.md) |
+| **O. Standalone local mobile** | Done (engine) | `MobileOfflineModes`, local SQLite CRUD templates, Gradle compileSdk patcher; custom UX still hand-built per app |
+| **P. Flutter scaffold hardening** | Planned | Template fixes from Active_Huntress — see [`docs/plans/mobile-flutter-scaffold-issues.md`](plans/mobile-flutter-scaffold-issues.md) |
 
 ### Shared entity workflow (Phase 2)
 

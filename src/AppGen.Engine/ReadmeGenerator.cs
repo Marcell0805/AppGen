@@ -220,18 +220,28 @@ public static class ReadmeGenerator
             sb.AppendLine("- Login screen is shown when Web JWT auth is enabled.");
             sb.AppendLine("- Dev credentials: `dev@appgen.local` / `AppGen123!`");
         }
-        if (TargetFlags.OfflineEnabled(spec))
+        if (TargetFlags.ApiOfflineCacheEnabled(spec))
         {
             sb.AppendLine();
-            sb.AppendLine("## Offline cache");
+            sb.AppendLine("## API offline cache");
             sb.AppendLine();
-            sb.AppendLine("- SQLite cache stores entity list responses for offline reading.");
-            sb.AppendLine("- Does not require login when Web auth is disabled.");
+            sb.AppendLine("- SQLite caches entity **list** responses when the device is offline.");
+            sb.AppendLine("- Creates and updates still call the Web API when online.");
+        }
+
+        if (TargetFlags.StandaloneLocalEnabled(spec))
+        {
+            sb.AppendLine();
+            sb.AppendLine("## Standalone local data");
+            sb.AppendLine();
+            sb.AppendLine("- All CRUD runs against on-device SQLite (`lib/core/local/local_database.dart`).");
+            sb.AppendLine("- No Dio client or API URL is required for mobile.");
         }
 
         var capabilities = MobileCapabilityResolver.Resolve(spec)
             .Where(c => c.IsImplemented && c.Id is not (
                 MobileCapabilityId.OfflineCache
+                or MobileCapabilityId.StandaloneLocalDb
                 or MobileCapabilityId.SecureStorage
                 or MobileCapabilityId.JwtAuth))
             .ToList();
@@ -259,6 +269,10 @@ public static class ReadmeGenerator
         sb.AppendLine("- **HTTPS / certificate errors** — use HTTP in development or trust the dev certificate.");
         sb.AppendLine("- **Empty list** — verify the entity exists in the API and returns data from Swagger.");
         sb.AppendLine("- **CORS errors** — enable CORS on the API for the Flutter debug origin.");
+        sb.AppendLine($"- **Android compileSdk / AAR metadata** — AppGen patches `android/app/build.gradle.kts` to `maxOf(flutter.compileSdkVersion, {AppGenConstants.MinAndroidCompileSdk})` after platform scaffold.");
+        sb.AppendLine("- **Google Fonts / black screen / ANR on first run** — generated templates may fetch fonts at runtime; for standalone offline apps prefer bundled or system fonts. See AppGen `docs/plans/mobile-flutter-scaffold-issues.md`.");
+        sb.AppendLine("- **Native plugins after pub add** — run a full app restart (`flutter run`), not hot reload, or you may see `MissingPluginException`.");
+        sb.AppendLine("- **Custom routes over generated CRUD** — regenerating mobile overwrites `lib/app/router.dart`; use `IncludeInUi: false` on internal entities or maintain a custom layer (see scaffold issues doc § process notes).");
 
         await WriteFileAsync(context.OutputDirectory, sb, ct);
     }

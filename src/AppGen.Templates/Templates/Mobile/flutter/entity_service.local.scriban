@@ -1,0 +1,121 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sqflite/sqflite.dart';
+
+import '../../../core/local/local_database.dart';
+import '../models/{{ entity_snake }}_model.dart';
+
+class {{ entity_name }}Service {
+  {{ entity_name }}Service(this._database);
+
+  final Database _database;
+
+  Future<List<{{ entity_name }}Model>> getAll() async {
+    final rows = await _database.query('{{ entity_snake }}');
+    final items = rows.map(_fromRow).toList();
+    items.sort((a, b) => a.{{ key_field }}.compareTo(b.{{ key_field }}));
+    return items;
+  }
+
+  Future<{{ entity_name }}Model> getById({{ key_dart_type }} id) async {
+    final rows = await _database.query(
+      '{{ entity_snake }}',
+      where: '{{ key_json_key }} = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (rows.isEmpty) {
+      throw StateError('{{ entity_name }} $id not found.');
+    }
+    return _fromRow(rows.first);
+  }
+
+  Future<{{ entity_name }}Model> create(Map<String, dynamic> body) async {
+    final row = _normalizeRow(Map<String, dynamic>.from(body));
+{{ if has_identity_key }}
+    if (!row.containsKey('{{ key_json_key }}') || row['{{ key_json_key }}'] == null) {
+      row['{{ key_json_key }}'] = await getNextId();
+    }
+{{ end }}
+    await _database.insert('{{ entity_snake }}', row);
+    final id = row['{{ key_json_key }}'];
+    return getById(id as {{ key_dart_type }});
+  }
+
+  Future<{{ entity_name }}Model> update({{ key_dart_type }} id, Map<String, dynamic> body) async {
+    final updated = await _database.update(
+      '{{ entity_snake }}',
+      _normalizeRow(body),
+      where: '{{ key_json_key }} = ?',
+      whereArgs: [id],
+    );
+    if (updated == 0) {
+      throw StateError('{{ entity_name }} $id not found.');
+    }
+    return getById(id);
+  }
+
+  Future<void> delete({{ key_dart_type }} id) async {
+    final removed = await _database.delete(
+      '{{ entity_snake }}',
+      where: '{{ key_json_key }} = ?',
+      whereArgs: [id],
+    );
+    if (removed == 0) {
+      throw StateError('{{ entity_name }} $id not found.');
+    }
+  }
+
+{{ if has_identity_key }}
+  Future<{{ key_dart_type }}> getNextId() async {
+    final rows = await _database.rawQuery(
+      'SELECT COALESCE(MAX({{ key_json_key }}), 0) + 1 AS next_id FROM {{ entity_snake }}',
+    );
+    final value = rows.first['next_id'];
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return {{ key_dart_type }}.parse(value.toString());
+  }
+
+{{ end }}
+  Map<String, Object?> _normalizeRow(Map<String, dynamic> body) {
+    final row = <String, Object?>{};
+{{ for p in properties }}
+    if (body.containsKey('{{ p.json_key }}')) {
+      final value = body['{{ p.json_key }}'];
+      row['{{ p.json_key }}'] = {{ if p.dart_type == "bool" }}(value == true ? 1 : 0){{ else }}value{{ end }};
+    }
+{{ end }}
+    return row;
+  }
+
+  {{ entity_name }}Model _fromRow(Map<String, Object?> row) {
+    return {{ entity_name }}Model.fromJson({
+{{ for p in properties }}
+      '{{ p.json_key }}': _readValue(row['{{ p.json_key }}'], '{{ p.dart_type }}'),
+{{ end }}
+    });
+  }
+
+  Object? _readValue(Object? value, String dartType) {
+    if (value == null) return null;
+    switch (dartType) {
+      case 'int':
+        return value is num ? value.toInt() : int.parse(value.toString());
+      case 'double':
+        return value is num ? value.toDouble() : double.parse(value.toString());
+      case 'bool':
+        if (value is bool) return value;
+        if (value is num) return value != 0;
+        return value.toString() == '1' || value.toString().toLowerCase() == 'true';
+      case 'DateTime':
+        return DateTime.parse(value.toString());
+      default:
+        return value.toString();
+    }
+  }
+}
+
+final {{ entity_snake }}ServiceProvider = FutureProvider<{{ entity_name }}Service>((ref) async {
+  final local = await ref.watch(localDatabaseProvider.future);
+  return {{ entity_name }}Service(local.db);
+});

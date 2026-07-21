@@ -172,7 +172,7 @@
                     Web = new WebTargetSpec { Auth = new WebAuthTargetSpec { Enabled = draft.EnableWebAuth } },
                     Mobile = new MobileTargetSpec
                     {
-                        Offline = new MobileOfflineTargetSpec { Enabled = draft.EnableMobileOffline },
+                        Offline = draft.BuildMobileOfflineSpec(),
                         Capabilities = new MobileCapabilitiesSpec { Enabled = draft.MobileCapabilities.ToList() }
                     }
                 }
@@ -203,7 +203,7 @@
                     Web = new WebTargetSpec { Auth = new WebAuthTargetSpec { Enabled = draft.EnableWebAuth } },
                     Mobile = new MobileTargetSpec
                     {
-                        Offline = new MobileOfflineTargetSpec { Enabled = draft.EnableMobileOffline },
+                        Offline = draft.BuildMobileOfflineSpec(),
                         Capabilities = new MobileCapabilitiesSpec { Enabled = draft.MobileCapabilities.ToList() }
                     }
                 }
@@ -290,7 +290,8 @@
             draft.EnableWeb,
             draft.EnableMobile,
             draft.EnableWebAuth,
-            draft.EnableMobileOffline,
+            draft.ResolvedMobileOfflineMode == MobileOfflineModes.ApiCache,
+            mobileOfflineMode: draft.ResolvedMobileOfflineMode,
             draft.MobileThemePreset,
             PackageName,
             ApiBaseUrl,
@@ -347,7 +348,8 @@
             draft.EnableWeb,
             draft.EnableMobile,
             draft.EnableWebAuth,
-            draft.EnableMobileOffline,
+            draft.ResolvedMobileOfflineMode == MobileOfflineModes.ApiCache,
+            mobileOfflineMode: draft.ResolvedMobileOfflineMode,
             MobileThemePreset,
             PackageName,
             ApiBaseUrl,
@@ -500,7 +502,7 @@
                     PackageName = PackageName,
                     ApiBaseUrl = ApiBaseUrl,
                     Theme = new MobileThemeSpec { Preset = draft.MobileThemePreset },
-                    Offline = new MobileOfflineTargetSpec { Enabled = draft.EnableMobileOffline },
+                    Offline = draft.BuildMobileOfflineSpec(),
                     Capabilities = new MobileCapabilitiesSpec { Enabled = draft.MobileCapabilities.ToList() }
                 });
             }
@@ -552,7 +554,8 @@
             spec.Targets?.Web.Enabled ?? true,
             spec.Targets?.Mobile.Enabled ?? false,
             spec.Targets?.Web.Auth.Enabled ?? false,
-            spec.Targets?.Mobile.Offline.Enabled ?? false,
+            MobileOfflineTargetNormalizer.ResolveMode(spec.Targets?.Mobile.Offline) == MobileOfflineModes.ApiCache,
+            mobileOfflineMode: MobileOfflineTargetNormalizer.ResolveMode(spec.Targets?.Mobile.Offline),
             spec.Targets?.Mobile.Theme.Preset ?? "appgen",
             PackageName,
             ApiBaseUrl,

@@ -197,7 +197,7 @@ public sealed class ProjectGenerationService(
                 PackageName = draft.MobilePackageName,
                 ApiBaseUrl = draft.MobileApiBaseUrl,
                 Theme = new MobileThemeSpec { Preset = draft.MobileThemePreset },
-                Offline = new MobileOfflineTargetSpec { Enabled = draft.EnableMobileOffline },
+                Offline = draft.BuildMobileOfflineSpec(),
                 Capabilities = new MobileCapabilitiesSpec { Enabled = draft.MobileCapabilities.ToList() }
             });
 

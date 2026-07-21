@@ -1,0 +1,32 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
+import 'package:sqflite/sqflite.dart';
+
+final localDatabaseProvider = FutureProvider<LocalDatabase>((ref) => LocalDatabase.open());
+
+class LocalDatabase {
+  LocalDatabase._(this._db);
+
+  final Database _db;
+
+  Database get db => _db;
+
+  static Future<LocalDatabase> open() async {
+    final database = await openDatabase(
+      p.join(await getDatabasesPath(), '{{ local_db_file }}'),
+      version: 1,
+      onCreate: (db, _) async {
+{{ for entity in entities }}
+        await db.execute('''
+          CREATE TABLE {{ entity.entity_snake }} (
+{{ for p in entity.properties }}
+            {{ p.json_key }} {{ p.sql_type }}{{ if p.is_key }} PRIMARY KEY{{ end }}{{ if p.not_null && !p.is_key }} NOT NULL{{ end }}{{ if !for.last }},{{ end }}
+{{ end }}
+          )
+        ''');
+{{ end }}
+      },
+    );
+    return LocalDatabase._(database);
+  }
+}

@@ -3,7 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/app_colors.dart';
+{{ if api_client_enabled }}
 import '../../../core/network/api_error_mapper.dart';
+{{ else }}
+import '../../../core/errors/error_message.dart';
+{{ end }}
 import '../../../core/widgets/app_page_header.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../models/{{ entity_snake }}_model.dart';
@@ -52,7 +56,12 @@ class _{{ entity_name }}FormScreenState extends ConsumerState<{{ entity_name }}F
 
   Future<void> _loadNextId() async {
     try {
-      final nextId = await ref.read({{ entity_snake }}ServiceProvider).getNextId();
+{{ if standalone_local_enabled }}
+      final service = await ref.read({{ entity_snake }}ServiceProvider.future);
+{{ else }}
+      final service = ref.read({{ entity_snake }}ServiceProvider);
+{{ end }}
+      final nextId = await service.getNextId();
       if (mounted) setState(() => _nextId = nextId);
     } catch (_) {
       // Preview is optional; save still works without it.
@@ -108,7 +117,11 @@ class _{{ entity_name }}FormScreenState extends ConsumerState<{{ entity_name }}F
 
     setState(() => _saving = true);
     try {
+{{ if standalone_local_enabled }}
+      final service = await ref.read({{ entity_snake }}ServiceProvider.future);
+{{ else }}
       final service = ref.read({{ entity_snake }}ServiceProvider);
+{{ end }}
       final body = _buildPayload();
       if (_isEdit) {
         await service.update(widget.id!, body);
@@ -122,7 +135,7 @@ class _{{ entity_name }}FormScreenState extends ConsumerState<{{ entity_name }}F
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(ApiErrorMapper.message(error, context: 'Save {{ entity_name }}')),
+            content: Text({{ if api_client_enabled }}ApiErrorMapper.message(error, context: 'Save {{ entity_name }}'){{ else }}userFacingError(error, context: 'Save {{ entity_name }}'){{ end }}),
             backgroundColor: AppColors.error,
           ),
         );
@@ -143,7 +156,7 @@ class _{{ entity_name }}FormScreenState extends ConsumerState<{{ entity_name }}F
         },
         loading: () => const AppLoadingState(message: 'Loading {{ entity_name }}…'),
         error: (error, stackTrace) => AppErrorState(
-          message: ApiErrorMapper.message(error, context: 'Load {{ entity_name }} for edit'),
+          message: {{ if api_client_enabled }}ApiErrorMapper.message(error, context: 'Load {{ entity_name }} for edit'){{ else }}userFacingError(error, context: 'Load {{ entity_name }} for edit'){{ end }},
           onRetry: () => ref.invalidate({{ entity_snake }}DetailProvider(widget.id!)),
         ),
       );

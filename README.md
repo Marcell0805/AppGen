@@ -46,7 +46,7 @@ On the **Project** tab, **About this app** stores a tagline and description in `
 
 See [docs/EVOLUTION_ROADMAP.md](docs/EVOLUTION_ROADMAP.md) for the Application Factory vision (shared manifest, Flutter, UI branding, and phased delivery).
 
-**Plans** (`docs/plans/`): [spec workbook](docs/plans/appgen-spec-workbook.md), [mobile capabilities](docs/plans/mobile-capabilities-system.md), [mobile publish script](docs/plans/mobile-publish-script.md).
+**Plans** (`docs/plans/`): [spec workbook](docs/plans/appgen-spec-workbook.md), [mobile capabilities](docs/plans/mobile-capabilities-system.md), [mobile publish script](docs/plans/mobile-publish-script.md), [Flutter scaffold issues](docs/plans/mobile-flutter-scaffold-issues.md).
 
 ## Documentation workflow
 

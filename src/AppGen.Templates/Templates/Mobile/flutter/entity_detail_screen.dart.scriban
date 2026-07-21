@@ -3,7 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/app_colors.dart';
+{{ if api_client_enabled }}
 import '../../../core/network/api_error_mapper.dart';
+{{ else }}
+import '../../../core/errors/error_message.dart';
+{{ end }}
 import '../../../core/widgets/app_page_header.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../providers/{{ entity_snake }}_provider.dart';
@@ -66,7 +70,7 @@ class {{ entity_name }}DetailScreen extends ConsumerWidget {
       ),
       loading: () => const AppLoadingState(message: 'Loading {{ entity_name }}…'),
       error: (error, stackTrace) => AppErrorState(
-        message: ApiErrorMapper.message(error, context: 'Load {{ entity_name }} details'),
+        message: {{ if api_client_enabled }}ApiErrorMapper.message(error, context: 'Load {{ entity_name }} details'){{ else }}userFacingError(error, context: 'Load {{ entity_name }} details'){{ end }},
         onRetry: () => ref.invalidate({{ entity_snake }}DetailProvider(id)),
       ),
     );
@@ -88,14 +92,19 @@ class {{ entity_name }}DetailScreen extends ConsumerWidget {
     if (confirmed != true || !context.mounted) return;
 
     try {
-      await ref.read({{ entity_snake }}ServiceProvider).delete(id);
+{{ if standalone_local_enabled }}
+      final service = await ref.read({{ entity_snake }}ServiceProvider.future);
+{{ else }}
+      final service = ref.read({{ entity_snake }}ServiceProvider);
+{{ end }}
+      await service.delete(id);
       ref.invalidate({{ entity_snake }}ListProvider);
       if (context.mounted) context.go('/{{ entity_snake }}');
     } catch (error) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(ApiErrorMapper.message(error, context: 'Delete {{ entity_name }}')),
+          content: Text({{ if api_client_enabled }}ApiErrorMapper.message(error, context: 'Delete {{ entity_name }}'){{ else }}userFacingError(error, context: 'Delete {{ entity_name }}'){{ end }}),
           backgroundColor: AppColors.error,
         ),
       );

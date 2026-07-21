@@ -122,7 +122,7 @@ public sealed class WizardStateService
                 ApiBaseUrl = _draft.MobileApiBaseUrl,
                 StateManagement = targets.Mobile.StateManagement,
                 Theme = new MobileThemeSpec { Preset = _draft.MobileThemePreset },
-                Offline = new MobileOfflineTargetSpec { Enabled = _draft.EnableMobile && _draft.EnableMobileOffline },
+                Offline = _draft.BuildMobileOfflineSpec(),
                 Capabilities = new MobileCapabilitiesSpec
                 {
                     Enabled = _draft.MobileCapabilities.ToList()

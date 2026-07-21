@@ -24,11 +24,14 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
         Directory.CreateDirectory(flutterRoot);
 
         var activeEntitySnakes = entities.Select(e => ToSnakeCase(e.Name)).ToList();
+        var standalone = TargetFlags.StandaloneLocalEnabled(spec);
+        var apiOfflineCache = TargetFlags.ApiOfflineCacheEnabled(spec);
         FlutterGeneratedOutputPruner.Prune(
             flutterRoot,
             activeEntitySnakes,
             TargetFlags.AuthEnabled(spec),
-            TargetFlags.OfflineEnabled(spec));
+            apiOfflineCache,
+            standalone);
 
         var firstEntity = entities[0];
         var appModel = BuildAppModel(spec, mobile, entities);
@@ -36,9 +39,12 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
 
         await WriteTemplateAsync("Mobile/flutter/pubspec.yaml.scriban", flutterRoot, "pubspec.yaml", firstModel, ct);
         await WriteTemplateAsync("Mobile/flutter/main.dart.scriban", flutterRoot, "lib/main.dart", firstModel, ct);
-        await WriteTemplateAsync("Mobile/flutter/api_config.dart.scriban", flutterRoot, "lib/core/config/api_config.dart", firstModel, ct);
-        await WriteTemplateAsync("Mobile/flutter/api_client.dart.scriban", flutterRoot, "lib/core/network/api_client.dart", firstModel, ct);
-        await WriteTemplateAsync("Mobile/flutter/api_error_mapper.dart.scriban", flutterRoot, "lib/core/network/api_error_mapper.dart", firstModel, ct);
+        if (!standalone)
+        {
+            await WriteTemplateAsync("Mobile/flutter/api_config.dart.scriban", flutterRoot, "lib/core/config/api_config.dart", firstModel, ct);
+            await WriteTemplateAsync("Mobile/flutter/api_client.dart.scriban", flutterRoot, "lib/core/network/api_client.dart", firstModel, ct);
+            await WriteTemplateAsync("Mobile/flutter/api_error_mapper.dart.scriban", flutterRoot, "lib/core/network/api_error_mapper.dart", firstModel, ct);
+        }
         await WriteTemplateAsync("Mobile/flutter/app_log_sink.dart.scriban", flutterRoot, "lib/core/logging/app_log_sink.dart", firstModel, ct);
         await WriteTemplateAsync("Mobile/flutter/theme.dart.scriban", flutterRoot, "lib/app/theme.dart", firstModel, ct);
         await WriteTemplateAsync("Mobile/flutter/app_colors.dart.scriban", flutterRoot, "lib/app/app_colors.dart", firstModel, ct);
@@ -49,7 +55,7 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
         await WriteTemplateAsync("Mobile/flutter/app_widgets.dart.scriban", flutterRoot, "lib/core/widgets/app_widgets.dart", firstModel, ct);
         await WriteTemplateAsync("Mobile/flutter/router.dart.scriban", flutterRoot, "lib/app/router.dart", appModel, ct);
 
-        if (TargetFlags.AuthEnabled(spec))
+        if (TargetFlags.AuthEnabled(spec) && !standalone)
         {
             await WriteTemplateAsync("Mobile/flutter/token_storage.dart.scriban", flutterRoot, "lib/core/auth/token_storage.dart", firstModel, ct);
             await WriteTemplateAsync("Mobile/flutter/auth_service.dart.scriban", flutterRoot, "lib/core/auth/auth_service.dart", firstModel, ct);
@@ -59,10 +65,16 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
             await WriteTemplateAsync("Mobile/flutter/api_client.auth.scriban", flutterRoot, "lib/core/network/api_client.dart", firstModel, ct);
         }
 
-        if (TargetFlags.OfflineEnabled(spec))
+        if (apiOfflineCache)
         {
             await WriteTemplateAsync("Mobile/flutter/offline_cache.dart.scriban", flutterRoot, "lib/core/offline/offline_cache.dart", firstModel, ct);
             await WriteTemplateAsync("Mobile/flutter/offline_banner.dart.scriban", flutterRoot, "lib/core/widgets/offline_banner.dart", firstModel, ct);
+        }
+
+        if (standalone)
+        {
+            await WriteTemplateAsync("Mobile/flutter/local_database.dart.scriban", flutterRoot, "lib/core/local/local_database.dart", appModel, ct);
+            await WriteTemplateAsync("Mobile/flutter/error_message.dart.scriban", flutterRoot, "lib/core/errors/error_message.dart", firstModel, ct);
         }
 
         foreach (var entity in entities)
@@ -70,10 +82,15 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
             var entitySnake = ToSnakeCase(entity.Name);
             var model = BuildModel(spec, entity, mobile, entitySnake);
             await WriteTemplateAsync("Mobile/flutter/entity_model.dart.scriban", flutterRoot, $"lib/features/{entitySnake}/models/{entitySnake}_model.dart", model, ct);
-            await WriteTemplateAsync("Mobile/flutter/entity_service.dart.scriban", flutterRoot, $"lib/features/{entitySnake}/services/{entitySnake}_service.dart", model, ct);
-            var providerTemplate = TargetFlags.OfflineEnabled(spec)
-                ? "Mobile/flutter/entity_provider.offline.scriban"
-                : "Mobile/flutter/entity_provider.dart.scriban";
+            var serviceTemplate = standalone
+                ? "Mobile/flutter/entity_service.local.scriban"
+                : "Mobile/flutter/entity_service.dart.scriban";
+            await WriteTemplateAsync(serviceTemplate, flutterRoot, $"lib/features/{entitySnake}/services/{entitySnake}_service.dart", model, ct);
+            var providerTemplate = standalone
+                ? "Mobile/flutter/entity_provider.local.scriban"
+                : apiOfflineCache
+                    ? "Mobile/flutter/entity_provider.offline.scriban"
+                    : "Mobile/flutter/entity_provider.dart.scriban";
             await WriteTemplateAsync(providerTemplate, flutterRoot, $"lib/features/{entitySnake}/providers/{entitySnake}_provider.dart", model, ct);
             await WriteTemplateAsync("Mobile/flutter/entity_list_screen.dart.scriban", flutterRoot, $"lib/features/{entitySnake}/screens/{entitySnake}_list_screen.dart", model, ct);
             await WriteTemplateAsync("Mobile/flutter/entity_detail_screen.dart.scriban", flutterRoot, $"lib/features/{entitySnake}/screens/{entitySnake}_detail_screen.dart", model, ct);
@@ -105,7 +122,7 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
             ApiBaseUrl = mobile.ApiBaseUrl,
             StateManagement = mobile.StateManagement,
             Theme = mobile.Theme,
-            Offline = mobile.Offline,
+            Offline = MobileOfflineTargetNormalizer.Normalize(mobile.Offline),
             Capabilities = spec.Targets?.Mobile.Capabilities ?? mobile.Capabilities,
             Publish = spec.Targets?.Mobile.Publish ?? mobile.Publish
         };
@@ -204,8 +221,12 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
             theme_is_dark = theme.IsDark ? "true" : "false",
             theme_min_button_height = theme.MinButtonHeight,
             theme_uses_dashboard_nav = theme.UsesDashboardNav ? "true" : "false",
-            auth_enabled = TargetFlags.AuthEnabled(spec),
-            offline_enabled = TargetFlags.OfflineEnabled(spec),
+            auth_enabled = TargetFlags.AuthEnabled(spec) && !TargetFlags.StandaloneLocalEnabled(spec),
+            offline_enabled = TargetFlags.ApiOfflineCacheEnabled(spec),
+            api_offline_cache_enabled = TargetFlags.ApiOfflineCacheEnabled(spec),
+            standalone_local_enabled = TargetFlags.StandaloneLocalEnabled(spec),
+            api_client_enabled = TargetFlags.UsesMobileApiClient(spec),
+            local_db_file = spec.ApplicationName.ToLowerInvariant().Replace("_", "", StringComparison.Ordinal) + "_local.db",
             branding_enabled = ProjectBrandingHelper.IsConfigured(spec),
             capability_packages = BuildCapabilityPackages(spec),
             entities = entities.Select((e, index) =>
@@ -217,7 +238,14 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
                     entity_snake = ToSnakeCase(e.Name),
                     entity_number = index + 1,
                     entity_description = ResolveEntityDescription(spec, e.Name),
-                    key_dart_type = keyProp is null ? "int" : ToDartType(keyProp.ClrType)
+                    key_dart_type = keyProp is null ? "int" : ToDartType(keyProp.ClrType),
+                    properties = e.Properties.Select(p => new
+                    {
+                        json_key = ToJsonKey(p.Name),
+                        sql_type = ToSqlType(p.ClrType),
+                        is_key = p.IsKey,
+                        not_null = p.IsKey || !p.IsNullable
+                    }).ToList()
                 };
             }).ToList()
         };
@@ -282,8 +310,12 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
             theme_is_dark = theme.IsDark ? "true" : "false",
             theme_min_button_height = theme.MinButtonHeight,
             theme_uses_dashboard_nav = theme.UsesDashboardNav ? "true" : "false",
-            auth_enabled = TargetFlags.AuthEnabled(spec),
-            offline_enabled = TargetFlags.OfflineEnabled(spec),
+            auth_enabled = TargetFlags.AuthEnabled(spec) && !TargetFlags.StandaloneLocalEnabled(spec),
+            offline_enabled = TargetFlags.ApiOfflineCacheEnabled(spec),
+            api_offline_cache_enabled = TargetFlags.ApiOfflineCacheEnabled(spec),
+            standalone_local_enabled = TargetFlags.StandaloneLocalEnabled(spec),
+            api_client_enabled = TargetFlags.UsesMobileApiClient(spec),
+            local_db_file = spec.ApplicationName.ToLowerInvariant().Replace("_", "", StringComparison.Ordinal) + "_local.db",
             branding_enabled = ProjectBrandingHelper.IsConfigured(spec),
             capability_packages = BuildCapabilityPackages(spec),
             entity_name = entity.Name,
@@ -317,6 +349,14 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
         "DateTime" => "DateTime",
         "Guid" => "String",
         _ => "String"
+    };
+
+    internal static string ToSqlType(string clrType) => clrType.Trim() switch
+    {
+        "bool" => "INTEGER",
+        "int" or "long" => "INTEGER",
+        "decimal" or "double" or "float" => "REAL",
+        _ => "TEXT"
     };
 
     internal static string ToSnakeCase(string value)
@@ -423,6 +463,8 @@ public sealed class MobileApplicationGenerator(FlutterGenerator flutterGenerator
                 preferAndroidLaunch,
                 ct);
 
+            var gradlePatch = await FlutterAndroidGradlePatcher.PatchAsync(flutterRoot, ct);
+
             var capabilities = MobileCapabilityResolver.Resolve(normalized);
             var patch = await FlutterPlatformConfigPatcher.PatchAsync(flutterRoot, capabilities, ct);
 
@@ -434,6 +476,9 @@ public sealed class MobileApplicationGenerator(FlutterGenerator flutterGenerator
 
             if (!string.IsNullOrWhiteSpace(scaffold.Message))
                 message += " " + scaffold.Message;
+
+            if (!string.IsNullOrWhiteSpace(gradlePatch.Message))
+                message += " " + gradlePatch.Message;
 
             if (!string.IsNullOrWhiteSpace(patch.Message))
                 message += " " + patch.Message;

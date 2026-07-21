@@ -26,7 +26,8 @@ public class FlutterGeneratedOutputPrunerTests
                 flutterRoot,
                 ["widget"],
                 authEnabled: false,
-                offlineEnabled: false);
+                apiOfflineCacheEnabled: false,
+                standaloneLocalEnabled: false);
 
             Assert.False(Directory.Exists(staleDir));
             Assert.True(Directory.Exists(keepDir));

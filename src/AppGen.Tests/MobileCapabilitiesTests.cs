@@ -36,7 +36,7 @@ public class MobileCapabilitiesTests
 
             await ProjectSpecWriter.WriteAsync(spec, tempRoot);
             var loaded = await SpecLoader.LoadAsync(tempRoot);
-            Assert.Equal(8, loaded.SchemaVersion);
+            Assert.Equal(SolutionSpec.CurrentSchemaVersion, loaded.SchemaVersion);
             Assert.Contains(MobileCapabilityId.Camera, loaded.Targets!.Mobile.Capabilities.Enabled);
             Assert.Contains(MobileCapabilityId.Gps, loaded.Targets.Mobile.Capabilities.Enabled);
         }
