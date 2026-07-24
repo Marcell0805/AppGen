@@ -1,4 +1,4 @@
-﻿@page "/web"
+@page "/web"
 @using AppGen.Core
 @using AppGen.Core.Models
 @using AppGen.UI.Models
@@ -15,7 +15,8 @@
 <PageTitle>AppGen — Web</PageTitle>
 
 <PageHeader Title="Web"
-            Subtitle="Generate the server stack: API, application layers, persistence, and optional MVC admin UI." />
+            Subtitle="Generate the server stack: API, application layers, persistence, and optional MVC admin UI."
+            HelpTabId="web" />
 
 @if (!WizardState.HasData)
 {
@@ -40,12 +41,6 @@ else
         <p class="hint">Edit on the <a href="project">Project</a> tab. Web output: <code>{AppName} Web</code></p>
     </fieldset>
 
-    <ConfigSettingsPanel Database="Database"
-                         ConfigEntries="ConfigEntries"
-                         @bind-ActiveConnectionName="ActiveConnectionName"
-                         @bind-OracleSchemaPrefix="OracleSchemaPrefix"
-                         @bind-EnsureCreatedInDevelopment="EnsureCreatedInDevelopment" />
-
     <fieldset class="panel">
         <legend>Database</legend>
         <div class="form-grid">
@@ -57,6 +52,12 @@ else
             </select>
         </div>
     </fieldset>
+
+    <ConfigSettingsPanel Database="Database"
+                         ConfigEntries="ConfigEntries"
+                         @bind-ActiveConnectionName="ActiveConnectionName"
+                         @bind-OracleSchemaPrefix="OracleSchemaPrefix"
+                         @bind-EnsureCreatedInDevelopment="EnsureCreatedInDevelopment" />
 
     <fieldset class="panel">
         <legend>Client UI (optional)</legend>
@@ -371,26 +372,27 @@ else
 
         try
         {
-            var uiTargets = IncludeMvcWeb ? UiTarget.MvcWeb : UiTarget.None;
-            var allNames = Entities.Select(e => e.Name).ToList();
-            var entities = Entities.Select(e => e.ToSpec(allNames)).ToList();
+            SyncSharedState();
+            var spec = WizardState.ToSolutionSpec();
+            spec = new SolutionSpec
+            {
+                SchemaVersion = spec.SchemaVersion,
+                ApplicationName = spec.ApplicationName,
+                RootNamespace = spec.RootNamespace,
+                Project = spec.Project,
+                Phase = ProjectPhase.Solution,
+                EntitySketches = spec.EntitySketches,
+                Targets = spec.Targets,
+                Generation = spec.Generation,
+                Database = Database,
+                UiTargets = IncludeMvcWeb ? UiTarget.MvcWeb : UiTarget.None,
+                Setup = BuildSetup(),
+                Entities = Entities.Select(e => e.ToSpec(Entities.Select(x => x.Name).ToList())).ToList()
+            };
+
             var result = overwrite
-                ? await Generator.RegenerateAsync(
-                    ApplicationName.Trim(),
-                    string.IsNullOrWhiteSpace(RootNamespace) ? null : RootNamespace.Trim(),
-                    Database,
-                    uiTargets,
-                    OutputRoot.Trim(),
-                    BuildSetup(),
-                    entities)
-                : await Generator.GenerateAsync(
-                    ApplicationName.Trim(),
-                    string.IsNullOrWhiteSpace(RootNamespace) ? null : RootNamespace.Trim(),
-                    Database,
-                    uiTargets,
-                    OutputRoot.Trim(),
-                    BuildSetup(),
-                    entities);
+                ? await Generator.RegenerateFromSpecAsync(spec, OutputRoot.Trim())
+                : await Generator.GenerateFromSpecAsync(spec, OutputRoot.Trim());
 
             StatusMessage = result.Message;
             IsSuccess = result.Success;
@@ -499,8 +501,15 @@ else
                     spec.Targets?.Documentation.Enabled ?? false,
                     spec.Targets?.Web.Enabled ?? true,
                     spec.Targets?.Mobile.Enabled ?? false,
+                    spec.Targets?.Web.Auth.Enabled ?? false,
+                    MobileOfflineTargetNormalizer.ResolveMode(spec.Targets?.Mobile.Offline) == MobileOfflineModes.ApiCache,
+                    mobileOfflineMode: MobileOfflineTargetNormalizer.ResolveMode(spec.Targets?.Mobile.Offline),
+                    spec.Targets?.Mobile.Theme.Preset ?? "appgen",
                     spec.Targets?.Mobile.PackageName,
-                    spec.Targets?.Mobile.ApiBaseUrl));
+                    spec.Targets?.Mobile.ApiBaseUrl,
+                    spec.Project?.Tagline,
+                    spec.Project?.Description,
+                    spec.Targets?.Mobile.Capabilities.Enabled));
             }
             else
             {
@@ -520,8 +529,15 @@ else
                     spec.Targets?.Documentation.Enabled ?? false,
                     spec.Targets?.Web.Enabled ?? true,
                     spec.Targets?.Mobile.Enabled ?? false,
+                    spec.Targets?.Web.Auth.Enabled ?? false,
+                    MobileOfflineTargetNormalizer.ResolveMode(spec.Targets?.Mobile.Offline) == MobileOfflineModes.ApiCache,
+                    mobileOfflineMode: MobileOfflineTargetNormalizer.ResolveMode(spec.Targets?.Mobile.Offline),
+                    spec.Targets?.Mobile.Theme.Preset ?? "appgen",
                     spec.Targets?.Mobile.PackageName,
-                    spec.Targets?.Mobile.ApiBaseUrl));
+                    spec.Targets?.Mobile.ApiBaseUrl,
+                    spec.Project?.Tagline,
+                    spec.Project?.Description,
+                    spec.Targets?.Mobile.Capabilities.Enabled));
             }
 
             ApplySharedState();
@@ -677,8 +693,15 @@ else
             current?.EnableDocumentation ?? false,
             current?.EnableWeb ?? true,
             current?.EnableMobile ?? false,
+            current?.EnableWebAuth ?? false,
+            (current?.ResolvedMobileOfflineMode ?? MobileOfflineModes.None) == MobileOfflineModes.ApiCache,
+            mobileOfflineMode: current?.ResolvedMobileOfflineMode ?? MobileOfflineModes.None,
+            current?.MobileThemePreset ?? "appgen",
             current?.MobilePackageName,
-            current?.MobileApiBaseUrl));
+            current?.MobileApiBaseUrl,
+            current?.Tagline,
+            current?.Description,
+            current?.MobileCapabilities));
     }
 
     public void Dispose()

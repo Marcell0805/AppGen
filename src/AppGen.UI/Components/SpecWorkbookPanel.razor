@@ -1,0 +1,162 @@
+@using AppGen.Core
+@using AppGen.Core.Models.SpecWorkbook
+@using AppGen.Engine
+@using AppGen.UI.Models
+@using AppGen.UI.Services
+@inject WizardStateService WizardState
+@inject IJSRuntime Js
+
+<fieldset class="panel">
+    <legend>Spec workbook (Excel)</legend>
+    <p class="hint">
+        Describe application settings, entities, properties, portal sections, and sample data in an Excel workbook.
+        Export, edit offline, then import to populate <code>appgen.json</code> and seed SQL scripts.
+    </p>
+    <div class="actions spec-workbook-actions">
+        <button type="button" class="btn btn-outline-secondary" @onclick="DownloadTemplate" disabled="@IsBusy">
+            Download template
+        </button>
+        <button type="button" class="btn btn-outline-secondary" @onclick="ExportWorkbook" disabled="@IsBusy">
+            Export project
+        </button>
+        <label class="btn btn-outline-secondary file-btn @(IsBusy ? "disabled" : "")">
+            Import workbook
+            <InputFile OnChange="OnImportFile" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" disabled="@IsBusy" />
+        </label>
+        <label class="checkbox-row merge-checkbox">
+            <input type="checkbox" @bind="MergeEntities" />
+            Merge entities (keep existing not in workbook)
+        </label>
+    </div>
+    @if (!string.IsNullOrWhiteSpace(StatusMessage))
+    {
+        <div class="status-panel @(IsSuccess ? "status-success" : "status-error") spec-status">
+            @StatusMessage
+        </div>
+    }
+</fieldset>
+
+@code {
+    [Parameter] public string OutputRoot { get; set; } = string.Empty;
+    [Parameter] public string ApplicationName { get; set; } = string.Empty;
+    [Parameter] public EventCallback<WorkspaceStatus> OnStatus { get; set; }
+    [Parameter] public EventCallback OnImported { get; set; }
+
+    private bool IsBusy { get; set; }
+    private bool MergeEntities { get; set; }
+    private string StatusMessage { get; set; } = string.Empty;
+    private bool IsSuccess { get; set; }
+
+    private async Task DownloadTemplate()
+    {
+        await ExportToBrowser(SpecWorkbookWriter.CreateTemplate(ApplicationName), $"{SafeAppName()}-appgen-spec-template.xlsx");
+        await ReportAsync("Template downloaded.", success: true);
+    }
+
+    private async Task ExportWorkbook()
+    {
+        AppGenSpecDocument document;
+        var hubDir = ProjectOutputPaths.FindManifestDirectory(OutputRoot, ApplicationName, ProjectOutputLayer.Hub);
+        if (hubDir is not null && File.Exists(Path.Combine(hubDir, "appgen.json")))
+        {
+            var spec = await SpecLoader.LoadAsync(hubDir);
+            document = SpecWorkbookWriter.FromSolutionSpec(spec);
+        }
+        else if (WizardState.Current is not null)
+        {
+            document = SpecWorkbookWriter.FromSolutionSpec(WizardState.ToSolutionSpec());
+        }
+        else
+        {
+            document = SpecWorkbookWriter.CreateTemplate(ApplicationName);
+        }
+
+        await ExportToBrowser(document, $"{SafeAppName()}-appgen-spec.xlsx");
+        await ReportAsync("Workbook exported.", success: true);
+    }
+
+    private async Task OnImportFile(InputFileChangeEventArgs args)
+    {
+        var file = args.File;
+        if (file is null)
+            return;
+
+        IsBusy = true;
+        StatusMessage = string.Empty;
+        try
+        {
+            var tempPath = Path.Combine(Path.GetTempPath(), $"appgen-spec-{Guid.NewGuid():N}.xlsx");
+            await using (var read = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024))
+            await using (var write = File.Create(tempPath))
+                await read.CopyToAsync(write);
+
+            var preview = SpecWorkbookReader.Read(tempPath);
+            var importAppName = ResolveImportAppName(preview);
+            var hubDir = ProjectOutputPaths.HubDirectory(OutputRoot, importAppName);
+            Directory.CreateDirectory(hubDir);
+
+            var result = await SpecImportService.ImportAsync(
+                hubDir,
+                tempPath,
+                new SpecImportOptions { MergeEntities = MergeEntities });
+
+            File.Delete(tempPath);
+            StatusMessage = result.Message;
+            IsSuccess = result.Success;
+            await OnStatus.InvokeAsync(new WorkspaceStatus(result.Message, result.Success, hubDir));
+
+            if (result.Success && result.Spec is not null)
+            {
+                WizardState.NotifyManifestLoaded(result.Spec, hubDir);
+                await OnImported.InvokeAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+            IsSuccess = false;
+            await OnStatus.InvokeAsync(new WorkspaceStatus(ex.Message, false, null));
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task ExportToBrowser(AppGenSpecDocument document, string fileName)
+    {
+        var tempPath = Path.Combine(Path.GetTempPath(), $"appgen-export-{Guid.NewGuid():N}.xlsx");
+        try
+        {
+            SpecWorkbookWriter.Write(tempPath, document);
+            var bytes = await File.ReadAllBytesAsync(tempPath);
+            await Js.InvokeVoidAsync(
+                "appgen.downloadBytesFile",
+                fileName,
+                bytes,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        }
+        finally
+        {
+            if (File.Exists(tempPath))
+                File.Delete(tempPath);
+        }
+    }
+
+    private string SafeAppName() =>
+        string.IsNullOrWhiteSpace(ApplicationName)
+            ? "MyApp"
+            : NamingHelper.NormalizeAppName(ApplicationName);
+
+    private string ResolveImportAppName(AppGenSpecDocument document) =>
+        document.Application.ApplicationName?.Trim() is { Length: > 0 } name
+            ? NamingHelper.NormalizeAppName(name)
+            : SafeAppName();
+
+    private async Task ReportAsync(string message, bool success)
+    {
+        StatusMessage = message;
+        IsSuccess = success;
+        await OnStatus.InvokeAsync(new WorkspaceStatus(message, success, null));
+    }
+}

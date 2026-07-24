@@ -1,6 +1,29 @@
 {
   "version": "0.2.0",
   "configurations": [
+{{ if prefer_android_launch }}
+    {
+      "name": "{{ app_name }} (Android)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "deviceId": "android"
+    },
+    {
+      "name": "{{ app_name }} (Windows)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "deviceId": "windows"
+    },
+    {
+      "name": "{{ app_name }} (Chrome)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "deviceId": "chrome"
+    }
+{{ else }}
     {
       "name": "{{ app_name }} (Chrome)",
       "type": "dart",
@@ -22,5 +45,6 @@
       "program": "lib/main.dart",
       "deviceId": "android"
     }
+{{ end }}
   ]
 }

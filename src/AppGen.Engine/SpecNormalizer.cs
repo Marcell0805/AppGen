@@ -7,12 +7,13 @@ public static class SpecNormalizer
 {
     public static SolutionSpec Normalize(SolutionSpec spec)
     {
-        var targets = spec.Targets ?? BuildTargetsFromLegacy(spec);
+        var targets = NormalizeTargets(spec.Targets ?? BuildTargetsFromLegacy(spec));
         return new SolutionSpec
         {
             SchemaVersion = Math.Max(spec.SchemaVersion, SolutionSpec.CurrentSchemaVersion),
             ApplicationName = spec.ApplicationName,
             RootNamespace = spec.RootNamespace,
+            Project = spec.Project,
             Phase = spec.Phase,
             Portal = spec.Portal,
             EntitySketches = spec.EntitySketches,
@@ -24,6 +25,25 @@ public static class SpecNormalizer
             Entities = spec.Entities
         };
     }
+
+    private static ApplicationTargets NormalizeTargets(ApplicationTargets targets) =>
+        new()
+        {
+            Documentation = targets.Documentation,
+            Web = targets.Web,
+            Mobile = new MobileTargetSpec
+            {
+                Enabled = targets.Mobile.Enabled,
+                Framework = targets.Mobile.Framework,
+                PackageName = targets.Mobile.PackageName,
+                ApiBaseUrl = targets.Mobile.ApiBaseUrl,
+                StateManagement = targets.Mobile.StateManagement,
+                Theme = targets.Mobile.Theme,
+                Offline = MobileOfflineTargetNormalizer.Normalize(targets.Mobile.Offline),
+                Capabilities = targets.Mobile.Capabilities,
+                Publish = targets.Mobile.Publish
+            }
+        };
 
     public static ApplicationTargets BuildTargetsFromLegacy(SolutionSpec spec) => new()
     {
@@ -50,6 +70,7 @@ public static class SpecNormalizer
             SchemaVersion = SolutionSpec.CurrentSchemaVersion,
             ApplicationName = spec.ApplicationName,
             RootNamespace = spec.RootNamespace,
+            Project = spec.Project,
             Phase = spec.Phase,
             Portal = spec.Portal,
             EntitySketches = spec.EntitySketches,

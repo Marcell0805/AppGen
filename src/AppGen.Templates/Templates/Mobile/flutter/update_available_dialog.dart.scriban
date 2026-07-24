@@ -1,0 +1,60 @@
+import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../services/update_service.dart';
+
+class UpdateAvailableDialog extends StatelessWidget {
+  const UpdateAvailableDialog({super.key, required this.update});
+
+  final UpdateInfo update;
+
+  Future<void> _openDownload(BuildContext context) async {
+    final uri = Uri.parse(update.apkUrl);
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open the download link.')),
+      );
+    }
+    if (context.mounted) Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<PackageInfo>(
+      future: PackageInfo.fromPlatform(),
+      builder: (context, snap) {
+        final installed = snap.hasData
+            ? '${snap.data!.version} (build ${snap.data!.buildNumber})'
+            : '…';
+        return AlertDialog(
+          title: const Text('Update available'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Version ${update.version} (build ${update.build}) is available.\n'
+                'Installed: $installed',
+              ),
+              if (update.releaseNotes.trim().isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text("What's new", style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: 8),
+                Text(update.releaseNotes),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Later')),
+            FilledButton(
+              onPressed: () => _openDownload(context),
+              child: const Text('Download'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}

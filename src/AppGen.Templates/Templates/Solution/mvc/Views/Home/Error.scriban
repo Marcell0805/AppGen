@@ -1,0 +1,20 @@
+@{
+    ViewData["Title"] = "Error";
+}
+
+<header class="page-header">
+    <div>
+        <h1>Something went wrong</h1>
+        <p class="page-header__subtitle">An unexpected error occurred.</p>
+    </div>
+</header>
+
+<div class="page-body">
+    <div class="api-error-alert" role="alert">
+        <span class="api-error-alert__icon" aria-hidden="true">!</span>
+        <div class="api-error-alert__content">
+            <strong class="api-error-alert__title">Please try again</strong>
+            <p class="api-error-alert__message">If the problem continues, check the application log or contact support.</p>
+        </div>
+    </div>
+</div>

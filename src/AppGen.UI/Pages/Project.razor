@@ -8,11 +8,13 @@
 @inject WizardStateService WizardState
 @inject OutputFolderService FolderService
 @inject IJSRuntime Js
+@implements IDisposable
 
 <PageTitle>AppGen — Project</PageTitle>
 
 <PageHeader Title="Project"
-            Subtitle="Shared application definition: name, output folder, entities, and which layers to generate." />
+            Subtitle="Shared application definition: name, output folder, entities, and which layers to generate."
+            HelpTabId="project" />
 
 <div class="wizard">
     <ProjectWorkspace @ref="_workspace" OnStatus="OnWorkspaceStatus" />
@@ -66,11 +68,18 @@
 
     private bool CanGenerateAll =>
         !IsGenerating &&
-        WizardState.HasData &&
         WizardState.Current is { } draft &&
+        draft.Entities.Count > 0 &&
         !string.IsNullOrWhiteSpace(draft.ApplicationName) &&
         !string.IsNullOrWhiteSpace(draft.OutputRoot) &&
         (draft.EnableDocumentation || draft.EnableWeb || draft.EnableMobile);
+
+    protected override void OnInitialized() =>
+        WizardState.Changed += OnWizardStateChanged;
+
+    private void OnWizardStateChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => WizardState.Changed -= OnWizardStateChanged;
 
     private bool CanRegenerateAll
     {

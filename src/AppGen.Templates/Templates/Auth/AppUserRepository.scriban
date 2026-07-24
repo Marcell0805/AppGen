@@ -1,0 +1,19 @@
+using {{ root_namespace }}.Application.Interfaces;
+using {{ root_namespace }}.Domain.Entities;
+using {{ root_namespace }}.Persistence.Contexts;
+using Microsoft.EntityFrameworkCore;
+
+namespace {{ root_namespace }}.Persistence.Repositories;
+
+public class AppUserRepository(ApplicationDbContext db) : IAppUserRepository
+{
+    public Task<AppUser?> FindByEmailAsync(string email, CancellationToken ct = default) =>
+        db.AppUsers.AsNoTracking().FirstOrDefaultAsync(u => u.Email == email, ct);
+
+    public async Task<AppUser> AddAsync(AppUser user, CancellationToken ct = default)
+    {
+        db.AppUsers.Add(user);
+        await db.SaveChangesAsync(ct);
+        return user;
+    }
+}

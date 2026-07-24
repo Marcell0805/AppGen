@@ -1,0 +1,9 @@
+using {{ root_namespace }}.Domain.Entities;
+
+namespace {{ root_namespace }}.Application.Interfaces;
+
+public interface IAuthService
+{
+    Task<AppUser?> ValidateCredentialsAsync(string email, string password, CancellationToken ct = default);
+    Task<AppUser> EnsureDevUserAsync(string email, string password, string displayName, CancellationToken ct = default);
+}

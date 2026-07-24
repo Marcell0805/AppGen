@@ -1,0 +1,20 @@
+using {{ root_namespace }}.Shared.Exceptions;
+using {{ root_namespace }}.Shared.Logging;
+using Microsoft.AspNetCore.Mvc;
+
+namespace {{ root_namespace }}.MVC.Helpers;
+
+public static class ApiErrorHandling
+{
+    public static bool TryHandleApiError(Controller controller, Exception ex, IAppLogSink appLog, out IActionResult? result)
+    {
+        result = null;
+
+        if (ex is not ApiException apiEx)
+            return false;
+
+        appLog.LogError(ex, "API request failed");
+        controller.ViewBag.ApiError = apiEx.Message;
+        return true;
+    }
+}

@@ -16,6 +16,19 @@ public sealed class DocumentationTargetSpec
 public sealed class WebTargetSpec
 {
     public bool Enabled { get; init; } = true;
+    public WebAuthTargetSpec Auth { get; init; } = new();
+}
+
+public sealed class WebAuthTargetSpec
+{
+    public bool Enabled { get; init; }
+    public string Issuer { get; init; } = string.Empty;
+    public int TokenLifetimeMinutes { get; init; } = 60;
+}
+
+public sealed class MobileCapabilitiesSpec
+{
+    public List<string> Enabled { get; init; } = [];
 }
 
 public sealed class MobileTargetSpec
@@ -25,6 +38,50 @@ public sealed class MobileTargetSpec
     public string PackageName { get; init; } = string.Empty;
     public string ApiBaseUrl { get; init; } = "https://localhost:5001";
     public string StateManagement { get; init; } = "riverpod";
+    public MobileThemeSpec Theme { get; init; } = new();
+    public MobileOfflineTargetSpec Offline { get; init; } = new();
+    public MobileCapabilitiesSpec Capabilities { get; init; } = new();
+    public MobilePublishTargetSpec Publish { get; init; } = new();
+}
+
+public sealed class MobilePublishTargetSpec
+{
+    /// <summary>Static host base URL (e.g. Fox's Den GitHub Pages).</summary>
+    public string BaseUrl { get; init; } = string.Empty;
+
+    public string ApkFileName { get; init; } = string.Empty;
+
+    /// <summary>Slug for hub paths (downloads/{AppId}/mobile-version.json).</summary>
+    public string AppId { get; init; } = string.Empty;
+
+    /// <summary>Local path to The_Fox_s_Den Doc repo; enables publish-app-mobile.ps1 delegation.</summary>
+    public string PortalRepoPath { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Optional full URL to mobile-version.json. When empty, derived as
+    /// {BaseUrl}/downloads/{AppId}/mobile-version.json.
+    /// </summary>
+    public string UpdateCheckUrl { get; init; } = string.Empty;
+}
+
+public sealed class MobileOfflineTargetSpec
+{
+    /// <summary>Legacy toggle; prefer <see cref="Mode"/>. True maps to <see cref="MobileOfflineModes.ApiCache"/> on load.</summary>
+    public bool Enabled { get; init; }
+
+    /// <summary><see cref="MobileOfflineModes.None"/>, <see cref="MobileOfflineModes.ApiCache"/>, or <see cref="MobileOfflineModes.StandaloneLocal"/>.</summary>
+    public string Mode { get; init; } = MobileOfflineModes.None;
+
+    public string Provider { get; init; } = "sqlite";
+}
+
+public sealed class MobileThemeSpec
+{
+    public string Preset { get; init; } = "appgen";
+    public string? PrimaryColor { get; init; }
+    public string? AccentColor { get; init; }
+    public string? BackgroundColor { get; init; }
+    public string? HighlightColor { get; init; }
 }
 
 public sealed class GenerationMetadata

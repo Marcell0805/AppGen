@@ -1,5 +1,6 @@
 using {{ root_namespace }}.Shared.Requests;
 using {{ root_namespace }}.Shared.Responses;
+using {{ root_namespace }}.Shared.Logging;
 
 namespace {{ root_namespace }}.MVC.Services;
 
@@ -7,13 +8,16 @@ public interface I{{ entity_name }}Service
 {
     Task<List<{{ entity_name }}Response>> GetAllAsync(CancellationToken ct = default);
     Task<{{ entity_name }}Response?> GetByIdAsync({{ primary_key_clr_type }} id, CancellationToken ct = default);
+{{ if has_identity_key }}
+    Task<{{ primary_key_clr_type }}> GetNextIdAsync(CancellationToken ct = default);
+{{ end }}
     Task<{{ entity_name }}Response?> CreateAsync(Create{{ entity_name }}Request request, CancellationToken ct = default);
     Task<{{ entity_name }}Response?> UpdateAsync({{ primary_key_clr_type }} id, Update{{ entity_name }}Request request, CancellationToken ct = default);
     Task<bool> DeleteAsync({{ primary_key_clr_type }} id, CancellationToken ct = default);
 }
 
-public sealed class {{ entity_name }}Service(IHttpClientFactory httpClientFactory)
-    : EntityWebServiceBase<{{ entity_name }}Response, Create{{ entity_name }}Request, Update{{ entity_name }}Request>(httpClientFactory, "api/v1/{{ entity_plural }}"),
+public sealed class {{ entity_name }}Service(IHttpClientFactory httpClientFactory, IAppLogSink appLog)
+    : EntityWebServiceBase<{{ entity_name }}Response, Create{{ entity_name }}Request, Update{{ entity_name }}Request>(httpClientFactory, appLog, "api/v1/{{ entity_plural }}"),
       I{{ entity_name }}Service
 {
     public Task<List<{{ entity_name }}Response>> GetAllAsync(CancellationToken ct = default) =>
@@ -22,6 +26,14 @@ public sealed class {{ entity_name }}Service(IHttpClientFactory httpClientFactor
     public Task<{{ entity_name }}Response?> GetByIdAsync({{ primary_key_clr_type }} id, CancellationToken ct = default) =>
         GetByIdCoreAsync(id.ToString(), ct);
 
+{{ if has_identity_key }}
+    public async Task<{{ primary_key_clr_type }}> GetNextIdAsync(CancellationToken ct = default)
+    {
+        var nextId = await GetNextIdCoreAsync(ct);
+        return ({{ primary_key_clr_type }})nextId;
+    }
+
+{{ end }}
     public Task<{{ entity_name }}Response?> CreateAsync(Create{{ entity_name }}Request request, CancellationToken ct = default) =>
         CreateCoreAsync(request, ct);
 

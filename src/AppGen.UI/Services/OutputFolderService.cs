@@ -23,4 +23,53 @@ public sealed class OutputFolderService
             UseShellExecute = true
         });
     }
+
+    /// <summary>
+    /// Shows a native Windows folder picker (STA). Returns null if cancelled or unavailable.
+    /// </summary>
+    public string? PickFolder(string? initialDirectory = null)
+    {
+        if (!OperatingSystem.IsWindows())
+            return null;
+
+        string? selected = null;
+        var thread = new Thread(() =>
+        {
+            using var dialog = new FolderBrowserDialog
+            {
+                Description = "Select AppGen output folder",
+                UseDescriptionForTitle = true,
+                ShowNewFolderButton = true
+            };
+
+            if (!string.IsNullOrWhiteSpace(initialDirectory))
+            {
+                try
+                {
+                    var full = Path.GetFullPath(initialDirectory.Trim());
+                    if (Directory.Exists(full))
+                        dialog.SelectedPath = full;
+                    else
+                    {
+                        var parent = Path.GetDirectoryName(full);
+                        if (!string.IsNullOrWhiteSpace(parent) && Directory.Exists(parent))
+                            dialog.SelectedPath = parent;
+                    }
+                }
+                catch
+                {
+                    // Keep dialog default.
+                }
+            }
+
+            if (dialog.ShowDialog() == DialogResult.OK && !string.IsNullOrWhiteSpace(dialog.SelectedPath))
+                selected = dialog.SelectedPath;
+        });
+
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.IsBackground = true;
+        thread.Start();
+        thread.Join();
+        return selected;
+    }
 }

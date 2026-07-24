@@ -50,7 +50,10 @@ class AppEmptyState extends StatelessWidget {
               child: const Icon(Icons.inbox_outlined, color: AppColors.accent, size: 28),
             ),
             const SizedBox(height: 16),
-            Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+            Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: AppColors.text,
+            )),
             const SizedBox(height: 8),
             Text(
               subtitle,
@@ -65,9 +68,16 @@ class AppEmptyState extends StatelessWidget {
 }
 
 class AppErrorState extends StatelessWidget {
-  const AppErrorState({super.key, required this.message});
+  const AppErrorState({
+    super.key,
+    required this.message,
+    this.title = 'Could not load data',
+    this.onRetry,
+  });
 
   final String message;
+  final String title;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -87,13 +97,24 @@ class AppErrorState extends StatelessWidget {
               child: const Icon(Icons.cloud_off_outlined, color: AppColors.error, size: 28),
             ),
             const SizedBox(height: 16),
-            Text('Could not load data', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+            Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: AppColors.text,
+            )),
             const SizedBox(height: 8),
             Text(
               message,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textMuted),
             ),
+            if (onRetry != null) ...[
+              const SizedBox(height: 20),
+              OutlinedButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry'),
+              ),
+            ],
           ],
         ),
       ),
@@ -121,33 +142,46 @@ class EntityRecordCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(14),
+        child: IntrinsicHeight(
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              CircleAvatar(
-                radius: 22,
-                backgroundColor: AppColors.accent.withValues(alpha: 0.12),
-                child: Text(
-                  entityName.isNotEmpty ? entityName[0].toUpperCase() : '?',
-                  style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.w700),
-                ),
-              ),
-              const SizedBox(width: 14),
+              Container(width: 4, color: AppColors.highlight),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textMuted),
-                    ),
-                  ],
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 22,
+                        backgroundColor: AppColors.accent.withValues(alpha: 0.12),
+                        child: Text(
+                          entityName.isNotEmpty ? entityName[0].toUpperCase() : '?',
+                          style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(title, style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.text,
+                            )),
+                            const SizedBox(height: 4),
+                            Text(
+                              subtitle,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textMuted),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right, color: AppColors.textMuted),
+                    ],
+                  ),
                 ),
               ),
-              const Icon(Icons.chevron_right, color: AppColors.textMuted),
             ],
           ),
         ),

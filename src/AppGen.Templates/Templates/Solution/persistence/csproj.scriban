@@ -7,7 +7,9 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="{{ ef_version }}" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="{{ ef_version }}" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="{{ ef_version }}" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="8.0.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="{{ ef_version }}">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

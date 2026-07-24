@@ -1,0 +1,38 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using Microsoft.IdentityModel.Tokens;
+
+namespace {{ root_namespace }}.API.Auth;
+
+public static class JwtTokenFactory
+{
+    public static string CreateToken(long userId, string email, string displayName, IConfiguration configuration)
+    {
+        var key = configuration["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key is not configured.");
+        var issuer = string.IsNullOrWhiteSpace(configuration["Jwt:Issuer"])
+            ? "{{ app_name }}"
+            : configuration["Jwt:Issuer"]!;
+        var lifetime = configuration.GetValue("Jwt:LifetimeMinutes", 60);
+
+        var claims = new List<Claim>
+        {
+            new(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new(JwtRegisteredClaimNames.Email, email),
+            new(ClaimTypes.Name, displayName)
+        };
+
+        var credentials = new SigningCredentials(
+            new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key)),
+            SecurityAlgorithms.HmacSha256);
+
+        var token = new JwtSecurityToken(
+            issuer: issuer,
+            audience: issuer,
+            claims: claims,
+            expires: DateTime.UtcNow.AddMinutes(lifetime),
+            signingCredentials: credentials);
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+}

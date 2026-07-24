@@ -1,0 +1,113 @@
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+import '../../app/app_colors.dart';
+import '../../app/app_theme_config.dart';
+
+class AppPageHeader extends StatelessWidget {
+  const AppPageHeader({
+    super.key,
+    required this.title,
+    this.subtitle,
+    this.leading,
+    this.trailing,
+  });
+
+  final String title;
+  final String? subtitle;
+  final Widget? leading;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        border: Border(bottom: BorderSide(color: AppColors.border)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (leading != null) ...[
+            SizedBox(
+              width: 48,
+              height: 48,
+              child: Center(child: leading),
+            ),
+            const SizedBox(width: 4),
+          ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: _headingStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.text,
+                    height: 1.15,
+                  ),
+                ),
+                if (subtitle != null && subtitle!.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    subtitle!,
+                    style: _bodyStyle(
+                      fontSize: 13,
+                      height: 1.4,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (trailing != null) trailing!,
+        ],
+      ),
+    );
+  }
+}
+
+TextStyle _headingStyle({
+  double? fontSize,
+  FontWeight? fontWeight,
+  Color? color,
+  double? height,
+}) {
+  switch (AppThemeConfig.headingFont) {
+    case 'cormorantGaramond':
+      return GoogleFonts.cormorantGaramond(fontSize: fontSize, fontWeight: fontWeight, color: color, height: height);
+    case 'jetBrainsMono':
+      return GoogleFonts.jetBrainsMono(fontSize: fontSize, fontWeight: fontWeight, color: color, height: height);
+    case 'playfairDisplay':
+      return GoogleFonts.playfairDisplay(fontSize: fontSize, fontWeight: fontWeight, color: color, height: height);
+    case 'roboto':
+      return GoogleFonts.roboto(fontSize: fontSize, fontWeight: fontWeight, color: color, height: height);
+    default:
+      return GoogleFonts.inter(fontSize: fontSize, fontWeight: fontWeight, color: color, height: height);
+  }
+}
+
+TextStyle _bodyStyle({
+  double? fontSize,
+  FontWeight? fontWeight,
+  Color? color,
+  double? height,
+}) {
+  switch (AppThemeConfig.bodyFont) {
+    case 'cormorantGaramond':
+      return GoogleFonts.cormorantGaramond(fontSize: fontSize, fontWeight: fontWeight, color: color, height: height);
+    case 'jetBrainsMono':
+      return GoogleFonts.jetBrainsMono(fontSize: fontSize, fontWeight: fontWeight, color: color, height: height);
+    case 'playfairDisplay':
+      return GoogleFonts.playfairDisplay(fontSize: fontSize, fontWeight: fontWeight, color: color, height: height);
+    case 'roboto':
+      return GoogleFonts.roboto(fontSize: fontSize, fontWeight: fontWeight, color: color, height: height);
+    default:
+      return GoogleFonts.inter(fontSize: fontSize, fontWeight: fontWeight, color: color, height: height);
+  }
+}

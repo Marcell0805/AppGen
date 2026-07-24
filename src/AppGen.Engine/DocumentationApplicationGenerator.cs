@@ -17,8 +17,9 @@ public sealed class DocumentationApplicationGenerator(PortalGenerator portalGene
 
         try
         {
-            var prepared = PortalGenerator.PrepareSpec(spec);
+            var prepared = PortalGenerator.PrepareSpec(ProjectInfoSeeder.ApplyToPortalSpec(spec));
             await portalGenerator.GenerateAsync(prepared, projectDirectory, overwritePortal: options.Force, ct);
+            await ReadmeGenerator.WriteDocumentationAsync(new ReadmeContext(spec, projectDirectory), ct);
             return GeneratorTargetResult.Ok(
                 Path.Combine(projectDirectory, "portal"),
                 "Documentation portal generated.");

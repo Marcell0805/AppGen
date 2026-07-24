@@ -20,6 +20,7 @@ public sealed class EntityGenerator(TemplateRenderer renderer)
         ("Entity/UpdateRequest.scriban", (s, e) => $"src/{s.SharedProject}/Requests/Update{e.Name}Request.cs"),
         ("Entity/Response.scriban", (s, e) => $"src/{s.SharedProject}/Responses/{e.Name}Response.cs"),
         ("Entity/Controller.scriban", (s, e) => $"src/{s.ApiProject}/Controllers/V1/{e.Name}Controller.cs"),
+        ("Solution/tests/EntityApiTests.scriban", (s, e) => $"src/{s.TestsProject}/Api/{e.Name}ApiTests.cs"),
     ];
 
     public async Task GenerateAsync(SolutionSpec spec, EntitySpec entity, string projectDirectory, CancellationToken ct = default)
@@ -36,6 +37,15 @@ public sealed class EntityGenerator(TemplateRenderer renderer)
             var fullPath = Path.Combine(projectDirectory, outputPathFunc(spec, entity));
             Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
             await File.WriteAllTextAsync(fullPath, content, ct);
+        }
+
+        if (spec.UiTargets.HasFlag(UiTarget.MvcWeb))
+        {
+            ct.ThrowIfCancellationRequested();
+            var mvcTestContent = renderer.Render(TemplateProvider.Load("Solution/tests/EntityMvcTests.scriban"), model);
+            var mvcTestPath = Path.Combine(projectDirectory, $"src/{spec.TestsProject}/Mvc/{entity.Name}MvcTests.cs");
+            Directory.CreateDirectory(Path.GetDirectoryName(mvcTestPath)!);
+            await File.WriteAllTextAsync(mvcTestPath, mvcTestContent, ct);
         }
 
         await MergePersistenceAsync(spec, entity, projectDirectory, ct);
@@ -78,6 +88,7 @@ public sealed class EntityGenerator(TemplateRenderer renderer)
             SchemaVersion = spec.SchemaVersion,
             ApplicationName = spec.ApplicationName,
             RootNamespace = spec.RootNamespace,
+            Project = spec.Project,
             Phase = spec.Phase,
             Portal = spec.Portal,
             EntitySketches = spec.EntitySketches,
@@ -125,17 +136,26 @@ public sealed class EntityGenerator(TemplateRenderer renderer)
             .DistinctBy(fk => fk.ReferencedEntity)
             .ToList();
 
+        var displayProperty = expandedProperties.FirstOrDefault(p => !p.IsKey);
+        var hasIdentityKey = keys.Count == 1 && primaryKey.ClrType is "int" or "long";
+
         return new
         {
             app_name = spec.ApplicationName,
             root_namespace = spec.RootNamespace,
             use_oracle = spec.Database == DatabaseProvider.Oracle,
+            use_postgresql = spec.Database == DatabaseProvider.PostgreSql,
+            use_sqlserver = spec.Database == DatabaseProvider.SqlServer,
             oracle_schema = oracleSchema,
             oracle_table_name_only = oracleTableOnly,
             entity_name = entity.Name,
             entity_plural = entity.Name,
             entity_plural_lower = entity.Name.ToLowerInvariant(),
             entity_camel = NamingHelper.ToCamelCase(entity.Name),
+            entity_description = GenerationCopyHelper.ResolveEntityDescription(spec, entity.Name),
+            entity_initial = entity.Name.Length > 0 ? entity.Name[0].ToString() : "?",
+            display_property_name = displayProperty?.Name ?? primaryKey.Name,
+            has_display_property = displayProperty is not null,
             primary_key_name = primaryKey.Name,
             primary_key_clr_type = primaryKey.ClrType,
             primary_key_route_constraint = pkRouteConstraint,
@@ -164,17 +184,20 @@ public sealed class EntityGenerator(TemplateRenderer renderer)
                 camel = NamingHelper.ToCamelCase(p.Name)
             }).ToList(),
             has_composite_key = keys.Count > 1,
+            has_identity_key = hasIdentityKey,
             non_key_properties = expandedProperties.Where(p => !p.IsKey).Select(p => new
             {
                 name = p.Name,
                 clr_type = p.IsNullable && p.ClrType != "string" ? p.ClrType + "?" : p.ClrType,
-                camel = NamingHelper.ToCamelCase(p.Name)
+                camel = NamingHelper.ToCamelCase(p.Name),
+                test_update_value = ToTestValue(p.ClrType, p.Name, forUpdate: true)
             }).ToList(),
             create_properties = expandedProperties.Where(p => !p.IsKey && !IsAuditProperty(p.Name)).Select(p => new
             {
                 name = p.Name,
                 clr_type = p.IsNullable && p.ClrType != "string" ? p.ClrType + "?" : p.ClrType,
-                camel = NamingHelper.ToCamelCase(p.Name)
+                camel = NamingHelper.ToCamelCase(p.Name),
+                test_value = ToTestValue(p.ClrType, p.Name, forUpdate: false)
             }).ToList(),
             foreign_key_properties = foreignKeyProperties.Select(fk => new
             {
@@ -189,7 +212,29 @@ public sealed class EntityGenerator(TemplateRenderer renderer)
                 referenced_entity = fk.ReferencedEntity,
                 service_name = fk.ServiceName
             }).ToList(),
-            has_foreign_keys = foreignKeyProperties.Count > 0
+            has_foreign_keys = foreignKeyProperties.Count > 0,
+            auth_enabled = TargetFlags.AuthEnabled(spec),
+            include_mvc_web = spec.UiTargets.HasFlag(UiTarget.MvcWeb)
+        };
+    }
+
+    private static string ToTestValue(string clrType, string propertyName, bool forUpdate)
+    {
+        var baseType = clrType.TrimEnd('?');
+        return baseType switch
+        {
+            "string" => forUpdate ? "\"Updated value\"" : "\"Test value\"",
+            "bool" => forUpdate ? "false" : "true",
+            "int" => forUpdate ? "2" : "1",
+            "long" => forUpdate ? "2L" : "1L",
+            "decimal" => forUpdate ? "2.0m" : "1.0m",
+            "double" => forUpdate ? "2.0" : "1.0",
+            "float" => forUpdate ? "2.0f" : "1.0f",
+            "DateTime" => "DateTime.UtcNow",
+            "Guid" => forUpdate
+                ? "Guid.Parse(\"22222222-2222-2222-2222-222222222222\")"
+                : "Guid.Parse(\"11111111-1111-1111-1111-111111111111\")",
+            _ => forUpdate ? "\"Updated\"" : "\"Test\""
         };
     }
 

@@ -18,7 +18,8 @@
   }
   function showGate() {
     var script = document.querySelector('script[src*="auth.js"]');
-    var logoUrl = script ? new URL('../assets/logo.svg', script.src).href : '../assets/logo.svg';
+    var logoUrl = script ? new URL('../assets/logo.png', script.src).href : '../assets/logo.png';
+    var logoFallback = script ? new URL('../assets/logo.svg', script.src).href : '../assets/logo.svg';
     var s = getSettings();
     var title = s.portalName || 'DeltaCore Engineering Portal';
     var subtitle = s.tagline || 'Industrial intelligence platform';
@@ -27,7 +28,7 @@
     gate.className = 'auth-gate';
     gate.innerHTML =
       '<div class="auth-gate-card">' +
-        '<img src="' + logoUrl + '" alt="" class="auth-gate-logo">' +
+        '<img src="' + logoUrl + '" alt="" class="auth-gate-logo" onerror="this.onerror=null;this.src=\'' + logoFallback + '\';">' +
         '<h2 class="auth-gate-title">' + title + '</h2>' +
         '<p class="auth-gate-subtitle">' + subtitle + '</p>' +
         '<form class="auth-gate-form" id="auth-form">' +

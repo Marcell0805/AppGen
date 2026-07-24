@@ -12,7 +12,7 @@ public static class PortalDefaults
         {
             PortalName = $"{applicationName} Engineering Portal",
             Tagline = "Share the vision, architecture and roadmap",
-            HomeQuote = "Built with AppGen — static portal for early sharing.",
+            HomeQuote = null,
             Auth = new PortalAuthSettings
             {
                 Password = NamingHelper.NormalizeAppName(applicationName).ToLowerInvariant(),

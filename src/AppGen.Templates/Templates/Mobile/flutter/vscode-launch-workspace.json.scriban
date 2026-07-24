@@ -1,12 +1,38 @@
 {
   "version": "0.2.0",
   "configurations": [
+{{ if prefer_android_launch }}
+    {
+      "name": "{{ app_name }} (Android)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "cwd": "${workspaceFolder}",
+      "deviceId": "android"
+    },
+    {
+      "name": "{{ app_name }} (Windows)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "cwd": "${workspaceFolder}",
+      "deviceId": "windows"
+    },
     {
       "name": "{{ app_name }} (Chrome)",
       "type": "dart",
       "request": "launch",
       "program": "lib/main.dart",
-      "cwd": "${workspaceFolder}/mobile/flutter",
+      "cwd": "${workspaceFolder}",
+      "deviceId": "chrome"
+    }
+{{ else }}
+    {
+      "name": "{{ app_name }} (Chrome)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "cwd": "${workspaceFolder}",
       "deviceId": "chrome"
     },
     {
@@ -14,7 +40,7 @@
       "type": "dart",
       "request": "launch",
       "program": "lib/main.dart",
-      "cwd": "${workspaceFolder}/mobile/flutter",
+      "cwd": "${workspaceFolder}",
       "deviceId": "windows"
     },
     {
@@ -22,8 +48,9 @@
       "type": "dart",
       "request": "launch",
       "program": "lib/main.dart",
-      "cwd": "${workspaceFolder}/mobile/flutter",
+      "cwd": "${workspaceFolder}",
       "deviceId": "android"
     }
+{{ end }}
   ]
 }

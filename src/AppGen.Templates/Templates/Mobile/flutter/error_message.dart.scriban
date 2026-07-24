@@ -1,0 +1,3 @@
+/// User-facing error text for local (non-API) operations.
+String userFacingError(Object error, {String? context}) =>
+    error is StateError ? error.message : error.toString();

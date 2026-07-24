@@ -8,7 +8,9 @@ namespace {{ root_namespace }}.Persistence.Repositories;
 public class {{ entity_name }}Repository(ApplicationDbContext db) : I{{ entity_name }}Repository
 {
     public async Task<List<{{ entity_name }}>> GetAllAsync(CancellationToken ct = default) =>
-        await db.{{ entity_plural }}.AsNoTracking().ToListAsync(ct);
+        await db.{{ entity_plural }}.AsNoTracking()
+            .OrderBy(e => e.{{ primary_key_name }})
+            .ToListAsync(ct);
 
     public async Task<{{ entity_name }}?> GetByIdAsync({{ primary_key_clr_type }} id, CancellationToken ct = default) =>
         await db.{{ entity_plural }}.AsNoTracking().FirstOrDefaultAsync(e => e.{{ primary_key_name }} == id, ct);
@@ -16,8 +18,20 @@ public class {{ entity_name }}Repository(ApplicationDbContext db) : I{{ entity_n
     public async Task<{{ entity_name }}?> GetTrackedByIdAsync({{ primary_key_clr_type }} id, CancellationToken ct = default) =>
         await db.{{ entity_plural }}.FirstOrDefaultAsync(e => e.{{ primary_key_name }} == id, ct);
 
+{{ if has_identity_key }}
+    public async Task<{{ primary_key_clr_type }}> GetNextIdentityValueAsync(CancellationToken ct = default)
+    {
+        var max = await db.{{ entity_plural }}.AsNoTracking().MaxAsync(e => ({{ primary_key_clr_type }}?)e.{{ primary_key_name }}, ct);
+        return (max ?? 0) + 1;
+    }
+
+{{ end }}
     public async Task<{{ entity_name }}> AddAsync({{ entity_name }} entity, CancellationToken ct = default)
     {
+{{ if has_identity_key }}
+        if (entity.{{ primary_key_name }} == default)
+            db.Entry(entity).Property(e => e.{{ primary_key_name }}).IsModified = false;
+{{ end }}
         db.{{ entity_plural }}.Add(entity);
         await db.SaveChangesAsync(ct);
         return entity;

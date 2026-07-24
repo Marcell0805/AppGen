@@ -25,6 +25,7 @@ public sealed class ManifestSaveService
                 SchemaVersion = SolutionSpec.CurrentSchemaVersion,
                 ApplicationName = wizardSpec.ApplicationName,
                 RootNamespace = wizardSpec.RootNamespace,
+                Project = wizardSpec.Project ?? existing.Project,
                 Phase = existing.Phase,
                 Portal = existing.Portal,
                 EntitySketches = existing.EntitySketches,

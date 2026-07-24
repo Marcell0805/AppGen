@@ -19,6 +19,12 @@ class {{ entity_name }}Model {
 {{ end }}
   };
 
+  Map<String, dynamic> toJson() => {
+{{ for p in properties }}
+    '{{ p.json_key }}': {{ if p.dart_type == "DateTime" }}{{ p.name }}.toIso8601String(){{ else }}{{ p.name }}{{ end }},
+{{ end }}
+  };
+
 {{ for p in properties }}
   final {{ p.dart_type }} {{ p.name }};
 {{ end }}

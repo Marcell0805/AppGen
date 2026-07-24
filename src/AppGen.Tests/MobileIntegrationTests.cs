@@ -55,26 +55,42 @@ public class MobileIntegrationTests
       var result = await generator.GenerateAsync(spec, outputDir, new GeneratorOptions());
 
       Assert.True(result.Success, result.Message);
-      Assert.True(File.Exists(Path.Combine(outputDir, "mobile", "flutter", "lib", "features", "widget", "models", "widget_model.dart")));
-      Assert.True(File.Exists(Path.Combine(outputDir, "mobile", "flutter", "lib", "features", "gadget", "models", "gadget_model.dart")));
-      Assert.True(File.Exists(Path.Combine(outputDir, "mobile", "flutter", "lib", "features", "widget", "screens", "widget_detail_screen.dart")));
-      Assert.True(File.Exists(Path.Combine(outputDir, "mobile", "flutter", "lib", "features", "widget", "screens", "widget_form_screen.dart")));
+      Assert.True(File.Exists(Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "lib", "features", "widget", "models", "widget_model.dart")));
+      Assert.True(File.Exists(Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "lib", "features", "gadget", "models", "gadget_model.dart")));
+      Assert.True(File.Exists(Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "lib", "features", "widget", "screens", "widget_detail_screen.dart")));
+      Assert.True(File.Exists(Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "lib", "features", "widget", "screens", "widget_form_screen.dart")));
 
-      var widgetService = await File.ReadAllTextAsync(Path.Combine(outputDir, "mobile", "flutter", "lib", "features", "widget", "services", "widget_service.dart"));
+      var widgetService = await File.ReadAllTextAsync(Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "lib", "features", "widget", "services", "widget_service.dart"));
       Assert.Contains("Future<WidgetModel> create", widgetService);
       Assert.Contains("Future<WidgetModel> update", widgetService);
       Assert.Contains("Future<void> delete", widgetService);
 
-      var widgetModel = await File.ReadAllTextAsync(Path.Combine(outputDir, "mobile", "flutter", "lib", "features", "widget", "models", "widget_model.dart"));
+      var widgetModel = await File.ReadAllTextAsync(Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "lib", "features", "widget", "models", "widget_model.dart"));
       Assert.Contains("toWriteJson", widgetModel);
 
-      var router = await File.ReadAllTextAsync(Path.Combine(outputDir, "mobile", "flutter", "lib", "app", "router.dart"));
+      var router = await File.ReadAllTextAsync(Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "lib", "app", "router.dart"));
       Assert.Contains("/widget", router);
       Assert.Contains("/gadget", router);
       Assert.Contains("WidgetDetailScreen", router);
       Assert.Contains("WidgetFormScreen", router);
       Assert.Contains("path: 'new'", router);
       Assert.Contains("path: 'edit'", router);
+      Assert.Contains("location: state.uri.path", router);
+      Assert.Contains("AppShell(", router);
+
+      var shell = await File.ReadAllTextAsync(Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "lib", "app", "app_shell.dart"));
+      Assert.Contains("required this.location", shell);
+      Assert.Contains("PopScope", shell);
+      Assert.Contains("navigateBackOrHome", shell);
+      Assert.Contains("SafeArea", shell);
+
+      var helpers = await File.ReadAllTextAsync(Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "lib", "app", "navigation_helpers.dart"));
+      Assert.Contains("appHomePath", helpers);
+      Assert.Contains("/widget", helpers);
+      Assert.Contains("navigateBackOrHome", helpers);
+
+      var form = await File.ReadAllTextAsync(Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "lib", "features", "widget", "screens", "widget_form_screen.dart"));
+      Assert.Contains("navigateBackOrHome", form);
 
       var reloaded = await SpecLoader.LoadAsync(outputDir);
       Assert.Equal(["Widget", "Gadget"], reloaded.Generation!.Mobile!.Entities);
@@ -127,15 +143,15 @@ public class MobileIntegrationTests
         new GeneratorOptions { EntityName = "Widget" });
 
       Assert.True(result.Success, result.Message);
-      Assert.True(File.Exists(Path.Combine(outputDir, "mobile", "flutter", "pubspec.yaml")));
-      Assert.True(File.Exists(Path.Combine(outputDir, "mobile", "flutter", "lib", "main.dart")));
-      Assert.True(File.Exists(Path.Combine(outputDir, "mobile", "flutter", "lib", "features", "widget", "models", "widget_model.dart")));
-      Assert.True(File.Exists(Path.Combine(outputDir, "mobile", "flutter", "lib", "features", "widget", "screens", "widget_detail_screen.dart")));
-      Assert.True(File.Exists(Path.Combine(outputDir, "mobile", "flutter", "lib", "features", "widget", "screens", "widget_form_screen.dart")));
+      Assert.True(File.Exists(Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "pubspec.yaml")));
+      Assert.True(File.Exists(Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "lib", "main.dart")));
+      Assert.True(File.Exists(Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "lib", "features", "widget", "models", "widget_model.dart")));
+      Assert.True(File.Exists(Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "lib", "features", "widget", "screens", "widget_detail_screen.dart")));
+      Assert.True(File.Exists(Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "lib", "features", "widget", "screens", "widget_form_screen.dart")));
       Assert.Contains("Flutter CRUD", result.Message);
 
       var reloaded = await SpecLoader.LoadAsync(outputDir);
-      Assert.Equal(5, reloaded.SchemaVersion);
+      Assert.Equal(SolutionSpec.CurrentSchemaVersion, reloaded.SchemaVersion);
       Assert.NotNull(reloaded.Targets);
       Assert.True(reloaded.Targets!.Mobile.Enabled);
     }
@@ -156,7 +172,7 @@ public class MobileIntegrationTests
       Directory.CreateDirectory(tempRoot);
       var spec = new SolutionSpec
       {
-        SchemaVersion = 5,
+        SchemaVersion = SolutionSpec.CurrentSchemaVersion,
         ApplicationName = "TargetApp",
         RootNamespace = "TargetApp",
         Targets = new ApplicationTargets

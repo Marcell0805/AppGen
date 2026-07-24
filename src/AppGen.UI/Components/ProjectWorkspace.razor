@@ -1,12 +1,15 @@
 @using AppGen.Core
+@using AppGen.Core.Branding
+@using AppGen.Core.Capabilities
+@using AppGen.Core.Themes
 @using AppGen.Core.Models
 @using AppGen.Engine
 @using AppGen.UI.Models
-@using AppGen.Engine
 @using AppGen.UI.Services
 @inject WizardStateService WizardState
 @inject ManifestSaveService ManifestSave
 @inject OutputFolderService FolderService
+@inject ProjectGenerationService ProjectGenerator
 @inject IWebHostEnvironment HostEnvironment
 @inject IJSRuntime Js
 @implements IDisposable
@@ -21,24 +24,88 @@
         <input @bind="RootNamespace" @bind:after="SyncState" placeholder="Defaults to app name" />
 
         <label>Output folder</label>
-        <input @bind="OutputRoot" @bind:after="SyncState" placeholder="e.g. output/MyProduct" />
+        <div class="path-picker">
+            <input @bind="OutputRoot" @bind:after="SyncState" placeholder="e.g. output/MyProduct" />
+            <button type="button"
+                    class="btn btn-outline-secondary path-picker__browse"
+                    @onclick="BrowseOutputFolder"
+                    disabled="@IsBusy"
+                    title="Browse for folder"
+                    aria-label="Browse for folder">
+                <svg class="path-picker__icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="M20 20l-3.5-3.5" stroke-linecap="round" />
+                </svg>
+            </button>
+        </div>
     </div>
+    <div class="form-grid app-icon-grid">
+        <label>App icon</label>
+        <div class="app-icon-controls">
+            @if (!string.IsNullOrWhiteSpace(IconPreviewUrl))
+            {
+                <img src="@IconPreviewUrl" alt="App icon preview" class="app-icon-preview" />
+            }
+            else
+            {
+                <div class="app-icon-preview app-icon-preview-empty">No icon</div>
+            }
+            <div class="app-icon-actions">
+                <label class="btn btn-outline-secondary btn-sm file-btn @(IsBusy ? "disabled" : "")">
+                    @(string.IsNullOrWhiteSpace(IconPreviewUrl) ? "Upload PNG" : "Replace")
+                    <InputFile OnChange="OnIconFileSelected" accept=".png,image/png" disabled="@IsBusy" />
+                </label>
+                @if (!string.IsNullOrWhiteSpace(IconPreviewUrl))
+                {
+                    <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="RemoveIcon" disabled="@IsBusy">Remove</button>
+                }
+            </div>
+            @if (!string.IsNullOrWhiteSpace(IconOriginalFileName))
+            {
+                <div class="hint app-icon-filename">@IconOriginalFileName</div>
+            }
+            @if (!string.IsNullOrWhiteSpace(IconStatusMessage))
+            {
+                <div class="hint app-icon-error">@IconStatusMessage</div>
+            }
+        </div>
+    </div>
+    <p class="hint">Square PNG, 1024×1024 recommended. Used in Documentation, Web UI, and Mobile launcher.</p>
+</fieldset>
+
+<fieldset class="panel">
+    <legend>About this app</legend>
+    <div class="form-grid">
+        <label>Tagline</label>
+        <input @bind="Tagline" @bind:after="SyncState" placeholder="Short pitch (one line)" />
+
+        <label>Description</label>
+        <textarea @bind="Description" @bind:after="SyncState" rows="6" placeholder="Goals, audience, scope…"></textarea>
+    </div>
+    <p class="hint">Markdown supported (headings, lists, bold). Used in generated READMEs and Documentation vision when not customized.</p>
 </fieldset>
 
 <fieldset class="panel">
     <legend>Layers</legend>
     <p class="hint">Each layer generates into its own folder under the output root: <code>{AppName}</code> (manifest), <code>{AppName} Doc</code>, <code>{AppName} Web</code>, <code>{AppName} Mobile</code>.</p>
     <label class="checkbox-row">
-        <input type="checkbox" @bind="EnableDocumentation" @bind:after="SyncState" />
+        <input type="checkbox" @bind="EnableDocumentation" @bind:after="OnDocumentationLayerChanged" />
         Documentation — static portal site
     </label>
     <label class="checkbox-row">
-        <input type="checkbox" @bind="EnableWeb" @bind:after="SyncState" />
+        <input type="checkbox" @bind="EnableWeb" @bind:after="OnWebLayerChanged" />
         Web — API, application layers, persistence, optional MVC
     </label>
+    @if (EnableWeb)
+    {
+        <label class="checkbox-row layer-sub">
+            <input type="checkbox" @bind="EnableWebAuth" @bind:after="SyncState" />
+            Enable API authentication (JWT)
+        </label>
+    }
     <label class="checkbox-row">
-        <input type="checkbox" @bind="EnableMobile" @bind:after="SyncState" />
-        Mobile — Flutter proof-of-concept
+        <input type="checkbox" @bind="EnableMobile" @bind:after="OnMobileLayerChanged" />
+        Mobile — Flutter mobile client
     </label>
 </fieldset>
 
@@ -55,6 +122,139 @@
                         ClrTypes="ClrTypes"
                         OnChanged="OnPropertyGridChanged" />
 </fieldset>
+
+@if (EnableDocumentation || EnableMobile || EnableWeb)
+{
+    <AppThemePanel Preset="@MobileThemePreset"
+                   PresetChanged="OnThemePresetChanged"
+                   DocumentationEnabled="@EnableDocumentation"
+                   MobileEnabled="@EnableMobile"
+                   WebEnabled="@(EnableWeb && IncludeMvcWeb)"
+                   ShowApplyButton="true"
+                   ApplyBusy="@IsApplyingTheme"
+                   ApplyStatus="@ThemeApplyStatus"
+                   OnApply="ApplyThemeAsync" />
+}
+
+@if (EnableMobile)
+{
+    <MobilePublishPanel ApplicationName="@ApplicationName"
+                        BaseUrl="@MobilePublishBaseUrl"
+                        BaseUrlChanged="OnPublishBaseUrlChanged"
+                        AppId="@MobilePublishAppId"
+                        AppIdChanged="OnPublishAppIdChanged"
+                        ApkFileName="@MobilePublishApkFileName"
+                        ApkFileNameChanged="OnPublishApkFileNameChanged"
+                        PortalRepoPath="@MobilePublishPortalRepoPath"
+                        PortalRepoPathChanged="OnPublishPortalRepoPathChanged"
+                        UpdateCheckUrl="@MobilePublishUpdateCheckUrl"
+                        UpdateCheckUrlChanged="OnPublishUpdateCheckUrlChanged"
+                        Disabled="@IsBusy" />
+}
+
+@if (EnableMobile)
+{
+    <fieldset class="panel mobile-settings-panel">
+        <legend>Mobile</legend>
+        <fieldset class="capabilities-panel">
+            <legend>Capabilities</legend>
+            <p class="hint capability-table-legend">Select what the app should do. <strong>X</strong> = supported on that platform; <strong>—</strong> = not supported.</p>
+            <div class="capability-table-wrap">
+            <table class="capability-platform-table">
+                <CapabilityPlatformTableHead />
+                <tbody>
+                    <tr class="cap-category-row">
+                        <td colspan="5">Options</td>
+                    </tr>
+                    <tr class="cap-item-row">
+                        <td class="cap-name-col" colspan="4">
+                            <fieldset class="mobile-data-source-fieldset">
+                                <legend class="hint">Mobile data source</legend>
+                                <label class="cap-enable-label">
+                                    <input type="radio" name="mobileOfflineMode" checked="@(MobileOfflineMode == MobileOfflineModes.None)" @onchange="@(() => SetMobileOfflineMode(MobileOfflineModes.None))" />
+                                    <span>Web API (online)</span>
+                                </label>
+                                <label class="cap-enable-label" title="SQLite list cache when offline; writes still use the API">
+                                    <input type="radio" name="mobileOfflineMode" checked="@(MobileOfflineMode == MobileOfflineModes.ApiCache)" @onchange="@(() => SetMobileOfflineMode(MobileOfflineModes.ApiCache))" />
+                                    <span>API + offline read-through cache</span>
+                                </label>
+                                <label class="cap-enable-label" title="SQLite CRUD on device; no Dio/API">
+                                    <input type="radio" name="mobileOfflineMode" checked="@(MobileOfflineMode == MobileOfflineModes.StandaloneLocal)" @onchange="@(() => SetMobileOfflineMode(MobileOfflineModes.StandaloneLocal))" />
+                                    <span>Standalone local (SQLite, no API)</span>
+                                </label>
+                                @if (MobileOfflineMode == MobileOfflineModes.StandaloneLocal && EnableWebAuth)
+                                {
+                                    <p class="hint">Standalone mode does not use Web JWT login on mobile; use Web/docs only or disable auth.</p>
+                                }
+                            </fieldset>
+                        </td>
+                        <td></td>
+                    </tr>
+                    <tr class="cap-item-row">
+                        <td class="cap-name-col">
+                            <span class="cap-enable-label">API offline cache</span>
+                        </td>
+                        <CapabilityPlatformMatrixCells Definition="@OfflineCacheCapability" />
+                    </tr>
+                    <tr class="cap-item-row">
+                        <td class="cap-name-col">
+                            <span class="cap-enable-label">Standalone local SQLite</span>
+                        </td>
+                        <CapabilityPlatformMatrixCells Definition="@StandaloneLocalDbCapability" />
+                    </tr>
+                    @foreach (var category in MobileCapabilityCatalog.Categories)
+                    {
+                        var caps = MobileCapabilityCatalog.GetByCategory(category)
+                            .Where(c => c.Id is not (
+                                MobileCapabilityId.OfflineCache
+                                or MobileCapabilityId.StandaloneLocalDb
+                                or MobileCapabilityId.SecureStorage
+                                or MobileCapabilityId.JwtAuth
+                                or MobileCapabilityId.Internet))
+                            .ToList();
+                        if (caps.Count == 0)
+                        {
+                            continue;
+                        }
+
+                        <tr class="cap-category-row">
+                            <td colspan="5">@category</td>
+                        </tr>
+                        @foreach (var cap in caps)
+                        {
+                            var locked = IsCapabilityLocked(cap.Id);
+                            <tr class="cap-item-row">
+                                <td class="cap-name-col">
+                                    <label class="cap-enable-label" title="@(cap.IsImplemented ? cap.Description : "Coming soon")">
+                                        <input type="checkbox"
+                                               checked="@IsCapabilityEnabled(cap.Id)"
+                                               disabled="@(!cap.IsImplemented || locked)"
+                                               @onchange="e => ToggleCapability(cap.Id, e.Value is true)" />
+                                        <span>
+                                            @cap.DisplayName
+                                            @if (!cap.IsImplemented)
+                                            {
+                                                <span class="hint"> (soon)</span>
+                                            }
+                                        </span>
+                                    </label>
+                                </td>
+                                <CapabilityPlatformMatrixCells Definition="cap" />
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+            </div>
+            @if (HasAnyNativeOnlySelection)
+            {
+                <p class="hint capability-native-hint">At least one selected capability needs an <strong>Android emulator or device</strong> — Chrome/web will not compile or run those plugins.</p>
+            }
+        </fieldset>
+    </fieldset>
+}
+
+<SpecWorkbookPanel OutputRoot="@OutputRoot" ApplicationName="@ApplicationName" OnStatus="OnStatus" OnImported="LoadProject" />
 
 <div class="actions">
     <button type="button" class="btn btn-outline-secondary" @onclick="LoadProject" disabled="@IsBusy">
@@ -76,10 +276,15 @@
 
     private string ApplicationName { get; set; } = "MyProduct";
     private string? RootNamespace { get; set; }
+    private string? Tagline { get; set; }
+    private string? Description { get; set; }
     private string OutputRoot { get; set; } = string.Empty;
     private bool EnableDocumentation { get; set; }
     private bool EnableWeb { get; set; } = true;
+    private bool EnableWebAuth { get; set; }
     private bool EnableMobile { get; set; }
+    private string MobileOfflineMode { get; set; } = MobileOfflineModes.None;
+    private string MobileThemePreset { get; set; } = "appgen";
     private DatabaseProvider Database { get; set; } = DatabaseProvider.SqlServer;
     private bool IncludeMvcWeb { get; set; } = true;
     private string ActiveConnectionName { get; set; } = "Dev";
@@ -88,12 +293,25 @@
     private List<ConfigEntryRow> ConfigEntries { get; } = [new ConfigEntryRow { Name = "Dev", Kind = ConfigEntryKind.ConnectionString, Value = NamingHelper.DefaultDevConnection(DatabaseProvider.SqlServer).Value }];
     private string MobilePackageName { get; set; } = string.Empty;
     private string MobileApiBaseUrl { get; set; } = "http://localhost:5000";
+    private readonly HashSet<string> MobileCapabilities = new(StringComparer.OrdinalIgnoreCase);
+    private string MobilePublishBaseUrl { get; set; } = string.Empty;
+    private string MobilePublishAppId { get; set; } = string.Empty;
+    private string MobilePublishApkFileName { get; set; } = string.Empty;
+    private string MobilePublishPortalRepoPath { get; set; } = string.Empty;
+    private string MobilePublishUpdateCheckUrl { get; set; } = string.Empty;
+    private string? IconPath { get; set; }
+    private string? IconOriginalFileName { get; set; }
+    private string? IconBase64 { get; set; }
+    private string? IconPreviewUrl { get; set; }
+    private string? IconStatusMessage { get; set; }
+    private bool IsApplyingTheme { get; set; }
+    private string? ThemeApplyStatus { get; set; }
 
     private List<EntityDraft> Entities { get; } = [];
     private EntityDraft? SelectedEntity { get; set; }
     private bool IsBusy { get; set; }
 
-    private IReadOnlyList<string> ClrTypes => ClrTypeCatalog.GetTypes(Database);
+    private IReadOnlyList<string> ClrTypes => AppGen.UI.Models.ClrTypeCatalog.GetTypes(Database);
 
     private bool CanSaveManifest =>
         !IsBusy &&
@@ -137,7 +355,9 @@
 
     private async Task LoadProject()
     {
-        var dir = ResolvedOutputDirectory ?? ProjectOutputPaths.HubDirectory(OutputRoot, ApplicationName);
+        var dir = WizardState.LastHubDirectory
+            ?? ProjectOutputPaths.FindManifestDirectory(OutputRoot, ApplicationName, ProjectOutputLayer.Hub)
+            ?? ProjectOutputPaths.HubDirectory(OutputRoot, ApplicationName);
         if (!File.Exists(Path.Combine(dir, "appgen.json")))
         {
             await ReportAsync("appgen.json not found in the output project folder.", success: false);
@@ -150,6 +370,12 @@
             var spec = await SpecLoader.LoadAsync(dir);
             ApplicationName = spec.ApplicationName;
             RootNamespace = spec.RootNamespace;
+            Tagline = spec.Project?.Tagline;
+            Description = spec.Project?.Description;
+            IconPath = spec.Project?.Branding?.IconPath;
+            IconOriginalFileName = spec.Project?.Branding?.OriginalFileName;
+            IconBase64 = null;
+            RefreshIconPreviewFromHub(dir, spec);
             Database = spec.Database;
             IncludeMvcWeb = spec.UiTargets.HasFlag(UiTarget.MvcWeb);
             ActiveConnectionName = spec.Setup.ActiveConnectionName;
@@ -157,9 +383,23 @@
             EnsureCreatedInDevelopment = spec.Setup.EnsureCreatedInDevelopment;
             EnableDocumentation = spec.Targets?.Documentation.Enabled ?? false;
             EnableWeb = spec.Targets?.Web.Enabled ?? true;
+            EnableWebAuth = spec.Targets?.Web.Auth.Enabled ?? false;
             EnableMobile = spec.Targets?.Mobile.Enabled ?? false;
+            MobileOfflineMode = MobileOfflineTargetNormalizer.ResolveMode(spec.Targets?.Mobile.Offline);
+            MobileThemePreset = MobileThemeCatalog.NormalizePreset(spec.Targets?.Mobile.Theme.Preset);
             MobilePackageName = spec.Targets?.Mobile.PackageName ?? string.Empty;
             MobileApiBaseUrl = spec.Targets?.Mobile.ApiBaseUrl ?? "http://localhost:5000";
+            MobilePublishBaseUrl = spec.Targets?.Mobile.Publish.BaseUrl ?? string.Empty;
+            MobilePublishAppId = spec.Targets?.Mobile.Publish.AppId ?? string.Empty;
+            MobilePublishApkFileName = spec.Targets?.Mobile.Publish.ApkFileName ?? string.Empty;
+            MobilePublishPortalRepoPath = spec.Targets?.Mobile.Publish.PortalRepoPath ?? string.Empty;
+            MobilePublishUpdateCheckUrl = spec.Targets?.Mobile.Publish.UpdateCheckUrl ?? string.Empty;
+            MobileCapabilities.Clear();
+            foreach (var id in spec.Targets?.Mobile.Capabilities.Enabled ?? [])
+            {
+                if (!string.IsNullOrWhiteSpace(id))
+                    MobileCapabilities.Add(id.Trim());
+            }
 
             ConfigEntries.Clear();
             foreach (var entry in spec.Setup.ConfigEntries)
@@ -181,7 +421,11 @@
 
             SelectedEntity = Entities.FirstOrDefault();
             SyncState();
-            await ReportAsync($"Loaded project from appgen.json ({Entities.Count} entities).", success: true, dir);
+            if (spec.Portal is not null)
+                WizardState.NotifyManifestLoaded(spec, dir);
+            var sectionCount = spec.Portal?.Sections.Count ?? 0;
+            var sectionNote = sectionCount > 0 ? $", {sectionCount} portal section(s)" : string.Empty;
+            await ReportAsync($"Loaded project from appgen.json ({Entities.Count} entities{sectionNote}).", success: true, dir);
         }
         catch (Exception ex)
         {
@@ -207,6 +451,8 @@
         {
             SyncState();
             var dir = ProjectOutputPaths.HubDirectory(OutputRoot, ApplicationName);
+            if (WizardState.Current is { } draft)
+                await ProjectBrandingService.FlushDraftIconToHubAsync(draft, dir);
             var result = await ManifestSave.SaveAsync(WizardState.ToSolutionSpec(), dir);
             await ReportAsync(result.Message, result.Success, result.ProjectDirectory);
         }
@@ -266,6 +512,13 @@
     {
         ApplicationName = draft.ApplicationName;
         RootNamespace = draft.RootNamespace;
+        Tagline = draft.Tagline;
+        Description = draft.Description;
+        IconPath = draft.IconPath;
+        IconOriginalFileName = draft.IconOriginalFileName;
+        IconBase64 = draft.IconBase64;
+        IconStatusMessage = null;
+        RefreshIconPreviewFromDraft();
         if (!fromWizardOnly || string.IsNullOrWhiteSpace(OutputRoot))
         {
             OutputRoot = string.IsNullOrWhiteSpace(draft.OutputRoot)
@@ -277,9 +530,20 @@
         IncludeMvcWeb = draft.IncludeMvcWeb;
         EnableDocumentation = draft.EnableDocumentation;
         EnableWeb = draft.EnableWeb;
+        EnableWebAuth = draft.EnableWebAuth;
         EnableMobile = draft.EnableMobile;
+        MobileOfflineMode = draft.ResolvedMobileOfflineMode;
+        MobileThemePreset = MobileThemeCatalog.NormalizePreset(draft.MobileThemePreset);
         MobilePackageName = draft.MobilePackageName;
         MobileApiBaseUrl = draft.MobileApiBaseUrl;
+        MobilePublishBaseUrl = draft.MobilePublishBaseUrl;
+        MobilePublishAppId = draft.MobilePublishAppId;
+        MobilePublishApkFileName = draft.MobilePublishApkFileName;
+        MobilePublishPortalRepoPath = draft.MobilePublishPortalRepoPath;
+        MobilePublishUpdateCheckUrl = draft.MobilePublishUpdateCheckUrl;
+        MobileCapabilities.Clear();
+        foreach (var id in draft.MobileCapabilities)
+            MobileCapabilities.Add(id);
         ActiveConnectionName = draft.ActiveConnectionName;
         OracleSchemaPrefix = draft.OracleSchemaPrefix;
         EnsureCreatedInDevelopment = draft.EnsureCreatedInDevelopment;
@@ -337,10 +601,291 @@
         EnableDocumentation,
         EnableWeb,
         EnableMobile,
+        EnableWebAuth,
+        MobileOfflineMode == MobileOfflineModes.ApiCache,
+        mobileOfflineMode: MobileOfflineMode,
+        MobileThemePreset,
         string.IsNullOrWhiteSpace(MobilePackageName) ? null : MobilePackageName,
-        MobileApiBaseUrl);
+        MobileApiBaseUrl,
+        Tagline,
+        Description,
+        MobileCapabilities.ToList(),
+        IconPath,
+        IconOriginalFileName,
+        IconBase64,
+        MobilePublishBaseUrl,
+        MobilePublishAppId,
+        MobilePublishApkFileName,
+        MobilePublishPortalRepoPath,
+        MobilePublishUpdateCheckUrl);
 
-    public void SyncState() => WizardState.Update(BuildDraft());
+    private Task OnPublishBaseUrlChanged(string value)
+    {
+        MobilePublishBaseUrl = value;
+        SyncState();
+        return Task.CompletedTask;
+    }
+
+    private Task OnPublishAppIdChanged(string value)
+    {
+        MobilePublishAppId = value;
+        SyncState();
+        return Task.CompletedTask;
+    }
+
+    private Task OnPublishApkFileNameChanged(string value)
+    {
+        MobilePublishApkFileName = value;
+        SyncState();
+        return Task.CompletedTask;
+    }
+
+    private Task OnPublishPortalRepoPathChanged(string value)
+    {
+        MobilePublishPortalRepoPath = value;
+        SyncState();
+        return Task.CompletedTask;
+    }
+
+    private Task OnPublishUpdateCheckUrlChanged(string value)
+    {
+        MobilePublishUpdateCheckUrl = value;
+        SyncState();
+        return Task.CompletedTask;
+    }
+
+    private async Task BrowseOutputFolder()
+    {
+        if (IsBusy)
+            return;
+
+        await Task.Yield();
+        var picked = FolderService.PickFolder(OutputRoot);
+        if (string.IsNullOrWhiteSpace(picked))
+            return;
+
+        OutputRoot = picked;
+        SyncState();
+    }
+
+    private async Task OnIconFileSelected(InputFileChangeEventArgs e)
+    {
+        IconStatusMessage = null;
+        var file = e.File;
+        if (file.Size > ProjectBrandingConstants.MaxIconBytes)
+        {
+            IconStatusMessage = $"Icon must be {ProjectBrandingConstants.MaxIconBytes / (1024 * 1024)} MB or smaller.";
+            return;
+        }
+
+        await using var stream = file.OpenReadStream(ProjectBrandingConstants.MaxIconBytes);
+        using var memory = new MemoryStream();
+        await stream.CopyToAsync(memory);
+        var bytes = memory.ToArray();
+
+        var (success, error) = await ProjectBrandingService.ValidateAndPrepareUploadAsync(bytes);
+        if (!success)
+        {
+            IconStatusMessage = error;
+            return;
+        }
+
+        string? hubDir = null;
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(OutputRoot) && !string.IsNullOrWhiteSpace(ApplicationName))
+                hubDir = ProjectOutputPaths.HubDirectory(OutputRoot, ApplicationName);
+        }
+        catch
+        {
+            hubDir = null;
+        }
+
+        (IconPath, IconOriginalFileName, IconBase64) =
+            await ProjectBrandingService.ApplyUploadAsync(bytes, file.Name, hubDir);
+        IconPreviewUrl = ProjectBrandingService.CreatePreviewDataUrl(bytes);
+        SyncState();
+    }
+
+    private void RemoveIcon()
+    {
+        IconStatusMessage = null;
+        string? hubDir = null;
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(OutputRoot) && !string.IsNullOrWhiteSpace(ApplicationName))
+                hubDir = ProjectOutputPaths.HubDirectory(OutputRoot, ApplicationName);
+        }
+        catch
+        {
+            hubDir = null;
+        }
+
+        if (hubDir is not null && !string.IsNullOrWhiteSpace(IconPath))
+        {
+            var spec = new SolutionSpec
+            {
+                ApplicationName = ApplicationName,
+                RootNamespace = RootNamespace ?? ApplicationName,
+                Project = new ProjectInfoSpec
+                {
+                    Branding = new ProjectBrandingSpec { IconPath = IconPath }
+                }
+            };
+            ProjectBrandingService.ClearIconState(hubDir, spec);
+        }
+
+        IconPath = null;
+        IconOriginalFileName = null;
+        IconBase64 = null;
+        IconPreviewUrl = null;
+        SyncState();
+    }
+
+    private void RefreshIconPreviewFromDraft()
+    {
+        var bytes = ProjectBrandingService.DecodeFromDraft(IconBase64);
+        IconPreviewUrl = bytes is null ? null : ProjectBrandingService.CreatePreviewDataUrl(bytes);
+
+        if (bytes is null && !string.IsNullOrWhiteSpace(OutputRoot) && !string.IsNullOrWhiteSpace(ApplicationName))
+        {
+            try
+            {
+                var hubDir = ProjectOutputPaths.HubDirectory(OutputRoot, ApplicationName);
+                var spec = new SolutionSpec
+                {
+                    ApplicationName = ApplicationName,
+                    RootNamespace = RootNamespace ?? ApplicationName,
+                    Project = new ProjectInfoSpec
+                    {
+                        Branding = new ProjectBrandingSpec { IconPath = IconPath ?? ProjectBrandingConstants.DefaultIconRelativePath }
+                    }
+                };
+                IconPreviewUrl = ProjectBrandingService.TryGetPreviewFromHub(hubDir, spec) ?? IconPreviewUrl;
+            }
+            catch
+            {
+                // Hub path not available yet.
+            }
+        }
+    }
+
+    private void RefreshIconPreviewFromHub(string hubDir, SolutionSpec spec)
+    {
+        IconPreviewUrl = ProjectBrandingService.TryGetPreviewFromHub(hubDir, spec);
+    }
+
+    private bool IsCapabilityEnabled(string id) =>
+        MobileCapabilities.Contains(id)
+        || (id == MobileCapabilityId.OfflineCache && MobileOfflineMode == MobileOfflineModes.ApiCache)
+        || (id == MobileCapabilityId.StandaloneLocalDb && MobileOfflineMode == MobileOfflineModes.StandaloneLocal)
+        || (id == MobileCapabilityId.JwtAuth && EnableWebAuth)
+        || (id == MobileCapabilityId.SecureStorage && EnableWebAuth);
+
+    private bool IsCapabilityLocked(string id) =>
+        id is MobileCapabilityId.OfflineCache or MobileCapabilityId.StandaloneLocalDb or MobileCapabilityId.JwtAuth or MobileCapabilityId.SecureStorage;
+
+    private bool HasAnyNativeOnlySelection =>
+        MobileOfflineMode is MobileOfflineModes.ApiCache or MobileOfflineModes.StandaloneLocal ||
+        MobileCapabilities.Any(id =>
+        {
+            var cap = MobileCapabilityCatalog.TryGet(id);
+            return cap is { IsImplemented: true, RequiresNativePlatform: true };
+        });
+
+    private static MobileCapabilityDefinition OfflineCacheCapability =>
+        MobileCapabilityCatalog.TryGet(MobileCapabilityId.OfflineCache)!;
+
+    private static MobileCapabilityDefinition StandaloneLocalDbCapability =>
+        MobileCapabilityCatalog.TryGet(MobileCapabilityId.StandaloneLocalDb)!;
+
+    private void SetMobileOfflineMode(string mode)
+    {
+        MobileOfflineMode = mode;
+        SyncState();
+    }
+
+    private void ToggleCapability(string id, bool enabled)
+    {
+        if (enabled)
+            MobileCapabilities.Add(id);
+        else
+            MobileCapabilities.Remove(id);
+        SyncState();
+    }
+
+    public void SyncState()
+    {
+        WizardState.Update(BuildDraft());
+    }
+
+    private void OnWebLayerChanged()
+    {
+        if (!EnableWeb)
+            EnableWebAuth = false;
+        SyncState();
+    }
+
+    private void OnMobileLayerChanged()
+    {
+        if (!EnableMobile)
+        {
+            MobileOfflineMode = MobileOfflineModes.None;
+            MobileCapabilities.Clear();
+        }
+
+        NormalizeThemePresetForLayers();
+        SyncState();
+    }
+
+    private void OnDocumentationLayerChanged()
+    {
+        NormalizeThemePresetForLayers();
+        SyncState();
+    }
+
+    private Task OnThemePresetChanged(string preset)
+    {
+        MobileThemePreset = MobileThemeCatalog.NormalizePreset(preset);
+        ThemeApplyStatus = null;
+        SyncState();
+        return Task.CompletedTask;
+    }
+
+    private async Task ApplyThemeAsync()
+    {
+        if (IsBusy || IsApplyingTheme)
+            return;
+
+        IsApplyingTheme = true;
+        ThemeApplyStatus = null;
+        try
+        {
+            SyncState();
+            var draft = BuildDraft();
+            var result = await ProjectGenerator.ApplyThemeAsync(draft);
+            ThemeApplyStatus = result.Message;
+            await ReportAsync(result.Message, result.Success, result.OutputDirectory);
+        }
+        catch (Exception ex)
+        {
+            ThemeApplyStatus = $"Theme apply failed: {ex.Message}";
+            await ReportAsync(ThemeApplyStatus, false);
+        }
+        finally
+        {
+            IsApplyingTheme = false;
+        }
+    }
+
+    private void NormalizeThemePresetForLayers()
+    {
+        var selectable = MobileThemeCatalog.GetSelectable(EnableDocumentation)
+            .Select(t => t.Id)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (!selectable.Contains(MobileThemePreset))
+            MobileThemePreset = "appgen";
+    }
 
     private async Task ReportAsync(string message, bool success, string? outputDirectory = null)
     {

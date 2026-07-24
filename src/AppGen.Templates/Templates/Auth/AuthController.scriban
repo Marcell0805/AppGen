@@ -1,0 +1,29 @@
+using {{ root_namespace }}.API.Auth;
+using {{ root_namespace }}.Application.Interfaces;
+using {{ root_namespace }}.Shared.Requests;
+using {{ root_namespace }}.Shared.Responses;
+using Microsoft.AspNetCore.Mvc;
+
+namespace {{ root_namespace }}.API.Controllers.V1;
+
+[ApiController]
+[Route("api/v1/[controller]")]
+public class AuthController(IAuthService authService, IConfiguration configuration) : ControllerBase
+{
+    [HttpPost("login")]
+    [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken ct)
+    {
+        var user = await authService.ValidateCredentialsAsync(request.Email, request.Password, ct);
+        if (user is null)
+            return Unauthorized();
+
+        var lifetime = configuration.GetValue("Jwt:LifetimeMinutes", 60);
+        var token = JwtTokenFactory.CreateToken(user.AppUser_Id, user.Email, user.DisplayName, configuration);
+        return Ok(new LoginResponse
+        {
+            AccessToken = token,
+            ExpiresInMinutes = lifetime
+        });
+    }
+}

@@ -1,0 +1,36 @@
+using {{ root_namespace }}.Application.Interfaces;
+using {{ root_namespace }}.Domain.Entities;
+using Microsoft.AspNetCore.Identity;
+
+namespace {{ root_namespace }}.Application.Services;
+
+public class AuthService(IAppUserRepository users) : IAuthService
+{
+    private readonly PasswordHasher<AppUser> _hasher = new();
+
+    public async Task<AppUser?> ValidateCredentialsAsync(string email, string password, CancellationToken ct = default)
+    {
+        var user = await users.FindByEmailAsync(email, ct);
+        if (user is null || !user.IsActive)
+            return null;
+
+        var result = _hasher.VerifyHashedPassword(user, user.PasswordHash, password);
+        return result == PasswordVerificationResult.Failed ? null : user;
+    }
+
+    public async Task<AppUser> EnsureDevUserAsync(string email, string password, string displayName, CancellationToken ct = default)
+    {
+        var existing = await users.FindByEmailAsync(email, ct);
+        if (existing is not null)
+            return existing;
+
+        var user = new AppUser
+        {
+            Email = email,
+            DisplayName = displayName,
+            IsActive = true
+        };
+        user.PasswordHash = _hasher.HashPassword(user, password);
+        return await users.AddAsync(user, ct);
+    }
+}

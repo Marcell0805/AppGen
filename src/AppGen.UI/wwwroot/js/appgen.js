@@ -1,9 +1,21 @@
-window.appgen = {
+window.appgen = Object.assign(window.appgen || {}, {
     copyToClipboard: function (text) {
         return navigator.clipboard.writeText(text);
     },
     downloadTextFile: function (filename, content, contentType) {
         const blob = new Blob([content], { type: contentType ?? 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    },
+    downloadBytesFile: function (filename, bytes, contentType) {
+        const blob = new Blob([new Uint8Array(bytes)], { type: contentType ?? 'application/octet-stream' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -57,5 +69,22 @@ window.appgen = {
         if (settings.includeBlazorWeb !== undefined && settings.includeMvcWeb === undefined)
             settings.includeMvcWeb = settings.includeBlazorWeb;
         return settings;
+    },
+    getTheme: function () {
+        try {
+            return localStorage.getItem('appgen.ui.theme') === 'dark' ? 'dark' : 'light';
+        } catch {
+            return 'light';
+        }
+    },
+    setTheme: function (theme) {
+        const value = theme === 'dark' ? 'dark' : 'light';
+        try {
+            localStorage.setItem('appgen.ui.theme', value);
+        } catch {
+            /* ignore quota / private mode */
+        }
+        document.documentElement.setAttribute('data-theme', value);
+        return value;
     }
-};
+});

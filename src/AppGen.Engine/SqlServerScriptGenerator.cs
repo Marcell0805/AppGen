@@ -5,7 +5,14 @@ namespace AppGen.Engine;
 
 public static class SqlServerScriptGenerator
 {
-    public static async Task WriteAsync(SolutionSpec spec, string outputDirectory, CancellationToken ct = default)
+    public static Task WriteAsync(SolutionSpec spec, string outputDirectory, CancellationToken ct = default) =>
+        WriteAsync(spec, outputDirectory, entityData: null, ct);
+
+    public static async Task WriteAsync(
+        SolutionSpec spec,
+        string outputDirectory,
+        IReadOnlyDictionary<string, List<Dictionary<string, string>>>? entityData,
+        CancellationToken ct = default)
     {
         if (spec.Database != DatabaseProvider.SqlServer || spec.Entities.Count == 0)
             return;
@@ -18,9 +25,13 @@ public static class SqlServerScriptGenerator
             BuildCreateScript(spec),
             ct);
 
+        var seed = entityData is not null
+            ? ImportedSeedScriptBuilder.BuildSqlServer(spec, entityData)
+            : BuildSeedScript(spec);
+
         await File.WriteAllTextAsync(
             Path.Combine(scriptDir, "002-seed-data.sql"),
-            BuildSeedScript(spec),
+            seed,
             ct);
     }
 
@@ -38,7 +49,7 @@ public static class SqlServerScriptGenerator
             sb.AppendLine($"-- {entity.Name}");
             sb.AppendLine($"CREATE TABLE {table} (");
             var columns = props.Select(p =>
-                $"    {Bracket(ColumnName(p))} {MapType(p)}{(p.IsNullable ? " NULL" : " NOT NULL")}");
+                $"    {Bracket(ColumnName(p))} {MapType(p, props)}{(p.IsNullable ? " NULL" : " NOT NULL")}");
             sb.AppendLine(string.Join($",{Environment.NewLine}", columns));
 
             var key = props.First(p => p.IsKey);
@@ -78,9 +89,19 @@ public static class SqlServerScriptGenerator
         {
             var table = QualifiedTable(entity, spec.Database);
             var props = EntityGenerator.ExpandEntityProperties(entity);
+            var key = props.First(p => p.IsKey);
+            var hasIdentity = SqlScriptHelpers.IsAutoIncrementKey(props, key);
             var columns = string.Join(", ", props.Select(p => Bracket(ColumnName(p))));
             var values = string.Join(", ", props.Select(p => SampleValue(entity, p, spec, entitySeedIds)));
+
+            if (hasIdentity)
+                sb.AppendLine($"SET IDENTITY_INSERT {table} ON;");
+
             sb.AppendLine($"INSERT INTO {table} ({columns}) VALUES ({values});");
+
+            if (hasIdentity)
+                sb.AppendLine($"SET IDENTITY_INSERT {table} OFF;");
+
             sb.AppendLine();
         }
 
@@ -95,18 +116,22 @@ public static class SqlServerScriptGenerator
 
     private static string Bracket(string identifier) => $"[{identifier.Replace("]", "]]", StringComparison.Ordinal)}]";
 
-    private static string MapType(PropertySpec p) => p.ClrType switch
+    private static string MapType(PropertySpec p, IReadOnlyList<PropertySpec> properties)
     {
-        "string" => "NVARCHAR(MAX)",
-        "int" => "INT",
-        "long" => "BIGINT",
-        "decimal" => "DECIMAL(18,4)",
-        "double" => "FLOAT",
-        "bool" => "BIT",
-        "DateTime" => "DATETIME2",
-        "Guid" => "UNIQUEIDENTIFIER",
-        _ => "NVARCHAR(MAX)"
-    };
+        var identity = SqlScriptHelpers.IsAutoIncrementKey(properties, p);
+        return p.ClrType switch
+        {
+            "string" => "NVARCHAR(MAX)",
+            "int" => identity ? "INT IDENTITY(1,1)" : "INT",
+            "long" => identity ? "BIGINT IDENTITY(1,1)" : "BIGINT",
+            "decimal" => "DECIMAL(18,4)",
+            "double" => "FLOAT",
+            "bool" => "BIT",
+            "DateTime" => "DATETIME2",
+            "Guid" => "UNIQUEIDENTIFIER",
+            _ => "NVARCHAR(MAX)"
+        };
+    }
 
     private static string SampleValue(
         EntitySpec entity,

@@ -23,6 +23,8 @@ builder.Services.AddSingleton<AppGenerationService>();
 builder.Services.AddSingleton<ProjectGenerationService>();
 builder.Services.AddSingleton<OutputFolderService>();
 builder.Services.AddScoped<WizardStateService>();
+builder.Services.AddScoped<HelpPanelService>();
+builder.Services.AddScoped<UiThemeService>();
 builder.Services.AddSingleton<ManifestSaveService>();
 
 var app = builder.Build();

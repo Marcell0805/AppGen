@@ -1,0 +1,12 @@
+@using AppGen.Core.Capabilities
+
+@foreach (var platform in MobileCapabilityPlatforms.DisplayOrder)
+{
+    <td class="platform-mark-col">
+        <CapabilityPlatformMark Platform="platform" Definition="Definition" />
+    </td>
+}
+
+@code {
+    [Parameter] public MobileCapabilityDefinition Definition { get; set; } = default!;
+}

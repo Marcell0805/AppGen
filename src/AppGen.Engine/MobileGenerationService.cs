@@ -11,6 +11,7 @@ public sealed class MobileGenerationService(MobileApplicationGenerator mobileGen
         IReadOnlyList<string>? entityNames = null,
         string? packageName = null,
         string? apiBaseUrl = null,
+        bool forceRegenerate = false,
         CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(outputRootDirectory))
@@ -29,7 +30,11 @@ public sealed class MobileGenerationService(MobileApplicationGenerator mobileGen
             Framework = mobile.Framework,
             PackageName = string.IsNullOrWhiteSpace(packageName) ? mobile.PackageName : packageName.Trim(),
             ApiBaseUrl = string.IsNullOrWhiteSpace(apiBaseUrl) ? mobile.ApiBaseUrl : apiBaseUrl.Trim(),
-            StateManagement = mobile.StateManagement
+            StateManagement = mobile.StateManagement,
+            Theme = mobile.Theme,
+            Offline = mobile.Offline,
+            Capabilities = mobile.Capabilities,
+            Publish = mobile.Publish
         };
 
         normalized = new SolutionSpec
@@ -37,6 +42,7 @@ public sealed class MobileGenerationService(MobileApplicationGenerator mobileGen
             SchemaVersion = normalized.SchemaVersion,
             ApplicationName = normalized.ApplicationName,
             RootNamespace = normalized.RootNamespace,
+            Project = normalized.Project,
             Phase = normalized.Phase,
             Portal = normalized.Portal,
             EntitySketches = normalized.EntitySketches,
@@ -61,8 +67,17 @@ public sealed class MobileGenerationService(MobileApplicationGenerator mobileGen
         var result = await mobileGenerator.GenerateAsync(
             normalized,
             outputDir,
-            new GeneratorOptions { EntityNames = entityNames },
+            new GeneratorOptions { EntityNames = entityNames, Force = forceRegenerate },
             ct);
+
+        if (result.Success)
+        {
+            await ReadmeGenerator.WriteMobileAsync(new ReadmeContext(
+                normalized,
+                outputDir,
+                ApiBaseUrl: apiBaseUrl,
+                EnableMobile: true), ct);
+        }
 
         return result.Success
             ? MobileGenerationResult.Ok(result.OutputPath ?? outputDir, result.Message)

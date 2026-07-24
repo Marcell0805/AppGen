@@ -2,5 +2,16 @@
     ViewData["Title"] = "Home";
 }
 
-<h1>{{ app_name }}</h1>
-<p>Select an entity from the navigation to manage records.</p>
+<header class="page-header">
+    <div>
+        <h1>{{ app_name }}</h1>
+        <p class="page-header__subtitle">Select an entity from the navigation to manage records.</p>
+    </div>
+</header>
+<div class="page-body">
+    <div class="empty-state">
+        <div class="empty-state__icon">⌂</div>
+        <div class="empty-state__title">Welcome</div>
+        <p>Use the sidebar to open an entity list.</p>
+    </div>
+</div>

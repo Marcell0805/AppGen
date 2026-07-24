@@ -1,9 +1,10 @@
 @page "/mobile"
 @using AppGen.Core
+@using AppGen.Core.Capabilities
 @using AppGen.Core.Models
+@using AppGen.Core.Themes
 @using AppGen.Engine
 @using AppGen.UI.Models
-@using AppGen.Engine
 @using AppGen.UI.Services
 @inject MobileGenerationService MobileService
 @inject OutputFolderService FolderService
@@ -15,8 +16,9 @@
 <PageTitle>AppGen — Mobile</PageTitle>
 
 <PageHeader Title="Mobile"
-            Subtitle="Generate a Flutter proof-of-concept from entities defined on the Project tab or saved manifest."
-            Badge="Flutter POC" />
+            Subtitle="Generate a Flutter mobile client from entities defined on the Project tab or saved manifest."
+            Badge="Flutter"
+            HelpTabId="mobile" />
 
 <div class="wizard">
     @if (WizardState.HasData)
@@ -36,7 +38,7 @@
             <label>Output folder</label>
             <input value="@OutputRoot" readonly class="readonly-field" />
         </div>
-        <p class="hint">Edit on the <a href="project">Project</a> tab. Mobile output: <code>{AppName} Mobile/mobile/flutter/</code></p>
+        <p class="hint">Edit on the <a href="project">Project</a> tab. Mobile output: <code>{AppName} Mobile/</code> (open that folder in VS Code)</p>
     </fieldset>
 
     <fieldset class="panel">
@@ -70,8 +72,52 @@
                 }
             </div>
         </div>
-        <p class="hint">State management: Riverpod (POC). Architecture: feature folders with Dio HTTP client. Generate creates list screens and routes for all selected entities.</p>
+        <p class="hint">State management: Riverpod. Architecture: feature folders with Dio HTTP client. Generate creates list screens and routes for all selected entities.</p>
+        @if (EnabledCapabilities.Count > 0)
+        {
+            <div class="panel-inset">
+                <strong>Capabilities (from Project tab)</strong>
+                <div class="capability-table-wrap">
+                <table class="capability-platform-table">
+                    <CapabilityPlatformTableHead />
+                    <tbody>
+                        @foreach (var cap in EnabledCapabilities)
+                        {
+                            <tr class="cap-item-row">
+                                <td class="cap-name-col">@cap.DisplayName</td>
+                                <CapabilityPlatformMatrixCells Definition="cap" />
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                </div>
+                @if (RequiresNativeLaunchTarget)
+                {
+                    <p class="hint capability-native-hint">Use an <strong>Android emulator or device</strong> to run this app — not Chrome.</p>
+                }
+            </div>
+        }
     </fieldset>
+
+    <AppThemePanel Preset="@MobileThemePreset"
+                   PresetChanged="OnThemeSelected"
+                   DocumentationEnabled="@EnableDocumentation"
+                   MobileEnabled="true"
+                   WebEnabled="false"
+                   UseGallery="true" />
+
+    <MobilePublishPanel ApplicationName="@ApplicationName"
+                        BaseUrl="@PublishBaseUrl"
+                        BaseUrlChanged="OnPublishBaseUrlChanged"
+                        AppId="@PublishAppId"
+                        AppIdChanged="OnPublishAppIdChanged"
+                        ApkFileName="@PublishApkFileName"
+                        ApkFileNameChanged="OnPublishApkFileNameChanged"
+                        PortalRepoPath="@PublishPortalRepoPath"
+                        PortalRepoPathChanged="OnPublishPortalRepoPathChanged"
+                        UpdateCheckUrl="@PublishUpdateCheckUrl"
+                        UpdateCheckUrlChanged="OnPublishUpdateCheckUrlChanged"
+                        Disabled="@IsWorking" />
 
     <div class="actions">
         <button type="button" class="btn btn-outline-secondary" @onclick="() => LoadProject()" disabled="@IsWorking">Load project</button>
@@ -90,7 +136,14 @@
             {
                 <div class="output-block">
                     <code>@OutputDirectory</code>
-                    <div class="hint">Output: <code>mobile/flutter/</code> — open that folder in VS Code/Cursor and press F5 (<strong>{{ ApplicationName }} (Chrome)</strong>). Platforms and <code>.vscode/launch.json</code> are scaffolded when Flutter SDK is on PATH.</div>
+                    <div class="hint">Output: <code>{AppName} Mobile/</code> — open that folder in VS Code/Cursor and press F5.@if (RequiresNativeLaunchTarget)
+                    {
+                        <text> Use <strong>Android</strong> (not Chrome) because native capabilities are enabled.</text>
+                    }
+                    else
+                    {
+                        <text> <strong>Chrome</strong> is fine for UI-only apps.</text>
+                    }</div>
                 </div>
             }
         </div>
@@ -102,6 +155,13 @@
     private string PackageName { get; set; } = "com.myproduct.app";
     private string ApiBaseUrl { get; set; } = "http://localhost:5000";
     private string OutputRoot { get; set; } = string.Empty;
+    private string MobileThemePreset { get; set; } = "appgen";
+    private bool EnableDocumentation { get; set; }
+    private string PublishBaseUrl { get; set; } = string.Empty;
+    private string PublishAppId { get; set; } = string.Empty;
+    private string PublishApkFileName { get; set; } = string.Empty;
+    private string PublishPortalRepoPath { get; set; } = string.Empty;
+    private string PublishUpdateCheckUrl { get; set; } = string.Empty;
     private readonly List<string> EntityNames = [];
     private readonly HashSet<string> SelectedEntityNames = new(StringComparer.OrdinalIgnoreCase);
     private bool _manifestLoaded;
@@ -113,6 +173,63 @@
     private string StatusMessage { get; set; } = string.Empty;
     private bool IsSuccess { get; set; }
     private string? OutputDirectory { get; set; }
+
+    private IReadOnlyList<MobileCapabilityDefinition> EnabledCapabilities
+    {
+        get
+        {
+            if (WizardState.Current is not { } draft)
+                return [];
+
+            var spec = new SolutionSpec
+            {
+                ApplicationName = draft.ApplicationName,
+                RootNamespace = draft.RootNamespace ?? draft.ApplicationName,
+                Targets = new ApplicationTargets
+                {
+                    Web = new WebTargetSpec { Auth = new WebAuthTargetSpec { Enabled = draft.EnableWebAuth } },
+                    Mobile = new MobileTargetSpec
+                    {
+                        Offline = draft.BuildMobileOfflineSpec(),
+                        Capabilities = new MobileCapabilitiesSpec { Enabled = draft.MobileCapabilities.ToList() }
+                    }
+                }
+            };
+
+            return MobileCapabilityResolver.Resolve(spec)
+                .Where(c => c.IsImplemented && c.Id is not (
+                    MobileCapabilityId.OfflineCache
+                    or MobileCapabilityId.SecureStorage
+                    or MobileCapabilityId.JwtAuth))
+                .ToList();
+        }
+    }
+
+    private bool RequiresNativeLaunchTarget
+    {
+        get
+        {
+            if (WizardState.Current is not { } draft)
+                return false;
+
+            var spec = new SolutionSpec
+            {
+                ApplicationName = draft.ApplicationName,
+                RootNamespace = draft.RootNamespace ?? draft.ApplicationName,
+                Targets = new ApplicationTargets
+                {
+                    Web = new WebTargetSpec { Auth = new WebAuthTargetSpec { Enabled = draft.EnableWebAuth } },
+                    Mobile = new MobileTargetSpec
+                    {
+                        Offline = draft.BuildMobileOfflineSpec(),
+                        Capabilities = new MobileCapabilitiesSpec { Enabled = draft.MobileCapabilities.ToList() }
+                    }
+                }
+            };
+
+            return MobileCapabilityResolver.RequiresNativePlatform(spec);
+        }
+    }
 
     private bool CanGenerate =>
         !IsWorking &&
@@ -157,6 +274,14 @@
         if (!string.IsNullOrWhiteSpace(draft.MobileApiBaseUrl))
             ApiBaseUrl = draft.MobileApiBaseUrl;
 
+        MobileThemePreset = draft.MobileThemePreset;
+        EnableDocumentation = draft.EnableDocumentation;
+        PublishBaseUrl = draft.MobilePublishBaseUrl;
+        PublishAppId = draft.MobilePublishAppId;
+        PublishApkFileName = draft.MobilePublishApkFileName;
+        PublishPortalRepoPath = draft.MobilePublishPortalRepoPath;
+        PublishUpdateCheckUrl = draft.MobilePublishUpdateCheckUrl;
+
         EntityNames.Clear();
         EntityNames.AddRange(draft.Entities.Select(e => e.Name));
         SelectAllEntities();
@@ -167,7 +292,11 @@
         if (WizardState.Current is not { } draft)
             return;
 
-        WizardState.Update(WizardDraft.FromWizard(
+        WizardState.Update(RebuildDraft(draft));
+    }
+
+    private WizardDraft RebuildDraft(WizardDraft draft) =>
+        WizardDraft.FromWizard(
             draft.ApplicationName,
             draft.RootNamespace,
             draft.Database,
@@ -187,8 +316,57 @@
             draft.EnableDocumentation,
             draft.EnableWeb,
             draft.EnableMobile,
+            draft.EnableWebAuth,
+            draft.ResolvedMobileOfflineMode == MobileOfflineModes.ApiCache,
+            mobileOfflineMode: draft.ResolvedMobileOfflineMode,
+            MobileThemePreset,
             PackageName,
-            ApiBaseUrl));
+            ApiBaseUrl,
+            draft.Tagline,
+            draft.Description,
+            draft.MobileCapabilities,
+            draft.IconPath,
+            draft.IconOriginalFileName,
+            draft.IconBase64,
+            PublishBaseUrl,
+            PublishAppId,
+            PublishApkFileName,
+            PublishPortalRepoPath,
+            PublishUpdateCheckUrl);
+
+    private Task OnPublishBaseUrlChanged(string value)
+    {
+        PublishBaseUrl = value;
+        SyncMobileSettings();
+        return Task.CompletedTask;
+    }
+
+    private Task OnPublishAppIdChanged(string value)
+    {
+        PublishAppId = value;
+        SyncMobileSettings();
+        return Task.CompletedTask;
+    }
+
+    private Task OnPublishApkFileNameChanged(string value)
+    {
+        PublishApkFileName = value;
+        SyncMobileSettings();
+        return Task.CompletedTask;
+    }
+
+    private Task OnPublishPortalRepoPathChanged(string value)
+    {
+        PublishPortalRepoPath = value;
+        SyncMobileSettings();
+        return Task.CompletedTask;
+    }
+
+    private Task OnPublishUpdateCheckUrlChanged(string value)
+    {
+        PublishUpdateCheckUrl = value;
+        SyncMobileSettings();
+        return Task.CompletedTask;
     }
 
     private void SelectAllEntities()
@@ -210,6 +388,16 @@
             SelectAllEntities();
         else
             SelectedEntityNames.Clear();
+    }
+
+    private async Task OnThemeSelected(string preset)
+    {
+        MobileThemePreset = MobileThemeCatalog.NormalizePreset(preset);
+        if (WizardState.Current is not { } draft)
+            return;
+
+        WizardState.Update(RebuildDraft(draft));
+        await InvokeAsync(StateHasChanged);
     }
 
     private string? ResolvedMobileDirectory
@@ -251,6 +439,11 @@
             ApplicationName = spec.ApplicationName;
             ApiBaseUrl = spec.Targets?.Mobile.ApiBaseUrl ?? ApiBaseUrl;
             PackageName = spec.Targets?.Mobile.PackageName ?? $"com.{spec.ApplicationName.ToLowerInvariant()}.app";
+            PublishBaseUrl = spec.Targets?.Mobile.Publish.BaseUrl ?? string.Empty;
+            PublishAppId = spec.Targets?.Mobile.Publish.AppId ?? string.Empty;
+            PublishApkFileName = spec.Targets?.Mobile.Publish.ApkFileName ?? string.Empty;
+            PublishPortalRepoPath = spec.Targets?.Mobile.Publish.PortalRepoPath ?? string.Empty;
+            PublishUpdateCheckUrl = spec.Targets?.Mobile.Publish.UpdateCheckUrl ?? string.Empty;
             EntityNames.Clear();
             EntityNames.AddRange(spec.Entities.Select(e => e.Name));
             SelectAllEntities();
@@ -346,6 +539,22 @@
                 };
             }
 
+            if (WizardState.Current is { } draft)
+            {
+                SyncMobileSettings();
+                draft = WizardState.Current!;
+                spec = MobileTargetMerger.ApplyWizardMobileSettings(spec, new MobileTargetSpec
+                {
+                    Enabled = true,
+                    PackageName = PackageName,
+                    ApiBaseUrl = ApiBaseUrl,
+                    Theme = new MobileThemeSpec { Preset = draft.MobileThemePreset },
+                    Offline = draft.BuildMobileOfflineSpec(),
+                    Capabilities = new MobileCapabilitiesSpec { Enabled = draft.MobileCapabilities.ToList() },
+                    Publish = draft.BuildMobilePublishSpec()
+                });
+            }
+
             var result = await MobileService.GenerateAsync(
                 spec,
                 OutputRoot.Trim(),
@@ -392,8 +601,20 @@
             spec.Targets?.Documentation.Enabled ?? false,
             spec.Targets?.Web.Enabled ?? true,
             spec.Targets?.Mobile.Enabled ?? false,
+            spec.Targets?.Web.Auth.Enabled ?? false,
+            MobileOfflineTargetNormalizer.ResolveMode(spec.Targets?.Mobile.Offline) == MobileOfflineModes.ApiCache,
+            mobileOfflineMode: MobileOfflineTargetNormalizer.ResolveMode(spec.Targets?.Mobile.Offline),
+            spec.Targets?.Mobile.Theme.Preset ?? "appgen",
             PackageName,
-            ApiBaseUrl));
+            ApiBaseUrl,
+            spec.Project?.Tagline,
+            spec.Project?.Description,
+            spec.Targets?.Mobile.Capabilities.Enabled,
+            mobilePublishBaseUrl: spec.Targets?.Mobile.Publish.BaseUrl,
+            mobilePublishAppId: spec.Targets?.Mobile.Publish.AppId,
+            mobilePublishApkFileName: spec.Targets?.Mobile.Publish.ApkFileName,
+            mobilePublishPortalRepoPath: spec.Targets?.Mobile.Publish.PortalRepoPath,
+            mobilePublishUpdateCheckUrl: spec.Targets?.Mobile.Publish.UpdateCheckUrl));
     }
 
     public void Dispose()

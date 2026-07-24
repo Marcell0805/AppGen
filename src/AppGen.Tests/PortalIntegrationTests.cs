@@ -1,4 +1,5 @@
 using AppGen.Core.Models;
+using AppGen.Core.Themes;
 using AppGen.Engine;
 using Xunit.Abstractions;
 
@@ -50,6 +51,61 @@ public class PortalIntegrationTests
             Assert.True(File.Exists(Path.Combine(outputDir, "portal", "js", "portal-data.js")));
             Assert.True(File.Exists(Path.Combine(outputDir, "portal", "sections", "vision.html")));
             Assert.False(Directory.Exists(Path.Combine(outputDir, "src")));
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+                Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Portal_generate_writes_theme_overrides_from_app_theme_preset()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), "AppGenTests", Guid.NewGuid().ToString("N"));
+        var outputDir = GenerationOutputHelper.ResolveLayerDirectory(tempRoot, "CookbookPortalApp", ProjectOutputLayer.Documentation);
+
+        try
+        {
+            var baseSpec = SpecLoader.CreatePortalDefault("CookbookPortalApp", null);
+            var portal = baseSpec.Portal!;
+            var spec = new SolutionSpec
+            {
+                SchemaVersion = baseSpec.SchemaVersion,
+                ApplicationName = baseSpec.ApplicationName,
+                RootNamespace = baseSpec.RootNamespace,
+                Phase = baseSpec.Phase,
+                Portal = new PortalSpec
+                {
+                    Preset = portal.Preset,
+                    Settings = MobileThemeCatalog.WithAppTheme(portal.Settings, "cookbook"),
+                    Sections = portal.Sections,
+                    Nav = portal.Nav,
+                    Features = portal.Features
+                },
+                EntitySketches = baseSpec.EntitySketches,
+                Targets = new ApplicationTargets
+                {
+                    Mobile = new MobileTargetSpec
+                    {
+                        Theme = new MobileThemeSpec { Preset = "cookbook" }
+                    }
+                },
+                Database = baseSpec.Database,
+                UiTargets = baseSpec.UiTargets,
+                Setup = baseSpec.Setup,
+                Entities = baseSpec.Entities
+            };
+
+            var renderer = new TemplateRenderer();
+            var service = new PortalGenerationService(new PortalGenerator(renderer));
+            var result = await service.GenerateAsync(spec, tempRoot);
+
+            Assert.True(result.Success, result.Message);
+            var css = await File.ReadAllTextAsync(Path.Combine(outputDir, "portal", "css", "theme-overrides.css"));
+            Assert.Contains("--navy: #1A3D2E", css, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("--blue: #C9A227", css, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("--bg: #F5F0E8", css, StringComparison.OrdinalIgnoreCase);
         }
         finally
         {

@@ -1,0 +1,24 @@
+@using AppGen.Core.Capabilities
+
+<span class="platform-mark @(CssClass)" title="@Title">@Symbol</span>
+
+@code {
+    [Parameter] public MobileRunPlatform Platform { get; set; }
+    [Parameter] public MobileCapabilityDefinition Definition { get; set; } = default!;
+
+    private bool IsSupported => MobileCapabilityPlatforms.IsSupported(Definition, Platform);
+
+    private string Symbol => !Definition.IsImplemented || !IsSupported ? "—" : "X";
+
+    private string CssClass => !Definition.IsImplemented
+        ? "platform-mark-na"
+        : IsSupported
+            ? "platform-mark-yes"
+            : "platform-mark-no";
+
+    private string Title => !Definition.IsImplemented
+        ? "Coming soon"
+        : IsSupported
+            ? $"Works on {MobileCapabilityPlatforms.GetDisplayName(Platform)}"
+            : $"Not supported on {MobileCapabilityPlatforms.GetDisplayName(Platform)}";
+}

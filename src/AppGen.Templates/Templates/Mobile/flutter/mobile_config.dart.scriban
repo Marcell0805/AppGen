@@ -1,0 +1,24 @@
+import 'dart:convert';
+
+import 'package:flutter/services.dart';
+
+class MobileConfig {
+  const MobileConfig({
+    required this.appName,
+    required this.updateCheckUrl,
+  });
+
+  final String appName;
+  final String updateCheckUrl;
+
+  static const String assetPath = 'assets/mobile_config.json';
+
+  static Future<MobileConfig> load() async {
+    final raw = await rootBundle.loadString(assetPath);
+    final json = jsonDecode(raw) as Map<String, dynamic>;
+    return MobileConfig(
+      appName: json['appName'] as String? ?? '{{ app_name }}',
+      updateCheckUrl: json['updateCheckUrl'] as String? ?? '{{ update_check_url }}',
+    );
+  }
+}

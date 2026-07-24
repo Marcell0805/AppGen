@@ -1,5 +1,7 @@
 using AppGen.Core;
+using AppGen.Core.Branding;
 using AppGen.Core.Models;
+using AppGen.Core.Themes;
 using AppGen.Engine;
 using AppGen.UI.Models;
 
@@ -10,10 +12,19 @@ public sealed class WizardStateService
     public event Action? Changed;
 
     private WizardDraft? _draft;
+    private SolutionSpec? _lastManifestSpec;
+    private string? _lastHubDirectory;
+    private PortalUiDraft? _portalDraft;
 
     public bool HasData => _draft is not null && _draft.Entities.Count > 0;
 
     public WizardDraft? Current => _draft;
+
+    public SolutionSpec? LastManifestSpec => _lastManifestSpec;
+
+    public string? LastHubDirectory => _lastHubDirectory;
+
+    public PortalUiDraft? PortalDraft => _portalDraft;
 
     public IReadOnlyList<string> EntityNames =>
         _draft?.Entities.Select(e => e.Name).ToList() ?? [];
@@ -22,6 +33,32 @@ public sealed class WizardStateService
     {
         _draft = draft;
         Changed?.Invoke();
+    }
+
+    public void NotifyManifestLoaded(SolutionSpec spec, string hubDirectory)
+    {
+        _lastManifestSpec = spec;
+        _lastHubDirectory = Path.GetFullPath(hubDirectory);
+        if (spec.Portal is not null && spec.Portal.Sections.Count > 0)
+        {
+            var outputRoot = _draft?.OutputRoot;
+            if (string.IsNullOrWhiteSpace(outputRoot))
+            {
+                var parent = Path.GetDirectoryName(_lastHubDirectory);
+                outputRoot = parent is not null ? Path.GetDirectoryName(parent) ?? parent : string.Empty;
+            }
+
+            _portalDraft = ProjectManifestMapper.ToPortalUiDraft(spec, outputRoot);
+        }
+
+        Changed?.Invoke();
+    }
+
+    public void UpdatePortalDraft(PortalUiDraft draft, bool notify = true)
+    {
+        _portalDraft = draft;
+        if (notify)
+            Changed?.Invoke();
     }
 
     public SolutionSpec ToSolutionSpec()
@@ -72,14 +109,25 @@ public sealed class WizardStateService
                 Enabled = _draft.EnableDocumentation,
                 Preset = targets.Documentation.Preset
             },
-            Web = new WebTargetSpec { Enabled = _draft.EnableWeb },
+            Web = new WebTargetSpec
+            {
+                Enabled = _draft.EnableWeb,
+                Auth = new WebAuthTargetSpec { Enabled = _draft.EnableWeb && _draft.EnableWebAuth }
+            },
             Mobile = new MobileTargetSpec
             {
                 Enabled = _draft.EnableMobile,
                 Framework = targets.Mobile.Framework,
                 PackageName = packageName,
                 ApiBaseUrl = _draft.MobileApiBaseUrl,
-                StateManagement = targets.Mobile.StateManagement
+                StateManagement = targets.Mobile.StateManagement,
+                Theme = new MobileThemeSpec { Preset = _draft.MobileThemePreset },
+                Offline = _draft.BuildMobileOfflineSpec(),
+                Capabilities = new MobileCapabilitiesSpec
+                {
+                    Enabled = _draft.MobileCapabilities.ToList()
+                },
+                Publish = _draft.BuildMobilePublishSpec()
             }
         };
 
@@ -100,7 +148,15 @@ public sealed class WizardStateService
                 uiTargets,
                 setup: setup,
                 entitySketches: sketches);
-            portal = portalDefault.Portal;
+            var basePortal = portalDefault.Portal!;
+            portal = new PortalSpec
+            {
+                Preset = basePortal.Preset,
+                Settings = MobileThemeCatalog.WithAppTheme(basePortal.Settings, _draft.MobileThemePreset),
+                Sections = basePortal.Sections,
+                Nav = basePortal.Nav,
+                Features = basePortal.Features
+            };
         }
 
         return new SolutionSpec
@@ -108,6 +164,7 @@ public sealed class WizardStateService
             SchemaVersion = SolutionSpec.CurrentSchemaVersion,
             ApplicationName = appName,
             RootNamespace = rootNs,
+            Project = BuildProjectInfo(),
             Phase = _draft.EnableDocumentation && !_draft.EnableWeb ? ProjectPhase.Portal : ProjectPhase.Solution,
             Portal = portal,
             EntitySketches = sketches,
@@ -116,6 +173,44 @@ public sealed class WizardStateService
             UiTargets = uiTargets,
             Setup = setup,
             Entities = entities
+        };
+    }
+
+    private ProjectInfoSpec? BuildProjectInfo()
+    {
+        if (_draft is null)
+            return null;
+
+        var branding = BuildBranding();
+        var hasTagline = !string.IsNullOrWhiteSpace(_draft.Tagline);
+        var hasDescription = !string.IsNullOrWhiteSpace(_draft.Description);
+        if (!hasTagline && !hasDescription && branding is null)
+            return null;
+
+        return new ProjectInfoSpec
+        {
+            Tagline = hasTagline ? _draft.Tagline!.Trim() : null,
+            Description = hasDescription ? _draft.Description!.Trim() : null,
+            Branding = branding
+        };
+    }
+
+    private ProjectBrandingSpec? BuildBranding()
+    {
+        if (_draft is null)
+            return null;
+
+        if (string.IsNullOrWhiteSpace(_draft.IconPath) && string.IsNullOrWhiteSpace(_draft.IconBase64))
+            return null;
+
+        return new ProjectBrandingSpec
+        {
+            IconPath = string.IsNullOrWhiteSpace(_draft.IconPath)
+                ? ProjectBrandingConstants.DefaultIconRelativePath
+                : _draft.IconPath.Trim(),
+            OriginalFileName = string.IsNullOrWhiteSpace(_draft.IconOriginalFileName)
+                ? null
+                : _draft.IconOriginalFileName.Trim()
         };
     }
 }

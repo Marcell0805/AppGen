@@ -1,4 +1,5 @@
 using AppGen.Core;
+using AppGen.Core.Branding;
 using AppGen.Core.Models;
 using AppGen.Templates;
 
@@ -23,10 +24,30 @@ public sealed class SolutionGenerator(TemplateRenderer renderer)
         ("Solution/shared/csproj.scriban", s => $"src/{s.SharedProject}/{s.SharedProject}.csproj"),
         ("Solution/shared/Response.scriban", s => $"src/{s.SharedProject}/Wrappers/Response.cs"),
         ("Solution/shared/ApiException.scriban", s => $"src/{s.SharedProject}/Exceptions/ApiException.cs"),
+        ("Solution/shared/IAppLogSink.scriban", s => $"src/{s.SharedProject}/Logging/IAppLogSink.cs"),
         ("Solution/shared/ValidationException.scriban", s => $"src/{s.SharedProject}/Exceptions/ValidationException.cs"),
         ("Solution/tests/csproj.scriban", s => $"src/{s.TestsProject}/{s.TestsProject}.csproj"),
-        ("Solution/tests/SmokeTests.scriban", s => $"src/{s.TestsProject}/SmokeTests.cs"),
+        ("Solution/tests/ApiWebApplicationFactory.scriban", s => $"src/{s.TestsProject}/Infrastructure/ApiWebApplicationFactory.cs"),
+        ("Solution/tests/ApiHealthTests.scriban", s => $"src/{s.TestsProject}/Api/HealthEndpointTests.cs"),
         ("Solution/appgen.json.scriban", _ => "appgen.json"),
+    ];
+
+    private static readonly (string Template, Func<SolutionSpec, string> Output)[] AuthFiles =
+    [
+        ("Auth/AppUser.scriban", s => $"src/{s.DomainProject}/Entities/AppUser.cs"),
+        ("Auth/AppUserConfiguration.scriban", s => $"src/{s.PersistenceProject}/Configurations/AppUserConfiguration.cs"),
+        ("Auth/IAppUserRepository.scriban", s => $"src/{s.ApplicationProject}/Interfaces/IAppUserRepository.cs"),
+        ("Auth/AppUserRepository.scriban", s => $"src/{s.PersistenceProject}/Repositories/AppUserRepository.cs"),
+        ("Auth/IAuthService.scriban", s => $"src/{s.ApplicationProject}/Interfaces/IAuthService.cs"),
+        ("Auth/AuthService.scriban", s => $"src/{s.ApplicationProject}/Services/AuthService.cs"),
+        ("Auth/LoginRequest.scriban", s => $"src/{s.SharedProject}/Requests/LoginRequest.cs"),
+        ("Auth/LoginResponse.scriban", s => $"src/{s.SharedProject}/Responses/LoginResponse.cs"),
+        ("Auth/JwtTokenFactory.scriban", s => $"src/{s.ApiProject}/Auth/JwtTokenFactory.cs"),
+        ("Auth/JwtAuthExtensions.scriban", s => $"src/{s.ApiProject}/Auth/JwtAuthExtensions.cs"),
+        ("Auth/AuthController.scriban", s => $"src/{s.ApiProject}/Controllers/V1/AuthController.cs"),
+        ("Auth/DevAuthSeeder.scriban", s => $"src/{s.ApiProject}/Auth/DevAuthSeeder.cs"),
+        ("Solution/tests/AuthApiTestHelper.scriban", s => $"src/{s.TestsProject}/Infrastructure/AuthTestHelper.cs"),
+        ("Solution/tests/AuthLoginTests.scriban", s => $"src/{s.TestsProject}/Api/AuthLoginTests.cs"),
     ];
 
     private static readonly (string Template, Func<SolutionSpec, string> Output)[] MvcWebFiles =
@@ -36,11 +57,16 @@ public sealed class SolutionGenerator(TemplateRenderer renderer)
         ("Solution/mvc/Properties/launchSettings.scriban", s => $"src/{s.MvcProject}/Properties/launchSettings.json"),
         ("Solution/mvc/Controllers/HomeController.scriban", s => $"src/{s.MvcProject}/Controllers/HomeController.cs"),
         ("Solution/mvc/Services/EntityWebServiceBase.scriban", s => $"src/{s.MvcProject}/Services/EntityWebServiceBase.cs"),
+        ("Solution/mvc/Helpers/ApiErrorHandling.scriban", s => $"src/{s.MvcProject}/Helpers/ApiErrorHandling.cs"),
+        ("Solution/mvc/Logging/FileAppLogSink.scriban", s => $"src/{s.MvcProject}/Logging/FileAppLogSink.cs"),
+        ("Ui/Mvc/Views/_ApiErrorAlert.scriban", s => $"src/{s.MvcProject}/Views/Shared/_ApiErrorAlert.cshtml"),
         ("Solution/mvc/Views/_ViewImports.scriban", s => $"src/{s.MvcProject}/Views/_ViewImports.cshtml"),
         ("Solution/mvc/Views/_ViewStart.scriban", s => $"src/{s.MvcProject}/Views/_ViewStart.cshtml"),
         ("Solution/mvc/Views/Shared/_Layout.scriban", s => $"src/{s.MvcProject}/Views/Shared/_Layout.cshtml"),
         ("Solution/mvc/Views/Home/Index.scriban", s => $"src/{s.MvcProject}/Views/Home/Index.cshtml"),
+        ("Solution/mvc/Views/Home/Error.scriban", s => $"src/{s.MvcProject}/Views/Home/Error.cshtml"),
         ("Solution/mvc/wwwroot/css/site.scriban", s => $"src/{s.MvcProject}/wwwroot/css/site.css"),
+        ("Solution/tests/MvcWebApplicationFactory.scriban", s => $"src/{s.TestsProject}/Infrastructure/MvcWebApplicationFactory.cs"),
         ("Solution/solution.slnLaunch.scriban", s => $"{s.ApplicationName}.slnLaunch"),
         ("Solution/vscode/launch.scriban", _ => ".vscode/launch.json"),
         ("Solution/vscode/tasks.scriban", _ => ".vscode/tasks.json"),
@@ -55,6 +81,15 @@ public sealed class SolutionGenerator(TemplateRenderer renderer)
         {
             ct.ThrowIfCancellationRequested();
             await WriteTemplateAsync(renderer, templatePath, outputPathFunc(spec), outputDirectory, model, ct);
+        }
+
+        if (TargetFlags.AuthEnabled(spec))
+        {
+            foreach (var (templatePath, outputPathFunc) in AuthFiles)
+            {
+                ct.ThrowIfCancellationRequested();
+                await WriteTemplateAsync(renderer, templatePath, outputPathFunc(spec), outputDirectory, model, ct);
+            }
         }
 
         if (spec.UiTargets.HasFlag(UiTarget.MvcWeb))
@@ -88,16 +123,40 @@ public sealed class SolutionGenerator(TemplateRenderer renderer)
             .Select(t => t.ToString())
             .ToList();
 
+        var firstEntity = spec.Entities.FirstOrDefault()?.Name ?? "Entity";
+        var theme = WebThemeResolver.Resolve(spec);
+        var tagline = GenerationCopyHelper.ResolveTagline(spec);
+
         return new
         {
             app_name = spec.ApplicationName,
             root_namespace = spec.RootNamespace,
+            project_tagline = tagline,
+            branding_enabled = ProjectBrandingHelper.IsConfigured(spec),
+            theme_preset = theme.Preset,
             database = spec.Database.ToString(),
             use_oracle = spec.Database == DatabaseProvider.Oracle,
             use_sqlserver = spec.Database == DatabaseProvider.SqlServer,
             use_postgresql = spec.Database == DatabaseProvider.PostgreSql,
             include_mvc_web = spec.UiTargets.HasFlag(UiTarget.MvcWeb),
+            auth_enabled = TargetFlags.AuthEnabled(spec),
+            first_entity_name = firstEntity,
             ui_targets = uiTargetNames,
+            theme_sidebar = theme.Sidebar,
+            theme_sidebar_accent = theme.SidebarAccent,
+            theme_accent = theme.Accent,
+            theme_on_accent = theme.OnAccent,
+            theme_on_sidebar = theme.OnSidebar,
+            theme_background = theme.Background,
+            theme_surface = theme.Surface,
+            theme_border = theme.Border,
+            theme_text = theme.Text,
+            theme_text_muted = theme.TextMuted,
+            theme_highlight = theme.Highlight,
+            theme_error = theme.Error,
+            theme_corner_radius = theme.CornerRadius,
+            theme_is_dark = theme.IsDark,
+            theme_heading_font = theme.HeadingFont,
             setup = new
             {
                 active_connection_name = spec.Setup.ActiveConnectionName,

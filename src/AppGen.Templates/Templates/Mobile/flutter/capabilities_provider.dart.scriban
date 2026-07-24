@@ -1,0 +1,8 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+{{ for service in services }}
+import '{{ service.file }}';
+{{ end }}
+
+{{ for service in services }}
+final {{ service.provider_name }} = Provider<{{ service.service_class }}>((ref) => {{ service.service_class }}());
+{{ end }}

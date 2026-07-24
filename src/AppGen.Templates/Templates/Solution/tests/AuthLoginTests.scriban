@@ -1,0 +1,14 @@
+using {{ root_namespace }}.Tests.Infrastructure;
+using Xunit;
+
+namespace {{ root_namespace }}.Tests.Api;
+
+public class AuthLoginTests(ApiWebApplicationFactory factory) : IClassFixture<ApiWebApplicationFactory>
+{
+    [Fact]
+    public async Task Login_returns_token_for_dev_user()
+    {
+        var token = await AuthTestHelper.LoginAsync(factory);
+        Assert.False(string.IsNullOrWhiteSpace(token));
+    }
+}

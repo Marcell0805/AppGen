@@ -1,4 +1,7 @@
 using {{ root_namespace }}.Application.Services;
+{{ if auth_enabled }}
+using {{ root_namespace }}.Application.Interfaces;
+{{ end }}
 using Microsoft.Extensions.DependencyInjection;
 
 namespace {{ root_namespace }}.Application;
@@ -9,6 +12,9 @@ public static class DependencyInjection
     {
         // <AppGen-ApplicationServices>
         // </AppGen-ApplicationServices>
+{{ if auth_enabled }}
+        services.AddScoped<IAuthService, AuthService>();
+{{ end }}
         return services;
     }
 }

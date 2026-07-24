@@ -24,7 +24,13 @@ else if (Model is not null)
             <label>{{ property.name }}</label>
             @if (IsReadOnly("{{ property.name }}"))
             {
-                <input class="form-control" value="@FormatValue(Model.{{ property.name }})" disabled />
+                <input class="form-control" value="@DisplayValue("{{ property.name }}")" disabled />
+{{ if property.is_identity_type }}
+                @if (!Id.HasValue)
+                {
+                    <p class="form-field__hint">Assigned automatically when you save.</p>
+                }
+{{ end }}
             }
             else
             {
@@ -59,12 +65,27 @@ else if (Model is not null)
     private {{ entity_name }}Response? Model { get; set; }
     private string? ErrorMessage { get; set; }
     private string GuidText { get; set; } = string.Empty;
+{{ if has_identity_key }}
+    private {{ primary_key_clr_type }}? PredictedNextId { get; set; }
+{{ end }}
 
     protected override async Task OnInitializedAsync()
     {
         if (!Id.HasValue)
         {
             Model = new {{ entity_name }}Response();
+{{ if has_identity_key }}
+            try
+            {
+                var client = HttpClientFactory.CreateClient("Api");
+                var response = await client.GetFromJsonAsync<Response<{{ primary_key_clr_type }}>>("api/v1/{{ entity_plural }}/next-id");
+                PredictedNextId = response?.Data;
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = ex.Message;
+            }
+{{ end }}
             return;
         }
 
@@ -80,10 +101,26 @@ else if (Model is not null)
         }
     }
 
+    private string DisplayValue(string name)
+    {
+        if (Model is null)
+            return string.Empty;
+
+        if (name != "{{ primary_key_name }}")
+            return string.Empty;
+
+{{ if has_identity_key }}
+        if (!Id.HasValue)
+            return PredictedNextId?.ToString() ?? string.Empty;
+{{ end }}
+
+        return Model.{{ primary_key_name }}.ToString() ?? string.Empty;
+    }
+
     private static string FormatValue(object? value) => value?.ToString() ?? string.Empty;
 
     private bool IsReadOnly(string name) =>
-        Id.HasValue && name == "{{ primary_key_name }}";
+        name == "{{ primary_key_name }}";
 
     private async Task SaveAsync()
     {

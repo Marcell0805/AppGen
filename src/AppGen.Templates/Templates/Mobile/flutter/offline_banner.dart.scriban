@@ -1,0 +1,44 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../app/app_colors.dart';
+
+final connectivityProvider = StreamProvider<List<ConnectivityResult>>(
+  (ref) => Connectivity().onConnectivityChanged,
+);
+
+class OfflineBanner extends ConsumerWidget {
+  const OfflineBanner({super.key, this.showingCachedData = false});
+
+  final bool showingCachedData;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final connectivity = ref.watch(connectivityProvider);
+    final offline = connectivity.maybeWhen(
+      data: (results) => results.every((r) => r == ConnectivityResult.none),
+      orElse: () => false,
+    );
+
+    if (!offline && !showingCachedData) return const SizedBox.shrink();
+
+    final message = offline
+        ? 'You are offline. Showing cached data when available.'
+        : 'Showing cached data';
+
+    return Material(
+      color: AppColors.highlight.withValues(alpha: 0.15),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          children: [
+            const Icon(Icons.cloud_off_outlined, size: 18, color: AppColors.highlight),
+            const SizedBox(width: 8),
+            Expanded(child: Text(message, style: Theme.of(context).textTheme.bodySmall)),
+          ],
+        ),
+      ),
+    );
+  }
+}

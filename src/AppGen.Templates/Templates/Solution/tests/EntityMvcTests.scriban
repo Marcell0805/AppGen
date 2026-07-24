@@ -1,0 +1,30 @@
+using Microsoft.AspNetCore.Mvc.Testing;
+using {{ root_namespace }}.Tests.Infrastructure;
+using Xunit;
+
+namespace {{ root_namespace }}.Tests.Mvc;
+
+public class {{ entity_name }}MvcTests : IClassFixture<ApiWebApplicationFactory>
+{
+    private readonly HttpClient _client;
+
+    public {{ entity_name }}MvcTests(ApiWebApplicationFactory apiFactory)
+    {
+        var mvcFactory = new MvcWebApplicationFactory(apiFactory);
+        _client = mvcFactory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = true });
+    }
+
+    [Fact]
+    public async Task Index_returns_ok()
+    {
+        var response = await _client.GetAsync("/{{ entity_name }}/Index");
+        response.EnsureSuccessStatusCode();
+    }
+
+    [Fact]
+    public async Task Create_returns_ok()
+    {
+        var response = await _client.GetAsync("/{{ entity_name }}/Create");
+        response.EnsureSuccessStatusCode();
+    }
+}

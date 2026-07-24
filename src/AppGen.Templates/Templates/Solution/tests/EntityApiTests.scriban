@@ -1,0 +1,58 @@
+using System.Net.Http.Json;
+using {{ root_namespace }}.Shared.Requests;
+using {{ root_namespace }}.Shared.Responses;
+using {{ root_namespace }}.Shared.Wrappers;
+using {{ root_namespace }}.Tests.Infrastructure;
+using Xunit;
+
+namespace {{ root_namespace }}.Tests.Api;
+
+public class {{ entity_name }}ApiTests : IClassFixture<ApiWebApplicationFactory>
+{
+    private readonly HttpClient _client;
+
+    public {{ entity_name }}ApiTests(ApiWebApplicationFactory factory)
+    {
+        _client = factory.CreateClient();
+{{ if auth_enabled }}
+        AuthTestHelper.ApplyBearerTokenAsync(_client, factory).GetAwaiter().GetResult();
+{{ end }}
+    }
+
+    [Fact]
+    public async Task Crud_roundtrip_works()
+    {
+        var createRequest = new Create{{ entity_name }}Request
+        {
+{{ for p in create_properties }}
+            {{ p.name }} = {{ p.test_value }},
+{{ end }}
+        };
+
+        var createResponse = await _client.PostAsJsonAsync("/api/v1/{{ entity_name }}", createRequest);
+        createResponse.EnsureSuccessStatusCode();
+        var created = await createResponse.Content.ReadFromJsonAsync<Response<{{ entity_name }}Response>>();
+        Assert.NotNull(created);
+        Assert.True(created!.Succeeded);
+        Assert.NotNull(created.Data);
+        var id = created.Data!.{{ primary_key_name }};
+
+        var getResponse = await _client.GetAsync($"/api/v1/{{ entity_name }}/{id}");
+        getResponse.EnsureSuccessStatusCode();
+        var fetched = await getResponse.Content.ReadFromJsonAsync<Response<{{ entity_name }}Response>>();
+        Assert.NotNull(fetched);
+        Assert.True(fetched!.Succeeded);
+
+        var updateRequest = new Update{{ entity_name }}Request
+        {
+{{ for p in non_key_properties }}
+            {{ p.name }} = {{ p.test_update_value }},
+{{ end }}
+        };
+        var updateResponse = await _client.PutAsJsonAsync($"/api/v1/{{ entity_name }}/{id}", updateRequest);
+        updateResponse.EnsureSuccessStatusCode();
+
+        var deleteResponse = await _client.DeleteAsync($"/api/v1/{{ entity_name }}/{id}");
+        deleteResponse.EnsureSuccessStatusCode();
+    }
+}

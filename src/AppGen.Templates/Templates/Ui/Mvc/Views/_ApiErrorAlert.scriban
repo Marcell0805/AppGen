@@ -1,0 +1,13 @@
+@{
+    var apiError = ViewBag.ApiError as string ?? TempData["ApiError"] as string;
+}
+@if (!string.IsNullOrWhiteSpace(apiError))
+{
+    <div class="api-error-alert" role="alert">
+        <span class="api-error-alert__icon" aria-hidden="true">!</span>
+        <div class="api-error-alert__content">
+            <strong class="api-error-alert__title">Service unavailable</strong>
+            <p class="api-error-alert__message">@apiError</p>
+        </div>
+    </div>
+}

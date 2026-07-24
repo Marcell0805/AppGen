@@ -6,20 +6,58 @@ namespace AppGen.UI.Models;
 
 public sealed class WizardDraft
 {
-    public const int CurrentSchemaVersion = 2;
+    public const int CurrentSchemaVersion = 5;
 
     public int SchemaVersion { get; init; } = CurrentSchemaVersion;
     public DateTime SavedAt { get; init; } = DateTime.UtcNow;
     public string ApplicationName { get; init; } = string.Empty;
     public string? RootNamespace { get; init; }
+    public string? Tagline { get; init; }
+    public string? Description { get; init; }
+    public string? IconPath { get; init; }
+    public string? IconOriginalFileName { get; init; }
+    public string? IconBase64 { get; init; }
     public DatabaseProvider Database { get; init; } = DatabaseProvider.SqlServer;
     public string OutputRoot { get; init; } = string.Empty;
     public bool IncludeMvcWeb { get; init; } = true;
     public bool EnableDocumentation { get; init; }
     public bool EnableWeb { get; init; } = true;
     public bool EnableMobile { get; init; }
+    public bool EnableWebAuth { get; init; }
+    public bool EnableMobileOffline { get; init; }
+    public string MobileOfflineMode { get; init; } = MobileOfflineModes.None;
+
+    public string ResolvedMobileOfflineMode =>
+        !string.IsNullOrWhiteSpace(MobileOfflineMode) &&
+        !MobileOfflineMode.Equals(MobileOfflineModes.None, StringComparison.OrdinalIgnoreCase)
+            ? MobileOfflineMode
+            : EnableMobileOffline ? MobileOfflineModes.ApiCache : MobileOfflineModes.None;
+
+    public MobileOfflineTargetSpec BuildMobileOfflineSpec() =>
+        MobileOfflineTargetNormalizer.Normalize(new MobileOfflineTargetSpec
+        {
+            Mode = EnableMobile ? ResolvedMobileOfflineMode : MobileOfflineModes.None
+        });
+
+    public MobilePublishTargetSpec BuildMobilePublishSpec() =>
+        new()
+        {
+            BaseUrl = MobilePublishBaseUrl?.Trim() ?? string.Empty,
+            AppId = MobilePublishAppId?.Trim() ?? string.Empty,
+            ApkFileName = MobilePublishApkFileName?.Trim() ?? string.Empty,
+            PortalRepoPath = MobilePublishPortalRepoPath?.Trim() ?? string.Empty,
+            UpdateCheckUrl = MobilePublishUpdateCheckUrl?.Trim() ?? string.Empty
+        };
+
+    public string MobileThemePreset { get; init; } = "appgen";
     public string MobilePackageName { get; init; } = string.Empty;
     public string MobileApiBaseUrl { get; init; } = "http://localhost:5000";
+    public List<string> MobileCapabilities { get; init; } = [];
+    public string MobilePublishBaseUrl { get; init; } = string.Empty;
+    public string MobilePublishAppId { get; init; } = string.Empty;
+    public string MobilePublishApkFileName { get; init; } = string.Empty;
+    public string MobilePublishPortalRepoPath { get; init; } = string.Empty;
+    public string MobilePublishUpdateCheckUrl { get; init; } = string.Empty;
     public string ActiveConnectionName { get; init; } = "Dev";
     public string? OracleSchemaPrefix { get; init; }
     public bool EnsureCreatedInDevelopment { get; init; } = true;
@@ -86,19 +124,51 @@ public sealed class WizardDraft
         bool enableDocumentation = false,
         bool enableWeb = true,
         bool enableMobile = false,
+        bool enableWebAuth = false,
+        bool enableMobileOffline = false,
+        string? mobileOfflineMode = null,
+        string mobileThemePreset = "appgen",
         string? mobilePackageName = null,
-        string? mobileApiBaseUrl = null) => new()
+        string? mobileApiBaseUrl = null,
+        string? tagline = null,
+        string? description = null,
+        IEnumerable<string>? mobileCapabilities = null,
+        string? iconPath = null,
+        string? iconOriginalFileName = null,
+        string? iconBase64 = null,
+        string? mobilePublishBaseUrl = null,
+        string? mobilePublishAppId = null,
+        string? mobilePublishApkFileName = null,
+        string? mobilePublishPortalRepoPath = null,
+        string? mobilePublishUpdateCheckUrl = null) => new()
     {
         ApplicationName = applicationName,
         RootNamespace = rootNamespace,
+        Tagline = tagline,
+        Description = description,
+        IconPath = iconPath,
+        IconOriginalFileName = iconOriginalFileName,
+        IconBase64 = iconBase64,
         Database = database,
         OutputRoot = outputRoot,
         IncludeMvcWeb = includeMvcWeb,
         EnableDocumentation = enableDocumentation,
         EnableWeb = enableWeb,
         EnableMobile = enableMobile,
+        EnableWebAuth = enableWebAuth,
+        EnableMobileOffline = enableMobileOffline,
+        MobileOfflineMode = string.IsNullOrWhiteSpace(mobileOfflineMode)
+            ? (enableMobileOffline ? MobileOfflineModes.ApiCache : MobileOfflineModes.None)
+            : mobileOfflineMode.Trim(),
+        MobileThemePreset = string.IsNullOrWhiteSpace(mobileThemePreset) ? "appgen" : mobileThemePreset,
         MobilePackageName = mobilePackageName ?? string.Empty,
         MobileApiBaseUrl = string.IsNullOrWhiteSpace(mobileApiBaseUrl) ? "http://localhost:5000" : mobileApiBaseUrl,
+        MobileCapabilities = mobileCapabilities?.Where(c => !string.IsNullOrWhiteSpace(c)).Select(c => c.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList() ?? [],
+        MobilePublishBaseUrl = mobilePublishBaseUrl?.Trim() ?? string.Empty,
+        MobilePublishAppId = mobilePublishAppId?.Trim() ?? string.Empty,
+        MobilePublishApkFileName = mobilePublishApkFileName?.Trim() ?? string.Empty,
+        MobilePublishPortalRepoPath = mobilePublishPortalRepoPath?.Trim() ?? string.Empty,
+        MobilePublishUpdateCheckUrl = mobilePublishUpdateCheckUrl?.Trim() ?? string.Empty,
         ActiveConnectionName = activeConnectionName,
         OracleSchemaPrefix = oracleSchemaPrefix,
         EnsureCreatedInDevelopment = ensureCreatedInDevelopment,

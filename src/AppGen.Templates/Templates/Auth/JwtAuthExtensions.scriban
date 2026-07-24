@@ -1,0 +1,33 @@
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+
+namespace {{ root_namespace }}.API.Auth;
+
+public static class JwtAuthExtensions
+{
+    public static IServiceCollection AddJwtAuth(this IServiceCollection services, IConfiguration configuration)
+    {
+        var key = configuration["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key is not configured.");
+        var issuer = string.IsNullOrWhiteSpace(configuration["Jwt:Issuer"])
+            ? "{{ app_name }}"
+            : configuration["Jwt:Issuer"]!;
+
+        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+            .AddJwtBearer(options =>
+            {
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidateAudience = true,
+                    ValidateLifetime = true,
+                    ValidateIssuerSigningKey = true,
+                    ValidIssuer = issuer,
+                    ValidAudience = issuer,
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key))
+                };
+            });
+
+        return services;
+    }
+}

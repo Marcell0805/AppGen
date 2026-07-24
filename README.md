@@ -36,11 +36,17 @@ cd AppGen
 dotnet run --project src/AppGen.UI --urls "http://localhost:5099"
 ```
 
-Open `http://localhost:5099` — use **Documentation**, **Web**, or **Mobile** in the sidebar.
+Open `http://localhost:5099` — start on **Project** to define entities and layers; use **?** on any tab for in-app help.
+
+## Project metadata and READMEs
+
+On the **Project** tab, **About this app** stores a tagline and description in `appgen.json` (schema v6 `project` section). Generated outputs include per-layer `README.md` files (hub, Documentation, Web, Mobile) with first-run steps and troubleshooting.
 
 ## Evolution roadmap
 
 See [docs/EVOLUTION_ROADMAP.md](docs/EVOLUTION_ROADMAP.md) for the Application Factory vision (shared manifest, Flutter, UI branding, and phased delivery).
+
+**Plans** (`docs/plans/`): [spec workbook](docs/plans/appgen-spec-workbook.md), [mobile capabilities](docs/plans/mobile-capabilities-system.md), [mobile publish script](docs/plans/mobile-publish-script.md), [Flutter scaffold issues](docs/plans/mobile-flutter-scaffold-issues.md).
 
 ## Documentation workflow
 
@@ -84,7 +90,7 @@ src/
 
 | Command | Description |
 |---------|-------------|
-| `appgen mobile create --project <path> [--entity Product]` | Generate Flutter POC under `mobile/flutter/` |
+| `appgen mobile create --project <path> [--entity Product]` | Generate Flutter mobile client in `{AppName} Mobile/` |
 | `appgen portal create <Name> --output <path> [--preset engineering-portal]` | Scaffold static portal + appgen.json manifest |
 | `appgen portal import --project <path>` | Merge portal/data edits into appgen.json |
 | `appgen promote --project <path> [--force]` | Generate API solution from manifest |
