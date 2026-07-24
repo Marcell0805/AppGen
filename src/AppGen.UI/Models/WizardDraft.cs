@@ -38,10 +38,26 @@ public sealed class WizardDraft
         {
             Mode = EnableMobile ? ResolvedMobileOfflineMode : MobileOfflineModes.None
         });
+
+    public MobilePublishTargetSpec BuildMobilePublishSpec() =>
+        new()
+        {
+            BaseUrl = MobilePublishBaseUrl?.Trim() ?? string.Empty,
+            AppId = MobilePublishAppId?.Trim() ?? string.Empty,
+            ApkFileName = MobilePublishApkFileName?.Trim() ?? string.Empty,
+            PortalRepoPath = MobilePublishPortalRepoPath?.Trim() ?? string.Empty,
+            UpdateCheckUrl = MobilePublishUpdateCheckUrl?.Trim() ?? string.Empty
+        };
+
     public string MobileThemePreset { get; init; } = "appgen";
     public string MobilePackageName { get; init; } = string.Empty;
     public string MobileApiBaseUrl { get; init; } = "http://localhost:5000";
     public List<string> MobileCapabilities { get; init; } = [];
+    public string MobilePublishBaseUrl { get; init; } = string.Empty;
+    public string MobilePublishAppId { get; init; } = string.Empty;
+    public string MobilePublishApkFileName { get; init; } = string.Empty;
+    public string MobilePublishPortalRepoPath { get; init; } = string.Empty;
+    public string MobilePublishUpdateCheckUrl { get; init; } = string.Empty;
     public string ActiveConnectionName { get; init; } = "Dev";
     public string? OracleSchemaPrefix { get; init; }
     public bool EnsureCreatedInDevelopment { get; init; } = true;
@@ -119,7 +135,12 @@ public sealed class WizardDraft
         IEnumerable<string>? mobileCapabilities = null,
         string? iconPath = null,
         string? iconOriginalFileName = null,
-        string? iconBase64 = null) => new()
+        string? iconBase64 = null,
+        string? mobilePublishBaseUrl = null,
+        string? mobilePublishAppId = null,
+        string? mobilePublishApkFileName = null,
+        string? mobilePublishPortalRepoPath = null,
+        string? mobilePublishUpdateCheckUrl = null) => new()
     {
         ApplicationName = applicationName,
         RootNamespace = rootNamespace,
@@ -143,6 +164,11 @@ public sealed class WizardDraft
         MobilePackageName = mobilePackageName ?? string.Empty,
         MobileApiBaseUrl = string.IsNullOrWhiteSpace(mobileApiBaseUrl) ? "http://localhost:5000" : mobileApiBaseUrl,
         MobileCapabilities = mobileCapabilities?.Where(c => !string.IsNullOrWhiteSpace(c)).Select(c => c.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList() ?? [],
+        MobilePublishBaseUrl = mobilePublishBaseUrl?.Trim() ?? string.Empty,
+        MobilePublishAppId = mobilePublishAppId?.Trim() ?? string.Empty,
+        MobilePublishApkFileName = mobilePublishApkFileName?.Trim() ?? string.Empty,
+        MobilePublishPortalRepoPath = mobilePublishPortalRepoPath?.Trim() ?? string.Empty,
+        MobilePublishUpdateCheckUrl = mobilePublishUpdateCheckUrl?.Trim() ?? string.Empty,
         ActiveConnectionName = activeConnectionName,
         OracleSchemaPrefix = oracleSchemaPrefix,
         EnsureCreatedInDevelopment = ensureCreatedInDevelopment,

@@ -1,4 +1,4 @@
-﻿# Mobile Flutter scaffold issues
+# Mobile Flutter scaffold issues
 
 > Template/engine fixes from **Active_Huntress Mobile** (`output/Active_Huntress Mobile`). Golden manual fixes live in that output folder until Scriban templates catch up.
 
@@ -253,6 +253,31 @@ flowchart TB
 
 ---
 
+### 19. Google Sign-In & Drive — two OAuth clients (Huntress backup)
+
+**Symptoms:** `PlatformException(sign_in_failed, ApiException: 10)` on Android; Account screen shows DEVELOPER_ERROR.
+
+**Cause:** Google Cloud must have **both**:
+
+1. **Android OAuth client** — `applicationId` from `android/app/build.gradle.kts` + **SHA-1** of the keystore used to sign the APK (debug vs release differ).
+2. **Web application OAuth client** — its **Client ID** is what Flutter passes as `serverClientId` (e.g. `GoogleOAuthConfig.serverClientId`). Using the **Android** client ID here causes error 10.
+
+**Also:** enable **Google Drive API** when using Drive `appDataFolder`; OAuth **Testing** mode requires sign-in with listed **test users**.
+
+**Debug SHA-1 (Windows, no Gradle — use Android Studio bundled JDK):**
+
+```powershell
+& "C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe" -list -v -keystore "$env:USERPROFILE\.android\debug.keystore" -alias androiddebugkey -storepass android -keypass android
+```
+
+**Secrets:** the Web client **secret** (`GOCSPX-…`) is **not** embedded in mobile apps; store in GCP / a password manager for server use only. The mobile app needs the Web **client ID** only.
+
+**After GCP changes:** wait ~15 minutes, uninstall the app, `flutter run` (not hot reload).
+
+**Template / README:** AppGen `ReadmeGenerator` appends this block for **standalone local** mobile targets; golden config: `lib/core/config/google_oauth_config.dart` (Active Huntress).
+
+---
+
 ## Process / product notes (not engine bugs)
 
 - **Regenerating mobile overwrites** custom routes (Active_Huntress Phase 1). Document in hub README + [`PHASE1_README.md`](output\Active_Huntress Mobile\PHASE1_README.md): use `IncludeInUi: false` on entities or a Ã¢â‚¬Å“custom mobile layerÃ¢â‚¬Â flag (future).
@@ -270,7 +295,8 @@ flowchart TB
 6. Branding icon sizes + launcher icon gating.
 7. **Standalone local DB migration doc/partial** (#15) when `standaloneLocal` generates real tables.
 8. **Enum display labels** (#17) + **native audio README** (#18).
-9. Stronger smoke / generation tests.
+9. **Google Sign-In / Drive OAuth** (#19) in generated mobile README for standalone local apps.
+10. Stronger smoke / generation tests.
 
 ---
 

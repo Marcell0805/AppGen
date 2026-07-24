@@ -126,7 +126,8 @@ public sealed class WizardStateService
                 Capabilities = new MobileCapabilitiesSpec
                 {
                     Enabled = _draft.MobileCapabilities.ToList()
-                }
+                },
+                Publish = _draft.BuildMobilePublishSpec()
             }
         };
 

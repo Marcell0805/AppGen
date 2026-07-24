@@ -16,7 +16,7 @@ ThemeData buildAppTheme() {
       primary: AppColors.accent,
       onPrimary: AppColors.onAccent,
       secondary: AppColors.accentMuted,
-      onSecondary: AppColors.onAccent,
+      onSecondary: AppColors.onAccentMuted,
       surface: AppColors.surface,
       onSurface: AppColors.text,
       onSurfaceVariant: AppColors.textMuted,
@@ -125,7 +125,7 @@ ThemeData buildAppTheme() {
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
-        foregroundColor: AppColors.accent,
+        foregroundColor: AppColors.link,
         minimumSize: Size(0, AppThemeConfig.minButtonHeight),
         textStyle: _buttonTextStyle(fontWeight: FontWeight.w600),
       ),

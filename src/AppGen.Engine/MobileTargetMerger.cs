@@ -64,7 +64,9 @@ public static class MobileTargetMerger
             Theme = mobileSettings.Theme ?? existing.Theme,
             Offline = mobileSettings.Offline ?? existing.Offline,
             Capabilities = mobileSettings.Capabilities ?? existing.Capabilities,
-            Publish = existing.Publish
+            Publish = IsBlankPublish(mobileSettings.Publish)
+                ? existing.Publish
+                : NormalizePublish(mobileSettings.Publish)
         };
 
         var targets = spec.Targets ?? new ApplicationTargets();
@@ -90,4 +92,21 @@ public static class MobileTargetMerger
             Entities = spec.Entities
         };
     }
+
+    private static bool IsBlankPublish(MobilePublishTargetSpec publish) =>
+        string.IsNullOrWhiteSpace(publish.BaseUrl)
+        && string.IsNullOrWhiteSpace(publish.ApkFileName)
+        && string.IsNullOrWhiteSpace(publish.AppId)
+        && string.IsNullOrWhiteSpace(publish.PortalRepoPath)
+        && string.IsNullOrWhiteSpace(publish.UpdateCheckUrl);
+
+    private static MobilePublishTargetSpec NormalizePublish(MobilePublishTargetSpec publish) =>
+        new()
+        {
+            BaseUrl = publish.BaseUrl?.Trim() ?? string.Empty,
+            ApkFileName = publish.ApkFileName?.Trim() ?? string.Empty,
+            AppId = publish.AppId?.Trim() ?? string.Empty,
+            PortalRepoPath = publish.PortalRepoPath?.Trim() ?? string.Empty,
+            UpdateCheckUrl = publish.UpdateCheckUrl?.Trim() ?? string.Empty
+        };
 }

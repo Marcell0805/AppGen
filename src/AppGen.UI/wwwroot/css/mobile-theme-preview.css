@@ -44,6 +44,26 @@
     flex: 0 0 auto;
 }
 
+.app-theme-apply {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--ag-border, #e2e8f0);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+}
+
+.app-theme-apply .btn {
+    min-width: 8rem;
+}
+
+.app-theme-apply-status {
+    margin: 0;
+    color: var(--ag-text, #0f172a);
+    font-weight: 500;
+}
+
 .mobile-theme-preview {
     --mtp-sidebar: #0f172a;
     --mtp-accent: #3b82f6;

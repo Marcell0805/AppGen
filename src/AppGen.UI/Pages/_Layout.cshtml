@@ -8,6 +8,30 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="~/" />
+    <script>
+        (function () {
+            window.appgen = window.appgen || {};
+            window.appgen.getTheme = window.appgen.getTheme || function () {
+                try {
+                    return localStorage.getItem('appgen.ui.theme') === 'dark' ? 'dark' : 'light';
+                } catch {
+                    return 'light';
+                }
+            };
+            window.appgen.setTheme = window.appgen.setTheme || function (theme) {
+                var value = theme === 'dark' ? 'dark' : 'light';
+                try {
+                    localStorage.setItem('appgen.ui.theme', value);
+                } catch (e) { /* ignore */ }
+                document.documentElement.setAttribute('data-theme', value);
+                return value;
+            };
+            try {
+                if (window.appgen.getTheme() === 'dark')
+                    document.documentElement.setAttribute('data-theme', 'dark');
+            } catch (e) { /* ignore */ }
+        })();
+    </script>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <link rel="stylesheet" href="css/bootstrap/bootstrap.min.css" />
     <link href="css/site.css" rel="stylesheet" />
@@ -29,7 +53,31 @@
         <a class="dismiss">🗙</a>
     </div>
 
+    <script src="~/js/appgen.js" asp-append-version="true"></script>
+    <script>
+        (function () {
+            window.appgen = window.appgen || {};
+            if (typeof window.appgen.getTheme !== 'function') {
+                window.appgen.getTheme = function () {
+                    try {
+                        return localStorage.getItem('appgen.ui.theme') === 'dark' ? 'dark' : 'light';
+                    } catch {
+                        return 'light';
+                    }
+                };
+            }
+            if (typeof window.appgen.setTheme !== 'function') {
+                window.appgen.setTheme = function (theme) {
+                    var value = theme === 'dark' ? 'dark' : 'light';
+                    try {
+                        localStorage.setItem('appgen.ui.theme', value);
+                    } catch (e) { /* ignore */ }
+                    document.documentElement.setAttribute('data-theme', value);
+                    return value;
+                };
+            }
+        })();
+    </script>
     <script src="_framework/blazor.server.js"></script>
-    <script src="js/appgen.js"></script>
 </body>
 </html>

@@ -198,7 +198,8 @@ public sealed class ProjectGenerationService(
                 ApiBaseUrl = draft.MobileApiBaseUrl,
                 Theme = new MobileThemeSpec { Preset = draft.MobileThemePreset },
                 Offline = draft.BuildMobileOfflineSpec(),
-                Capabilities = new MobileCapabilitiesSpec { Enabled = draft.MobileCapabilities.ToList() }
+                Capabilities = new MobileCapabilitiesSpec { Enabled = draft.MobileCapabilities.ToList() },
+                Publish = draft.BuildMobilePublishSpec()
             });
 
             var packageName = string.IsNullOrWhiteSpace(draft.MobilePackageName)
@@ -250,6 +251,116 @@ public sealed class ProjectGenerationService(
         return success
             ? ProjectGenerationResult.Ok(hubDir, summary)
             : ProjectGenerationResult.Fail(summary, hubDir);
+    }
+
+    public async Task<ProjectGenerationResult> ApplyThemeAsync(
+        WizardDraft draft,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(draft.ApplicationName))
+            return ProjectGenerationResult.Fail("Application name is required.");
+
+        if (string.IsNullOrWhiteSpace(draft.OutputRoot))
+            return ProjectGenerationResult.Fail("Output folder is required.");
+
+        var appName = draft.ApplicationName.Trim();
+        var outputRoot = draft.OutputRoot.Trim();
+        string hubDir;
+        try
+        {
+            hubDir = ProjectOutputPaths.HubDirectory(outputRoot, appName);
+        }
+        catch
+        {
+            return ProjectGenerationResult.Fail("Output folder is invalid.");
+        }
+
+        if (!File.Exists(Path.Combine(hubDir, "appgen.json")))
+        {
+            var existing = ProjectOutputPaths.FindManifestDirectory(outputRoot, appName, ProjectOutputLayer.Hub);
+            if (existing is null)
+                return ProjectGenerationResult.Fail("Generate the project first, then apply a theme.");
+            hubDir = existing;
+        }
+
+        var wizardState = new WizardStateService();
+        wizardState.Update(draft);
+        var spec = ProjectInfoSeeder.ApplyToPortalSpec(wizardState.ToSolutionSpec());
+        spec = MobileTargetMerger.ApplyAppThemePreset(spec, draft.MobileThemePreset);
+
+        Directory.CreateDirectory(hubDir);
+        var saveResult = await manifestSave.SaveAsync(spec, hubDir, ct);
+        if (!saveResult.Success)
+            return ProjectGenerationResult.Fail(saveResult.Message);
+
+        string? docDir = null;
+        string? webDir = null;
+        string? mobileDir = null;
+
+        var candidateDoc = ProjectOutputPaths.DocumentationDirectory(outputRoot, appName);
+        if (Directory.Exists(Path.Combine(candidateDoc, "portal"))
+            || File.Exists(Path.Combine(candidateDoc, "portal", "css", "theme-overrides.css")))
+        {
+            docDir = candidateDoc;
+            await manifestSave.SaveAsync(spec, docDir, ct);
+        }
+
+        var candidateWeb = ProjectOutputPaths.WebDirectory(outputRoot, appName);
+        if (GenerationOutputHelper.OutputDirectoryExists(candidateWeb))
+        {
+            webDir = candidateWeb;
+            await manifestSave.SaveAsync(spec, webDir, ct);
+        }
+
+        var candidateMobile = ProjectOutputPaths.MobileDirectory(outputRoot, appName);
+        if (Directory.Exists(Path.Combine(candidateMobile, "lib"))
+            || File.Exists(Path.Combine(candidateMobile, "lib", "app", "app_theme_config.dart")))
+        {
+            mobileDir = candidateMobile;
+            await manifestSave.SaveAsync(spec, mobileDir, ct);
+        }
+
+        if (docDir is null && webDir is null && mobileDir is null)
+            return ProjectGenerationResult.Fail("No generated outputs found yet. Generate Documentation, Web, or Mobile first.", hubDir);
+
+        // Load entities from hub/layer so Flutter theme model has real keys if present.
+        try
+        {
+            var loaded = await SpecLoader.LoadAsync(hubDir, ct);
+            if (loaded.Entities.Count > 0)
+            {
+                spec = new SolutionSpec
+                {
+                    SchemaVersion = spec.SchemaVersion,
+                    ApplicationName = spec.ApplicationName,
+                    RootNamespace = spec.RootNamespace,
+                    Project = spec.Project,
+                    Phase = spec.Phase,
+                    Portal = spec.Portal,
+                    EntitySketches = spec.EntitySketches,
+                    Targets = spec.Targets,
+                    Generation = spec.Generation,
+                    Database = loaded.Database,
+                    UiTargets = loaded.UiTargets | spec.UiTargets,
+                    Setup = loaded.Setup.ConfigEntries.Count > 0 ? loaded.Setup : spec.Setup,
+                    Entities = loaded.Entities
+                };
+                spec = MobileTargetMerger.ApplyAppThemePreset(spec, draft.MobileThemePreset);
+            }
+        }
+        catch
+        {
+            // Hub may be incomplete; ThemeEmitter falls back to a placeholder entity.
+        }
+
+        var emit = await ThemeEmitter.ApplyAsync(
+            spec,
+            new ThemeEmitTargets(docDir, webDir, mobileDir),
+            ct: ct);
+
+        return emit.Success
+            ? ProjectGenerationResult.Ok(hubDir, emit.Message)
+            : ProjectGenerationResult.Fail(emit.Message, hubDir);
     }
 
     private static bool DocumentationOutputExists(string docDir) =>

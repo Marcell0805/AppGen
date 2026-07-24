@@ -9,6 +9,7 @@
 @inject WizardStateService WizardState
 @inject ManifestSaveService ManifestSave
 @inject OutputFolderService FolderService
+@inject ProjectGenerationService ProjectGenerator
 @inject IWebHostEnvironment HostEnvironment
 @inject IJSRuntime Js
 @implements IDisposable
@@ -23,7 +24,20 @@
         <input @bind="RootNamespace" @bind:after="SyncState" placeholder="Defaults to app name" />
 
         <label>Output folder</label>
-        <input @bind="OutputRoot" @bind:after="SyncState" placeholder="e.g. output/MyProduct" />
+        <div class="path-picker">
+            <input @bind="OutputRoot" @bind:after="SyncState" placeholder="e.g. output/MyProduct" />
+            <button type="button"
+                    class="btn btn-outline-secondary path-picker__browse"
+                    @onclick="BrowseOutputFolder"
+                    disabled="@IsBusy"
+                    title="Browse for folder"
+                    aria-label="Browse for folder">
+                <svg class="path-picker__icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="M20 20l-3.5-3.5" stroke-linecap="round" />
+                </svg>
+            </button>
+        </div>
     </div>
     <div class="form-grid app-icon-grid">
         <label>App icon</label>
@@ -115,7 +129,27 @@
                    PresetChanged="OnThemePresetChanged"
                    DocumentationEnabled="@EnableDocumentation"
                    MobileEnabled="@EnableMobile"
-                   WebEnabled="@(EnableWeb && IncludeMvcWeb)" />
+                   WebEnabled="@(EnableWeb && IncludeMvcWeb)"
+                   ShowApplyButton="true"
+                   ApplyBusy="@IsApplyingTheme"
+                   ApplyStatus="@ThemeApplyStatus"
+                   OnApply="ApplyThemeAsync" />
+}
+
+@if (EnableMobile)
+{
+    <MobilePublishPanel ApplicationName="@ApplicationName"
+                        BaseUrl="@MobilePublishBaseUrl"
+                        BaseUrlChanged="OnPublishBaseUrlChanged"
+                        AppId="@MobilePublishAppId"
+                        AppIdChanged="OnPublishAppIdChanged"
+                        ApkFileName="@MobilePublishApkFileName"
+                        ApkFileNameChanged="OnPublishApkFileNameChanged"
+                        PortalRepoPath="@MobilePublishPortalRepoPath"
+                        PortalRepoPathChanged="OnPublishPortalRepoPathChanged"
+                        UpdateCheckUrl="@MobilePublishUpdateCheckUrl"
+                        UpdateCheckUrlChanged="OnPublishUpdateCheckUrlChanged"
+                        Disabled="@IsBusy" />
 }
 
 @if (EnableMobile)
@@ -260,11 +294,18 @@
     private string MobilePackageName { get; set; } = string.Empty;
     private string MobileApiBaseUrl { get; set; } = "http://localhost:5000";
     private readonly HashSet<string> MobileCapabilities = new(StringComparer.OrdinalIgnoreCase);
+    private string MobilePublishBaseUrl { get; set; } = string.Empty;
+    private string MobilePublishAppId { get; set; } = string.Empty;
+    private string MobilePublishApkFileName { get; set; } = string.Empty;
+    private string MobilePublishPortalRepoPath { get; set; } = string.Empty;
+    private string MobilePublishUpdateCheckUrl { get; set; } = string.Empty;
     private string? IconPath { get; set; }
     private string? IconOriginalFileName { get; set; }
     private string? IconBase64 { get; set; }
     private string? IconPreviewUrl { get; set; }
     private string? IconStatusMessage { get; set; }
+    private bool IsApplyingTheme { get; set; }
+    private string? ThemeApplyStatus { get; set; }
 
     private List<EntityDraft> Entities { get; } = [];
     private EntityDraft? SelectedEntity { get; set; }
@@ -348,6 +389,11 @@
             MobileThemePreset = MobileThemeCatalog.NormalizePreset(spec.Targets?.Mobile.Theme.Preset);
             MobilePackageName = spec.Targets?.Mobile.PackageName ?? string.Empty;
             MobileApiBaseUrl = spec.Targets?.Mobile.ApiBaseUrl ?? "http://localhost:5000";
+            MobilePublishBaseUrl = spec.Targets?.Mobile.Publish.BaseUrl ?? string.Empty;
+            MobilePublishAppId = spec.Targets?.Mobile.Publish.AppId ?? string.Empty;
+            MobilePublishApkFileName = spec.Targets?.Mobile.Publish.ApkFileName ?? string.Empty;
+            MobilePublishPortalRepoPath = spec.Targets?.Mobile.Publish.PortalRepoPath ?? string.Empty;
+            MobilePublishUpdateCheckUrl = spec.Targets?.Mobile.Publish.UpdateCheckUrl ?? string.Empty;
             MobileCapabilities.Clear();
             foreach (var id in spec.Targets?.Mobile.Capabilities.Enabled ?? [])
             {
@@ -490,6 +536,11 @@
         MobileThemePreset = MobileThemeCatalog.NormalizePreset(draft.MobileThemePreset);
         MobilePackageName = draft.MobilePackageName;
         MobileApiBaseUrl = draft.MobileApiBaseUrl;
+        MobilePublishBaseUrl = draft.MobilePublishBaseUrl;
+        MobilePublishAppId = draft.MobilePublishAppId;
+        MobilePublishApkFileName = draft.MobilePublishApkFileName;
+        MobilePublishPortalRepoPath = draft.MobilePublishPortalRepoPath;
+        MobilePublishUpdateCheckUrl = draft.MobilePublishUpdateCheckUrl;
         MobileCapabilities.Clear();
         foreach (var id in draft.MobileCapabilities)
             MobileCapabilities.Add(id);
@@ -561,7 +612,61 @@
         MobileCapabilities.ToList(),
         IconPath,
         IconOriginalFileName,
-        IconBase64);
+        IconBase64,
+        MobilePublishBaseUrl,
+        MobilePublishAppId,
+        MobilePublishApkFileName,
+        MobilePublishPortalRepoPath,
+        MobilePublishUpdateCheckUrl);
+
+    private Task OnPublishBaseUrlChanged(string value)
+    {
+        MobilePublishBaseUrl = value;
+        SyncState();
+        return Task.CompletedTask;
+    }
+
+    private Task OnPublishAppIdChanged(string value)
+    {
+        MobilePublishAppId = value;
+        SyncState();
+        return Task.CompletedTask;
+    }
+
+    private Task OnPublishApkFileNameChanged(string value)
+    {
+        MobilePublishApkFileName = value;
+        SyncState();
+        return Task.CompletedTask;
+    }
+
+    private Task OnPublishPortalRepoPathChanged(string value)
+    {
+        MobilePublishPortalRepoPath = value;
+        SyncState();
+        return Task.CompletedTask;
+    }
+
+    private Task OnPublishUpdateCheckUrlChanged(string value)
+    {
+        MobilePublishUpdateCheckUrl = value;
+        SyncState();
+        return Task.CompletedTask;
+    }
+
+    private async Task BrowseOutputFolder()
+    {
+        if (IsBusy)
+            return;
+
+        await Task.Yield();
+        var picked = FolderService.PickFolder(OutputRoot);
+        if (string.IsNullOrWhiteSpace(picked))
+            return;
+
+        OutputRoot = picked;
+        SyncState();
+    }
 
     private async Task OnIconFileSelected(InputFileChangeEventArgs e)
     {
@@ -742,8 +847,35 @@
     private Task OnThemePresetChanged(string preset)
     {
         MobileThemePreset = MobileThemeCatalog.NormalizePreset(preset);
+        ThemeApplyStatus = null;
         SyncState();
         return Task.CompletedTask;
+    }
+
+    private async Task ApplyThemeAsync()
+    {
+        if (IsBusy || IsApplyingTheme)
+            return;
+
+        IsApplyingTheme = true;
+        ThemeApplyStatus = null;
+        try
+        {
+            SyncState();
+            var draft = BuildDraft();
+            var result = await ProjectGenerator.ApplyThemeAsync(draft);
+            ThemeApplyStatus = result.Message;
+            await ReportAsync(result.Message, result.Success, result.OutputDirectory);
+        }
+        catch (Exception ex)
+        {
+            ThemeApplyStatus = $"Theme apply failed: {ex.Message}";
+            await ReportAsync(ThemeApplyStatus, false);
+        }
+        finally
+        {
+            IsApplyingTheme = false;
+        }
     }
 
     private void NormalizeThemePresetForLayers()

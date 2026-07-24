@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/app_colors.dart';
+import '../../../app/navigation_helpers.dart';
 {{ if api_client_enabled }}
 import '../../../core/network/api_error_mapper.dart';
 {{ else }}
@@ -31,7 +32,8 @@ class {{ entity_name }}DetailScreen extends ConsumerWidget {
             subtitle: 'Record ${item.{{ key_field }}}',
             leading: IconButton(
               icon: const Icon(Icons.arrow_back),
-              onPressed: () => context.go('/{{ entity_snake }}'),
+              tooltip: 'Back',
+              onPressed: () => navigateBackOrHome(context, homePath: '/{{ entity_snake }}'),
             ),
           ),
           Expanded(

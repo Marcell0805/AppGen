@@ -1,0 +1,4 @@
+{
+  "appName": "{{ app_name }}",
+  "updateCheckUrl": "{{ update_check_url }}"
+}

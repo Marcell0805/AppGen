@@ -18,8 +18,10 @@ public sealed record FlutterThemeTokens(
     string Success,
     string Error,
     string OnAccent,
+    string OnAccentMuted,
     string OnSidebar,
     string SidebarSelectedBackground,
+    string Link,
     string HeadingFont,
     string BodyFont,
     string ButtonFont,
@@ -53,9 +55,11 @@ public static class FlutterThemeResolver
         }
 
         var onAccent = ThemeColorHelper.ResolveOnAccent(accent, definition.OnAccent);
+        var onAccentMuted = ThemeColorHelper.ResolveOnAccent(definition.AccentMuted);
         var onSidebar = ThemeColorHelper.ResolveOnSidebar(sidebar, definition.OnSidebar);
         var sidebarSelected = definition.SidebarSelectedBackground
             ?? $"0x33{accent.Replace("0xFF", "", StringComparison.OrdinalIgnoreCase)}";
+        var link = ThemeColorHelper.ResolveLinkColor(accent, definition.Text, background);
 
         return new FlutterThemeTokens(
             Preset: preset,
@@ -72,8 +76,10 @@ public static class FlutterThemeResolver
             Success: definition.Success,
             Error: definition.Error,
             OnAccent: onAccent,
+            OnAccentMuted: onAccentMuted,
             OnSidebar: onSidebar,
             SidebarSelectedBackground: sidebarSelected,
+            Link: link,
             HeadingFont: definition.HeadingFont,
             BodyFont: definition.BodyFont,
             ButtonFont: definition.ButtonFont,

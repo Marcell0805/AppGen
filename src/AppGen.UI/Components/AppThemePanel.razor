@@ -30,6 +30,23 @@
             </div>
         </div>
     }
+
+    @if (ShowApplyButton)
+    {
+        <div class="app-theme-apply">
+            <button type="button"
+                    class="btn btn-primary"
+                    disabled="@(ApplyBusy || !OnApply.HasDelegate)"
+                    @onclick="HandleApplyAsync">
+                @(ApplyBusy ? "Applying…" : "Apply theme")
+            </button>
+            <p class="hint">Updates colors in Documentation, Web, and Mobile. Your app icon is not changed.</p>
+            @if (!string.IsNullOrWhiteSpace(ApplyStatus))
+            {
+                <p class="hint app-theme-apply-status">@ApplyStatus</p>
+            }
+        </div>
+    }
 </fieldset>
 
 @code {
@@ -42,6 +59,10 @@
     [Parameter] public bool WebEnabled { get; set; }
     [Parameter] public bool UseGallery { get; set; }
     [Parameter] public bool ShowSharedHint { get; set; } = true;
+    [Parameter] public bool ShowApplyButton { get; set; }
+    [Parameter] public bool ApplyBusy { get; set; }
+    [Parameter] public string? ApplyStatus { get; set; }
+    [Parameter] public EventCallback OnApply { get; set; }
 
     private string SharedHint
     {
@@ -74,5 +95,11 @@
     {
         Preset = MobileThemeCatalog.NormalizePreset(Preset);
         await PresetChanged.InvokeAsync(Preset);
+    }
+
+    private async Task HandleApplyAsync()
+    {
+        if (OnApply.HasDelegate)
+            await OnApply.InvokeAsync();
     }
 }

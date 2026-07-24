@@ -39,7 +39,20 @@
             </div>
 
             <label>Output folder</label>
-            <input @bind="OutputRoot" placeholder="e.g. output/MyProduct" />
+            <div class="path-picker">
+                <input @bind="OutputRoot" placeholder="e.g. output/MyProduct" />
+                <button type="button"
+                        class="btn btn-outline-secondary path-picker__browse"
+                        @onclick="BrowseOutputFolder"
+                        disabled="@IsWorking"
+                        title="Browse for folder"
+                        aria-label="Browse for folder">
+                    <svg class="path-picker__icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <circle cx="11" cy="11" r="7" />
+                        <path d="M20 20l-3.5-3.5" stroke-linecap="round" />
+                    </svg>
+                </button>
+            </div>
         </div>
         <label class="checkbox-row">
             <input type="checkbox" @bind="PasswordGate" />
@@ -503,6 +516,59 @@
         await Js.InvokeVoidAsync("appgen.copyToClipboard", OutputDirectory);
         StatusMessage = "Path copied to clipboard.";
         IsSuccess = true;
+    }
+
+    private async Task BrowseOutputFolder()
+    {
+        if (IsWorking)
+            return;
+
+        await Task.Yield();
+        var picked = FolderService.PickFolder(OutputRoot);
+        if (string.IsNullOrWhiteSpace(picked))
+            return;
+
+        OutputRoot = picked;
+        if (WizardState.Current is { } draft)
+        {
+            WizardState.Update(WizardDraft.FromWizard(
+                draft.ApplicationName,
+                draft.RootNamespace,
+                draft.Database,
+                OutputRoot,
+                draft.IncludeMvcWeb,
+                draft.ActiveConnectionName,
+                draft.OracleSchemaPrefix,
+                draft.EnsureCreatedInDevelopment,
+                draft.ConfigEntries.Select(e => new ConfigEntryRow
+                {
+                    Name = e.Name,
+                    Kind = e.Kind,
+                    Key = e.Key,
+                    Value = e.Value
+                }),
+                WizardEntityHelper.ToEntityDrafts(draft.Entities),
+                draft.EnableDocumentation,
+                draft.EnableWeb,
+                draft.EnableMobile,
+                draft.EnableWebAuth,
+                draft.ResolvedMobileOfflineMode == MobileOfflineModes.ApiCache,
+                mobileOfflineMode: draft.ResolvedMobileOfflineMode,
+                AppThemePreset,
+                draft.MobilePackageName,
+                draft.MobileApiBaseUrl,
+                draft.Tagline,
+                draft.Description,
+                draft.MobileCapabilities,
+                draft.IconPath,
+                draft.IconOriginalFileName,
+                draft.IconBase64,
+                draft.MobilePublishBaseUrl,
+                draft.MobilePublishAppId,
+                draft.MobilePublishApkFileName,
+                draft.MobilePublishPortalRepoPath,
+                draft.MobilePublishUpdateCheckUrl));
+        }
     }
 
     private void OpenFolder()

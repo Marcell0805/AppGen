@@ -31,14 +31,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const LoginScreen(),
       ),
       ShellRoute(
-        builder: (context, state, child) => AppShell(child: child),
+        builder: (context, state, child) => AppShell(
+          location: state.uri.path,
+          child: child,
+        ),
         routes: [
 {{ else }}
   return GoRouter(
     initialLocation: '/{{ first_entity_snake }}',
     routes: [
       ShellRoute(
-        builder: (context, state, child) => AppShell(child: child),
+        builder: (context, state, child) => AppShell(
+          location: state.uri.path,
+          child: child,
+        ),
         routes: [
 {{ end }}
 {{ for e in entities }}

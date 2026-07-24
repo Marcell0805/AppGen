@@ -1,4 +1,4 @@
-﻿# AppGen Evolution — Feedback and Thin-Slice Roadmap
+# AppGen Evolution — Feedback and Thin-Slice Roadmap
 
 ## Implementation status (2026-06-23)
 
@@ -42,7 +42,7 @@ Web, Mobile, and **Project** tabs share entity definitions via `WizardStateServi
 | Web | `output/{AppName} Web/` |
 | Mobile | `output/{AppName} Mobile/` |
 
-**Not yet done** (see long-term phases below): per-target incremental sync, OpenAPI client gen, AppGen UI publish button, in-app update checker in generic Flutter templates.
+**Not yet done** (see long-term phases below): per-target incremental sync, OpenAPI client gen, AppGen UI publish button.
 
 **Phase 4 (done):** JWT auth scaffold (Web toggle + mobile login), optional SQLite offline cache (independent Mobile toggle), generated API/MVC xUnit integration tests with EF InMemory.
 

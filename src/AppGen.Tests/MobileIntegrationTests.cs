@@ -75,6 +75,22 @@ public class MobileIntegrationTests
       Assert.Contains("WidgetFormScreen", router);
       Assert.Contains("path: 'new'", router);
       Assert.Contains("path: 'edit'", router);
+      Assert.Contains("location: state.uri.path", router);
+      Assert.Contains("AppShell(", router);
+
+      var shell = await File.ReadAllTextAsync(Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "lib", "app", "app_shell.dart"));
+      Assert.Contains("required this.location", shell);
+      Assert.Contains("PopScope", shell);
+      Assert.Contains("navigateBackOrHome", shell);
+      Assert.Contains("SafeArea", shell);
+
+      var helpers = await File.ReadAllTextAsync(Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "lib", "app", "navigation_helpers.dart"));
+      Assert.Contains("appHomePath", helpers);
+      Assert.Contains("/widget", helpers);
+      Assert.Contains("navigateBackOrHome", helpers);
+
+      var form = await File.ReadAllTextAsync(Path.Combine(FlutterProjectPaths.GetFlutterRoot(outputDir), "lib", "features", "widget", "screens", "widget_form_screen.dart"));
+      Assert.Contains("navigateBackOrHome", form);
 
       var reloaded = await SpecLoader.LoadAsync(outputDir);
       Assert.Equal(["Widget", "Gadget"], reloaded.Generation!.Mobile!.Entities);

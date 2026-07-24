@@ -17,8 +17,10 @@ abstract final class AppThemeConfig {
   static const success = Color({{ theme_success }});
   static const error = Color({{ theme_error }});
   static const onAccent = Color({{ theme_on_accent }});
+  static const onAccentMuted = Color({{ theme_on_accent_muted }});
   static const onSidebar = Color({{ theme_on_sidebar }});
   static const sidebarSelectedBackground = Color({{ theme_sidebar_selected }});
+  static const link = Color({{ theme_link }});
 
   static const headingFont = '{{ theme_heading_font }}';
   static const bodyFont = '{{ theme_body_font }}';

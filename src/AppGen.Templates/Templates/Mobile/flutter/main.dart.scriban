@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app/router.dart';
 import 'app/theme.dart';
 import 'core/logging/app_log_sink.dart';
+import 'core/widgets/update_prompt_listener.dart';
 
 void main() {
   // Default sink is FileAppLogSink (mobile/desktop) or ConsoleAppLogSink (web).
@@ -39,10 +40,11 @@ class {{ app_class_name }}App extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(appRouterProvider);
-    return MaterialApp.router(
+    final app = MaterialApp.router(
       title: '{{ app_name }}',
       theme: buildAppTheme(),
       routerConfig: router,
     );
+    return UpdatePromptListener(child: app);
   }
 }

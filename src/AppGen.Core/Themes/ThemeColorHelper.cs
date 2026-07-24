@@ -4,7 +4,7 @@ public static class ThemeColorHelper
 {
     public static string ToDartColor(string? hex, string fallback)
     {
-        var normalized = NormalizeHexDigits(hex);
+        var normalized = NormalizeHexDigits(hex, stripAlpha: false);
         if (normalized is null)
             return fallback;
 
@@ -13,15 +13,29 @@ public static class ThemeColorHelper
             : $"0x{normalized}";
     }
 
+    /// <summary>
+    /// Converts a Dart <c>0xAARRGGBB</c> color to CSS hex.
+    /// Opaque colors become <c>#RRGGBB</c>; translucent colors become <c>#RRGGBBAA</c>.
+    /// </summary>
     public static string DartToCssHex(string dartColor)
     {
-        var normalized = NormalizeHexDigits(dartColor);
-        return normalized is { Length: 6 } ? $"#{normalized}" : "#000000";
+        var full = NormalizeHexDigits(dartColor, stripAlpha: false);
+        if (full is null)
+            return "#000000";
+
+        if (full.Length == 6)
+            return $"#{full}";
+
+        var alpha = full[..2];
+        var rgb = full[2..];
+        return string.Equals(alpha, "FF", StringComparison.OrdinalIgnoreCase)
+            ? $"#{rgb}"
+            : $"#{rgb}{alpha}";
     }
 
     public static string DarkenHex(string? hex, string fallback, double factor = 0.85)
     {
-        var normalized = NormalizeHexDigits(hex);
+        var normalized = NormalizeHexDigits(hex, stripAlpha: true);
         if (normalized is null || normalized.Length != 6)
             return fallback;
 
@@ -55,6 +69,12 @@ public static class ThemeColorHelper
             ? ToDartColor(explicitOnSidebar, PickHigherContrastForeground(sidebarDart))
             : PickHigherContrastForeground(sidebarDart);
 
+    /// <summary>
+    /// Link/text-button color: accent when it meets AA on the background, otherwise body text.
+    /// </summary>
+    public static string ResolveLinkColor(string accentDart, string textDart, string backgroundDart) =>
+        ContrastRatio(accentDart, backgroundDart) >= 4.5 ? accentDart : textDart;
+
     public static double ContrastRatio(string foregroundDart, string backgroundDart)
     {
         var fg = RelativeLuminance(foregroundDart);
@@ -63,6 +83,12 @@ public static class ThemeColorHelper
         var darker = Math.Min(fg, bg);
         return (lighter + 0.05) / (darker + 0.05);
     }
+
+    /// <summary>
+    /// Approximate border vs background separation (not WCAG text contrast).
+    /// </summary>
+    public static double BorderSeparationRatio(string borderDart, string backgroundDart) =>
+        ContrastRatio(borderDart, backgroundDart);
 
     public static double RelativeLuminance(string dartColor)
     {
@@ -83,7 +109,7 @@ public static class ThemeColorHelper
         return ContrastRatio(white, backgroundDart) >= ContrastRatio(dark, backgroundDart) ? white : dark;
     }
 
-    private static string? NormalizeHexDigits(string? hex)
+    private static string? NormalizeHexDigits(string? hex, bool stripAlpha)
     {
         if (string.IsNullOrWhiteSpace(hex))
             return null;
@@ -95,7 +121,7 @@ public static class ThemeColorHelper
         if (normalized.Length is not (6 or 8))
             return null;
 
-        if (normalized.Length == 8)
+        if (stripAlpha && normalized.Length == 8)
             normalized = normalized[2..];
 
         return normalized.ToUpperInvariant();
@@ -103,7 +129,7 @@ public static class ThemeColorHelper
 
     private static (int R, int G, int B) ParseRgb(string dartColor)
     {
-        var normalized = NormalizeHexDigits(dartColor);
+        var normalized = NormalizeHexDigits(dartColor, stripAlpha: true);
         if (normalized is null || normalized.Length != 6)
             return (0, 0, 0);
 

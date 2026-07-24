@@ -50,6 +50,7 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
         await WriteTemplateAsync("Mobile/flutter/app_colors.dart.scriban", flutterRoot, "lib/app/app_colors.dart", firstModel, ct);
         await WriteTemplateAsync("Mobile/flutter/app_theme_config.dart.scriban", flutterRoot, "lib/app/app_theme_config.dart", firstModel, ct);
         await WriteTemplateAsync("Mobile/flutter/app_drawer.dart.scriban", flutterRoot, "lib/app/app_drawer.dart", appModel, ct);
+        await WriteTemplateAsync("Mobile/flutter/navigation_helpers.dart.scriban", flutterRoot, "lib/app/navigation_helpers.dart", appModel, ct);
         await WriteTemplateAsync("Mobile/flutter/app_page_header.dart.scriban", flutterRoot, "lib/core/widgets/app_page_header.dart", firstModel, ct);
         await WriteTemplateAsync("Mobile/flutter/app_shell.dart.scriban", flutterRoot, "lib/app/app_shell.dart", appModel, ct);
         await WriteTemplateAsync("Mobile/flutter/app_widgets.dart.scriban", flutterRoot, "lib/core/widgets/app_widgets.dart", firstModel, ct);
@@ -103,6 +104,37 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
             "Mobile/flutter/scripts/publish-mobile.ps1.scriban",
             flutterRoot,
             "scripts/publish-mobile.ps1",
+            appModel,
+            ct);
+
+        await WriteTemplateAsync(
+            "Mobile/flutter/assets/mobile_config.json.scriban",
+            flutterRoot,
+            "assets/mobile_config.json",
+            appModel,
+            ct);
+        await WriteTemplateAsync(
+            "Mobile/flutter/mobile_config.dart.scriban",
+            flutterRoot,
+            "lib/core/config/mobile_config.dart",
+            appModel,
+            ct);
+        await WriteTemplateAsync(
+            "Mobile/flutter/update_service.dart.scriban",
+            flutterRoot,
+            "lib/core/services/update_service.dart",
+            appModel,
+            ct);
+        await WriteTemplateAsync(
+            "Mobile/flutter/update_available_dialog.dart.scriban",
+            flutterRoot,
+            "lib/core/widgets/update_available_dialog.dart",
+            appModel,
+            ct);
+        await WriteTemplateAsync(
+            "Mobile/flutter/update_prompt_listener.dart.scriban",
+            flutterRoot,
+            "lib/core/widgets/update_prompt_listener.dart",
             appModel,
             ct);
 
@@ -194,6 +226,11 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
             api_base_url = mobile.ApiBaseUrl,
             publish_base_url = publish.BaseUrl,
             apk_file_name = publish.ApkFileName,
+            publish_app_id = publish.AppId,
+            update_check_url = publish.UpdateCheckUrl,
+            portal_repo_path = publish.PortalRepoPath,
+            publish_configured = publish.PublishConfigured ? "true" : "false",
+            fox_den_hub_enabled = publish.PublishConfigured ? "true" : "false",
             downloads_dir = publish.DownloadsDir,
             first_entity_snake = firstSnake,
             project_tagline = tagline,
@@ -212,8 +249,10 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
             theme_success = theme.Success,
             theme_error = theme.Error,
             theme_on_accent = theme.OnAccent,
+            theme_on_accent_muted = theme.OnAccentMuted,
             theme_on_sidebar = theme.OnSidebar,
             theme_sidebar_selected = theme.SidebarSelectedBackground,
+            theme_link = theme.Link,
             theme_heading_font = theme.HeadingFont,
             theme_body_font = theme.BodyFont,
             theme_button_font = theme.ButtonFont,
@@ -301,8 +340,10 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
             theme_success = theme.Success,
             theme_error = theme.Error,
             theme_on_accent = theme.OnAccent,
+            theme_on_accent_muted = theme.OnAccentMuted,
             theme_on_sidebar = theme.OnSidebar,
             theme_sidebar_selected = theme.SidebarSelectedBackground,
+            theme_link = theme.Link,
             theme_heading_font = theme.HeadingFont,
             theme_body_font = theme.BodyFont,
             theme_button_font = theme.ButtonFont,
@@ -416,14 +457,30 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
     private static string SanitizeDartString(string value) =>
         value.Replace('\\', '/').Replace("'", "\\'").Replace('\n', ' ').Replace('\r', ' ');
 
-    private static (string BaseUrl, string ApkFileName, string DownloadsDir) ResolvePublishFields(
+    private static (
+        string BaseUrl,
+        string ApkFileName,
+        string AppId,
+        string UpdateCheckUrl,
+        string PortalRepoPath,
+        bool PublishConfigured,
+        string DownloadsDir) ResolvePublishFields(
         SolutionSpec spec,
         MobileTargetSpec mobile)
     {
         var publish = mobile.Publish;
         var kebab = NamingHelper.NormalizeAppName(spec.ApplicationName).ToLowerInvariant().Replace('_', '-');
         var apkFileName = string.IsNullOrWhiteSpace(publish.ApkFileName) ? $"{kebab}.apk" : publish.ApkFileName.Trim();
-        return (publish.BaseUrl.Trim(), apkFileName, "dist");
+        var appId = string.IsNullOrWhiteSpace(publish.AppId) ? kebab : publish.AppId.Trim();
+        var baseUrl = (publish.BaseUrl ?? string.Empty).Trim().TrimEnd('/');
+        var portalRepo = (publish.PortalRepoPath ?? string.Empty).Trim();
+        var explicitCheckUrl = (publish.UpdateCheckUrl ?? string.Empty).Trim();
+        var derivedCheckUrl = string.IsNullOrWhiteSpace(baseUrl)
+            ? string.Empty
+            : $"{baseUrl}/downloads/{appId}/mobile-version.json";
+        var updateCheckUrl = !string.IsNullOrWhiteSpace(explicitCheckUrl) ? explicitCheckUrl : derivedCheckUrl;
+        var publishConfigured = !string.IsNullOrWhiteSpace(baseUrl) || !string.IsNullOrWhiteSpace(updateCheckUrl);
+        return (baseUrl, apkFileName, appId, updateCheckUrl, portalRepo, publishConfigured, "dist");
     }
 }
 

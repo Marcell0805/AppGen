@@ -3,14 +3,20 @@ import 'package:go_router/go_router.dart';
 
 import 'app_colors.dart';
 import 'app_drawer.dart';
+import 'navigation_helpers.dart';
 {{ if offline_enabled }}
 import '../core/widgets/offline_banner.dart';
 {{ end }}
 
 class AppShell extends StatefulWidget {
-  const AppShell({super.key, required this.child});
+  const AppShell({
+    super.key,
+    required this.child,
+    required this.location,
+  });
 
   final Widget child;
+  final String location;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -27,80 +33,97 @@ class _AppShellState extends State<AppShell> {
 
   static const _wideBreakpoint = 600.0;
   static const _drawerWidth = 280.0;
+  static const _homePath = appHomePath;
 
   @override
   Widget build(BuildContext context) {
-    final location = GoRouterState.of(context).uri.path;
+    final location = widget.location;
     final isListRoute = _isListRoute(location);
     final listDestination = _listDestination(location);
+    final routerCanPop = GoRouter.of(context).canPop();
+    // Allow system exit only on the home list when nothing is stacked.
+    final allowSystemExit = !routerCanPop && location == _homePath;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final wide = constraints.maxWidth >= _wideBreakpoint;
+    return PopScope(
+      canPop: routerCanPop || allowSystemExit,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        navigateBackOrHome(context);
+      },
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final wide = constraints.maxWidth >= _wideBreakpoint;
 
-        if (wide) {
-          return Scaffold(
-            backgroundColor: AppColors.background,
-            body: Row(
-              children: [
-                SizedBox(
-                  width: _drawerWidth,
-                  child: AppDrawer(selectedPath: location),
-                ),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
+          if (wide) {
+            return Scaffold(
+              backgroundColor: AppColors.background,
+              body: SafeArea(
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: _drawerWidth,
+                      child: AppDrawer(selectedPath: location),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
 {{ if offline_enabled }}
-                      const OfflineBanner(),
+                          const OfflineBanner(),
 {{ end }}
-                      Expanded(child: widget.child),
-                    ],
-                  ),
+                          Expanded(child: widget.child),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
+              floatingActionButton: isListRoute && listDestination != null
+                  ? _buildFab(context, listDestination, extended: true)
+                  : null,
+            );
+          }
+
+          return Scaffold(
+            key: _scaffoldKey,
+            backgroundColor: AppColors.background,
+            appBar: AppBar(
+              leading: IconButton(
+                icon: const Icon(Icons.menu),
+                tooltip: 'Menu',
+                onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+              ),
+              title: Text(
+                listDestination?.label ?? '{{ app_name }}',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            drawer: Drawer(
+              width: _drawerWidth,
+              backgroundColor: AppColors.sidebar,
+              child: AppDrawer(
+                selectedPath: location,
+                onNavigate: () => Navigator.of(context).pop(),
+              ),
+            ),
+            body: SafeArea(
+              top: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+{{ if offline_enabled }}
+                  const OfflineBanner(),
+{{ end }}
+                  Expanded(child: widget.child),
+                ],
+              ),
             ),
             floatingActionButton: isListRoute && listDestination != null
-                ? _buildFab(context, listDestination, extended: true)
+                ? _buildFab(context, listDestination, extended: false)
                 : null,
           );
-        }
-
-        return Scaffold(
-          key: _scaffoldKey,
-          backgroundColor: AppColors.background,
-          appBar: AppBar(
-            leading: IconButton(
-              icon: const Icon(Icons.menu),
-              onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-            ),
-            title: Text(
-              listDestination?.label ?? '{{ app_name }}',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-          ),
-          drawer: Drawer(
-            width: _drawerWidth,
-            backgroundColor: AppColors.sidebar,
-            child: AppDrawer(
-              selectedPath: location,
-              onNavigate: () => Navigator.of(context).pop(),
-            ),
-          ),
-          body: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-{{ if offline_enabled }}
-              const OfflineBanner(),
-{{ end }}
-              Expanded(child: widget.child),
-            ],
-          ),
-          floatingActionButton: isListRoute && listDestination != null
-              ? _buildFab(context, listDestination, extended: false)
-              : null,
-        );
-      },
+        },
+      ),
     );
   }
 

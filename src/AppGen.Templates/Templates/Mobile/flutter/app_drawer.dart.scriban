@@ -78,9 +78,9 @@ class _DrawerHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: Colors.white12),
+          bottom: BorderSide(color: AppColors.onSidebar.withValues(alpha: 0.12)),
         ),
       ),
       child: Column(
@@ -97,6 +97,8 @@ class _DrawerHeader extends StatelessWidget {
                 'assets/branding/icon.png',
                 width: 56,
                 height: 56,
+                cacheWidth: 112,
+                cacheHeight: 112,
                 fit: BoxFit.cover,
               ),
             ),

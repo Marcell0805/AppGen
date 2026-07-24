@@ -16,6 +16,9 @@ dependencies:
 {{ end }}
   path_provider: ^2.1.3
   google_fonts: ^6.2.1
+  http: ^1.2.2
+  package_info_plus: ^8.0.2
+  url_launcher: ^6.3.0
 {{ for package in capability_packages }}
   {{ package.name }}: {{ package.version }}
 {{ end }}
@@ -27,7 +30,8 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-{{ if branding_enabled }}
   assets:
+    - assets/mobile_config.json
+{{ if branding_enabled }}
     - assets/branding/icon.png
 {{ end }}

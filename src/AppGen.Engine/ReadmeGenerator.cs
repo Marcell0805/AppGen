@@ -203,6 +203,30 @@ public static class ReadmeGenerator
         sb.AppendLine();
         sb.AppendLine("The script builds a release APK, copies it to `dist/`, and writes `dist/mobile-version.json`.");
         sb.AppendLine();
+        sb.AppendLine("Every generated app includes an **in-app update checker** (`UpdatePromptListener`). It is inert until `assets/mobile_config.json` has a non-empty `updateCheckUrl`.");
+        var appId = string.IsNullOrWhiteSpace(publish?.AppId) ? kebab : publish.AppId.Trim();
+        var explicitCheck = publish?.UpdateCheckUrl?.Trim();
+        var resolvedCheck = !string.IsNullOrWhiteSpace(explicitCheck)
+            ? explicitCheck
+            : !string.IsNullOrWhiteSpace(publish?.BaseUrl)
+                ? $"{publish.BaseUrl.Trim().TrimEnd('/')}/downloads/{appId}/mobile-version.json"
+                : null;
+        if (!string.IsNullOrWhiteSpace(resolvedCheck))
+        {
+            sb.AppendLine();
+            sb.AppendLine("Configured **updateCheckUrl**:");
+            sb.AppendLine();
+            sb.AppendLine($"`{resolvedCheck}`");
+            sb.AppendLine();
+            sb.AppendLine("Installed apps check that JSON on launch (when online) and prompt if a newer **build** is available.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(publish?.PortalRepoPath) && !string.IsNullOrWhiteSpace(publish.BaseUrl))
+        {
+            sb.AppendLine();
+            sb.AppendLine("When **Fox's Den hub** is configured (`targets.mobile.publish.portalRepoPath` + `baseUrl`), `publish-mobile.ps1` delegates to `portal/scripts/publish-app-mobile.ps1` so the landing page hosts the APK + version JSON.");
+        }
+        sb.AppendLine();
         sb.AppendLine("- **Signing:** create `android/key.properties` with your release keystore settings, then rebuild.");
         sb.AppendLine("- **Version:** bump `version:` in `pubspec.yaml` before each publish.");
         sb.AppendLine($"- **APK filename:** `{apkFileName}` (override via `targets.mobile.publish.apkFileName` in appgen.json).");
@@ -236,6 +260,7 @@ public static class ReadmeGenerator
             sb.AppendLine();
             sb.AppendLine("- All CRUD runs against on-device SQLite (`lib/core/local/local_database.dart`).");
             sb.AppendLine("- No Dio client or API URL is required for mobile.");
+            AppendGoogleSignInDriveSection(sb);
         }
 
         var capabilities = MobileCapabilityResolver.Resolve(spec)
@@ -270,11 +295,36 @@ public static class ReadmeGenerator
         sb.AppendLine("- **Empty list** — verify the entity exists in the API and returns data from Swagger.");
         sb.AppendLine("- **CORS errors** — enable CORS on the API for the Flutter debug origin.");
         sb.AppendLine($"- **Android compileSdk / AAR metadata** — AppGen patches `android/app/build.gradle.kts` to `maxOf(flutter.compileSdkVersion, {AppGenConstants.MinAndroidCompileSdk})` after platform scaffold.");
+        sb.AppendLine("- **Google Sign-In ApiException: 10** — Android OAuth client must match `applicationId` + SHA-1; put the **Web application** client ID in `serverClientId`, not the Android client ID. See `docs/plans/mobile-flutter-scaffold-issues.md` §19 (standalone local README has a copy).");
         sb.AppendLine("- **Google Fonts / black screen / ANR on first run** — generated templates may fetch fonts at runtime; for standalone offline apps prefer bundled or system fonts. See AppGen `docs/plans/mobile-flutter-scaffold-issues.md`.");
         sb.AppendLine("- **Native plugins after pub add** — run a full app restart (`flutter run`), not hot reload, or you may see `MissingPluginException`.");
         sb.AppendLine("- **Custom routes over generated CRUD** — regenerating mobile overwrites `lib/app/router.dart`; use `IncludeInUi: false` on internal entities or maintain a custom layer (see scaffold issues doc § process notes).");
 
         await WriteFileAsync(context.OutputDirectory, sb, ct);
+    }
+
+    /// <summary>
+    /// Google Drive / Sign-In setup for standalone local apps that add backup (see Active Huntress).
+    /// </summary>
+    private static void AppendGoogleSignInDriveSection(StringBuilder sb)
+    {
+        sb.AppendLine();
+        sb.AppendLine("## Google Sign-In & Drive backup (optional)");
+        sb.AppendLine();
+        sb.AppendLine("If you add Google Sign-In and Drive backup (e.g. `google_sign_in` + `googleapis`), configure **two** OAuth clients in the same Google Cloud project:");
+        sb.AppendLine();
+        sb.AppendLine("1. **Android** — package name from `android/app/build.gradle.kts` (`applicationId`) + **SHA-1** fingerprint.");
+        sb.AppendLine("2. **Web application** — copy its **Client ID** into app config (`serverClientId` / `GoogleOAuthConfig`). Enable **Google Drive API** if you use Drive.");
+        sb.AppendLine();
+        sb.AppendLine("The Web client **secret** is not used in Flutter; store it securely if needed for a backend. Never commit secrets in the repo.");
+        sb.AppendLine();
+        sb.AppendLine("**Debug SHA-1 (Windows, Android Studio JDK):**");
+        sb.AppendLine();
+        sb.AppendLine("```powershell");
+        sb.AppendLine("& \"C:\\Program Files\\Android\\Android Studio\\jbr\\bin\\keytool.exe\" -list -v -keystore \"$env:USERPROFILE\\.android\\debug.keystore\" -alias androiddebugkey -storepass android -keypass android");
+        sb.AppendLine("```");
+        sb.AppendLine();
+        sb.AppendLine("Full checklist: AppGen `docs/plans/mobile-flutter-scaffold-issues.md` §19.");
     }
 
     private static void AppendAboutSection(StringBuilder sb, SolutionSpec spec)

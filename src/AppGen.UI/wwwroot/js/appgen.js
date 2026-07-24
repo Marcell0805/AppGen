@@ -1,4 +1,4 @@
-window.appgen = {
+window.appgen = Object.assign(window.appgen || {}, {
     copyToClipboard: function (text) {
         return navigator.clipboard.writeText(text);
     },
@@ -69,5 +69,22 @@ window.appgen = {
         if (settings.includeBlazorWeb !== undefined && settings.includeMvcWeb === undefined)
             settings.includeMvcWeb = settings.includeBlazorWeb;
         return settings;
+    },
+    getTheme: function () {
+        try {
+            return localStorage.getItem('appgen.ui.theme') === 'dark' ? 'dark' : 'light';
+        } catch {
+            return 'light';
+        }
+    },
+    setTheme: function (theme) {
+        const value = theme === 'dark' ? 'dark' : 'light';
+        try {
+            localStorage.setItem('appgen.ui.theme', value);
+        } catch {
+            /* ignore quota / private mode */
+        }
+        document.documentElement.setAttribute('data-theme', value);
+        return value;
     }
-};
+});

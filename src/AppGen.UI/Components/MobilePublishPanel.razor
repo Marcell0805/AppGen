@@ -1,0 +1,74 @@
+@using AppGen.Core.Models
+
+<fieldset class="panel">
+    <legend>Updates / Publish</legend>
+    <p class="hint">
+        Host the APK and <code>mobile-version.json</code> on the Fox's Den landing page.
+        The generated app checks for updates on launch (no-op until a URL is set).
+    </p>
+    <div class="form-grid">
+        <label>Pages base URL</label>
+        <input value="@BaseUrl" @onchange="e => BaseUrlChanged.InvokeAsync(e.Value?.ToString() ?? string.Empty)"
+               placeholder="https://marcell0805.github.io/the-foxs-den-doc" disabled="@Disabled" />
+
+        <label>App id</label>
+        <input value="@AppId" @onchange="e => AppIdChanged.InvokeAsync(e.Value?.ToString() ?? string.Empty)"
+               placeholder="my-app (downloads/{appId}/…)" disabled="@Disabled" />
+
+        <label>APK file name</label>
+        <input value="@ApkFileName" @onchange="e => ApkFileNameChanged.InvokeAsync(e.Value?.ToString() ?? string.Empty)"
+               placeholder="Optional — defaults to kebab app name" disabled="@Disabled" />
+
+        <label>Portal repo path</label>
+        <input value="@PortalRepoPath" @onchange="e => PortalRepoPathChanged.InvokeAsync(e.Value?.ToString() ?? string.Empty)"
+               placeholder="Optional local path to The_Fox_s_Den Doc" disabled="@Disabled" />
+
+        <label>Update check URL</label>
+        <input value="@UpdateCheckUrl" @onchange="e => UpdateCheckUrlChanged.InvokeAsync(e.Value?.ToString() ?? string.Empty)"
+               placeholder="Optional override — else {baseUrl}/downloads/{appId}/mobile-version.json" disabled="@Disabled" />
+    </div>
+    @if (!string.IsNullOrWhiteSpace(ResolvedHint))
+    {
+        <p class="hint">Resolved check URL: <code>@ResolvedHint</code></p>
+    }
+</fieldset>
+
+@code {
+    [Parameter] public string BaseUrl { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> BaseUrlChanged { get; set; }
+    [Parameter] public string AppId { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> AppIdChanged { get; set; }
+    [Parameter] public string ApkFileName { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> ApkFileNameChanged { get; set; }
+    [Parameter] public string PortalRepoPath { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> PortalRepoPathChanged { get; set; }
+    [Parameter] public string UpdateCheckUrl { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> UpdateCheckUrlChanged { get; set; }
+    [Parameter] public string? ApplicationName { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+
+    private string? ResolvedHint
+    {
+        get
+        {
+            if (!string.IsNullOrWhiteSpace(UpdateCheckUrl))
+                return UpdateCheckUrl.Trim();
+
+            var baseUrl = BaseUrl?.Trim().TrimEnd('/');
+            if (string.IsNullOrWhiteSpace(baseUrl))
+                return null;
+
+            var appId = string.IsNullOrWhiteSpace(AppId)
+                ? GuessAppId()
+                : AppId.Trim();
+            return $"{baseUrl}/downloads/{appId}/mobile-version.json";
+        }
+    }
+
+    private string GuessAppId()
+    {
+        if (string.IsNullOrWhiteSpace(ApplicationName))
+            return "app";
+        return ApplicationName.Trim().ToLowerInvariant().Replace('_', '-').Replace(' ', '-');
+    }
+}

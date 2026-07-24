@@ -37,9 +37,8 @@ public static class PortalThemeCss
 
         var text = ThemeColorHelper.DartToCssHex(definition.Text);
         var muted = ThemeColorHelper.DartToCssHex(definition.TextMuted);
-        var heading = definition.IsDark
-            ? text
-            : ThemeColorHelper.DartToCssHex(sidebar);
+        // Always use body text for headings — light sidebars (e.g. ios) are unreadable as heading color.
+        var heading = text;
 
         return new PortalThemeCssVariables(
             Primary: ThemeColorHelper.DartToCssHex(sidebar),

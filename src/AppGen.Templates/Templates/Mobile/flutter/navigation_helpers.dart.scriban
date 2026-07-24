@@ -1,0 +1,24 @@
+import 'package:flutter/widgets.dart';
+import 'package:go_router/go_router.dart';
+
+/// Default "home" list route for this generated app.
+const String appHomePath = '/{{ first_entity_snake }}';
+
+/// Prefer popping the go_router stack; otherwise navigate to [homePath].
+///
+/// Use this for header back buttons and Android system back when sibling
+/// shell routes were opened with [GoRouter.go] (no stack entry to pop).
+void navigateBackOrHome(
+  BuildContext context, {
+  String homePath = appHomePath,
+}) {
+  if (context.canPop()) {
+    context.pop();
+    return;
+  }
+
+  final location = GoRouterState.of(context).uri.path;
+  if (location != homePath) {
+    context.go(homePath);
+  }
+}

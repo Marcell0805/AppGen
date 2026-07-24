@@ -106,6 +106,19 @@
                    WebEnabled="false"
                    UseGallery="true" />
 
+    <MobilePublishPanel ApplicationName="@ApplicationName"
+                        BaseUrl="@PublishBaseUrl"
+                        BaseUrlChanged="OnPublishBaseUrlChanged"
+                        AppId="@PublishAppId"
+                        AppIdChanged="OnPublishAppIdChanged"
+                        ApkFileName="@PublishApkFileName"
+                        ApkFileNameChanged="OnPublishApkFileNameChanged"
+                        PortalRepoPath="@PublishPortalRepoPath"
+                        PortalRepoPathChanged="OnPublishPortalRepoPathChanged"
+                        UpdateCheckUrl="@PublishUpdateCheckUrl"
+                        UpdateCheckUrlChanged="OnPublishUpdateCheckUrlChanged"
+                        Disabled="@IsWorking" />
+
     <div class="actions">
         <button type="button" class="btn btn-outline-secondary" @onclick="() => LoadProject()" disabled="@IsWorking">Load project</button>
         <button type="button" class="btn btn-outline-secondary" @onclick="LoadDraft" disabled="@IsWorking">Load draft</button>
@@ -144,6 +157,11 @@
     private string OutputRoot { get; set; } = string.Empty;
     private string MobileThemePreset { get; set; } = "appgen";
     private bool EnableDocumentation { get; set; }
+    private string PublishBaseUrl { get; set; } = string.Empty;
+    private string PublishAppId { get; set; } = string.Empty;
+    private string PublishApkFileName { get; set; } = string.Empty;
+    private string PublishPortalRepoPath { get; set; } = string.Empty;
+    private string PublishUpdateCheckUrl { get; set; } = string.Empty;
     private readonly List<string> EntityNames = [];
     private readonly HashSet<string> SelectedEntityNames = new(StringComparer.OrdinalIgnoreCase);
     private bool _manifestLoaded;
@@ -258,6 +276,11 @@
 
         MobileThemePreset = draft.MobileThemePreset;
         EnableDocumentation = draft.EnableDocumentation;
+        PublishBaseUrl = draft.MobilePublishBaseUrl;
+        PublishAppId = draft.MobilePublishAppId;
+        PublishApkFileName = draft.MobilePublishApkFileName;
+        PublishPortalRepoPath = draft.MobilePublishPortalRepoPath;
+        PublishUpdateCheckUrl = draft.MobilePublishUpdateCheckUrl;
 
         EntityNames.Clear();
         EntityNames.AddRange(draft.Entities.Select(e => e.Name));
@@ -269,7 +292,11 @@
         if (WizardState.Current is not { } draft)
             return;
 
-        WizardState.Update(WizardDraft.FromWizard(
+        WizardState.Update(RebuildDraft(draft));
+    }
+
+    private WizardDraft RebuildDraft(WizardDraft draft) =>
+        WizardDraft.FromWizard(
             draft.ApplicationName,
             draft.RootNamespace,
             draft.Database,
@@ -292,12 +319,54 @@
             draft.EnableWebAuth,
             draft.ResolvedMobileOfflineMode == MobileOfflineModes.ApiCache,
             mobileOfflineMode: draft.ResolvedMobileOfflineMode,
-            draft.MobileThemePreset,
+            MobileThemePreset,
             PackageName,
             ApiBaseUrl,
             draft.Tagline,
             draft.Description,
-            draft.MobileCapabilities));
+            draft.MobileCapabilities,
+            draft.IconPath,
+            draft.IconOriginalFileName,
+            draft.IconBase64,
+            PublishBaseUrl,
+            PublishAppId,
+            PublishApkFileName,
+            PublishPortalRepoPath,
+            PublishUpdateCheckUrl);
+
+    private Task OnPublishBaseUrlChanged(string value)
+    {
+        PublishBaseUrl = value;
+        SyncMobileSettings();
+        return Task.CompletedTask;
+    }
+
+    private Task OnPublishAppIdChanged(string value)
+    {
+        PublishAppId = value;
+        SyncMobileSettings();
+        return Task.CompletedTask;
+    }
+
+    private Task OnPublishApkFileNameChanged(string value)
+    {
+        PublishApkFileName = value;
+        SyncMobileSettings();
+        return Task.CompletedTask;
+    }
+
+    private Task OnPublishPortalRepoPathChanged(string value)
+    {
+        PublishPortalRepoPath = value;
+        SyncMobileSettings();
+        return Task.CompletedTask;
+    }
+
+    private Task OnPublishUpdateCheckUrlChanged(string value)
+    {
+        PublishUpdateCheckUrl = value;
+        SyncMobileSettings();
+        return Task.CompletedTask;
     }
 
     private void SelectAllEntities()
@@ -327,36 +396,7 @@
         if (WizardState.Current is not { } draft)
             return;
 
-        WizardState.Update(WizardDraft.FromWizard(
-            draft.ApplicationName,
-            draft.RootNamespace,
-            draft.Database,
-            draft.OutputRoot,
-            draft.IncludeMvcWeb,
-            draft.ActiveConnectionName,
-            draft.OracleSchemaPrefix,
-            draft.EnsureCreatedInDevelopment,
-            draft.ConfigEntries.Select(e => new ConfigEntryRow
-            {
-                Name = e.Name,
-                Kind = e.Kind,
-                Key = e.Key,
-                Value = e.Value
-            }),
-            WizardEntityHelper.ToEntityDrafts(draft.Entities),
-            draft.EnableDocumentation,
-            draft.EnableWeb,
-            draft.EnableMobile,
-            draft.EnableWebAuth,
-            draft.ResolvedMobileOfflineMode == MobileOfflineModes.ApiCache,
-            mobileOfflineMode: draft.ResolvedMobileOfflineMode,
-            MobileThemePreset,
-            PackageName,
-            ApiBaseUrl,
-            draft.Tagline,
-            draft.Description,
-            draft.MobileCapabilities));
-
+        WizardState.Update(RebuildDraft(draft));
         await InvokeAsync(StateHasChanged);
     }
 
@@ -399,6 +439,11 @@
             ApplicationName = spec.ApplicationName;
             ApiBaseUrl = spec.Targets?.Mobile.ApiBaseUrl ?? ApiBaseUrl;
             PackageName = spec.Targets?.Mobile.PackageName ?? $"com.{spec.ApplicationName.ToLowerInvariant()}.app";
+            PublishBaseUrl = spec.Targets?.Mobile.Publish.BaseUrl ?? string.Empty;
+            PublishAppId = spec.Targets?.Mobile.Publish.AppId ?? string.Empty;
+            PublishApkFileName = spec.Targets?.Mobile.Publish.ApkFileName ?? string.Empty;
+            PublishPortalRepoPath = spec.Targets?.Mobile.Publish.PortalRepoPath ?? string.Empty;
+            PublishUpdateCheckUrl = spec.Targets?.Mobile.Publish.UpdateCheckUrl ?? string.Empty;
             EntityNames.Clear();
             EntityNames.AddRange(spec.Entities.Select(e => e.Name));
             SelectAllEntities();
@@ -496,6 +541,8 @@
 
             if (WizardState.Current is { } draft)
             {
+                SyncMobileSettings();
+                draft = WizardState.Current!;
                 spec = MobileTargetMerger.ApplyWizardMobileSettings(spec, new MobileTargetSpec
                 {
                     Enabled = true,
@@ -503,7 +550,8 @@
                     ApiBaseUrl = ApiBaseUrl,
                     Theme = new MobileThemeSpec { Preset = draft.MobileThemePreset },
                     Offline = draft.BuildMobileOfflineSpec(),
-                    Capabilities = new MobileCapabilitiesSpec { Enabled = draft.MobileCapabilities.ToList() }
+                    Capabilities = new MobileCapabilitiesSpec { Enabled = draft.MobileCapabilities.ToList() },
+                    Publish = draft.BuildMobilePublishSpec()
                 });
             }
 
@@ -561,7 +609,12 @@
             ApiBaseUrl,
             spec.Project?.Tagline,
             spec.Project?.Description,
-            spec.Targets?.Mobile.Capabilities.Enabled));
+            spec.Targets?.Mobile.Capabilities.Enabled,
+            mobilePublishBaseUrl: spec.Targets?.Mobile.Publish.BaseUrl,
+            mobilePublishAppId: spec.Targets?.Mobile.Publish.AppId,
+            mobilePublishApkFileName: spec.Targets?.Mobile.Publish.ApkFileName,
+            mobilePublishPortalRepoPath: spec.Targets?.Mobile.Publish.PortalRepoPath,
+            mobilePublishUpdateCheckUrl: spec.Targets?.Mobile.Publish.UpdateCheckUrl));
     }
 
     public void Dispose()

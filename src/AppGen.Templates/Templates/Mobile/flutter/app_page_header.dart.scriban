@@ -31,8 +31,12 @@ class AppPageHeader extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (leading != null) ...[
-            leading!,
-            const SizedBox(width: 8),
+            SizedBox(
+              width: 48,
+              height: 48,
+              child: Center(child: leading),
+            ),
+            const SizedBox(width: 4),
           ],
           Expanded(
             child: Column(

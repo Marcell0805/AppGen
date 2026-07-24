@@ -54,5 +54,13 @@ The **huntress-cookbook** repo has a domain-specific `scripts/publish-mobile.ps1
 ## Out of scope (follow-ups)
 
 - AppGen UI **Publish** button invoking the script
-- In-app update checker in generated Flutter templates (Huntress mobile has custom `UpdateService`)
+- In-app APK download/install (browser open is the default; Cookbook-style install can come later)
 - Doc-layer `downloads/` co-location (override via `-DownloadsDir` if needed later)
+
+## In-app update checker
+
+Every generated Flutter app includes `UpdateService` + `UpdatePromptListener` + `assets/mobile_config.json`.
+
+- Set `targets.mobile.publish.baseUrl` (+ optional `appId`) or `updateCheckUrl` in appgen.json / Project **Updates / Publish** panel.
+- Default check URL: `{baseUrl}/downloads/{appId}/mobile-version.json` (Fox's Den landing layout).
+- Empty URL → checker no-ops (safe for local-only apps).

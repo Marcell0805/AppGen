@@ -46,8 +46,22 @@ public sealed class MobileTargetSpec
 
 public sealed class MobilePublishTargetSpec
 {
+    /// <summary>Static host base URL (e.g. Fox's Den GitHub Pages).</summary>
     public string BaseUrl { get; init; } = string.Empty;
+
     public string ApkFileName { get; init; } = string.Empty;
+
+    /// <summary>Slug for hub paths (downloads/{AppId}/mobile-version.json).</summary>
+    public string AppId { get; init; } = string.Empty;
+
+    /// <summary>Local path to The_Fox_s_Den Doc repo; enables publish-app-mobile.ps1 delegation.</summary>
+    public string PortalRepoPath { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Optional full URL to mobile-version.json. When empty, derived as
+    /// {BaseUrl}/downloads/{AppId}/mobile-version.json.
+    /// </summary>
+    public string UpdateCheckUrl { get; init; } = string.Empty;
 }
 
 public sealed class MobileOfflineTargetSpec

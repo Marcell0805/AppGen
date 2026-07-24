@@ -1,0 +1,41 @@
+import 'package:flutter/material.dart';
+
+import '../config/mobile_config.dart';
+import '../services/update_service.dart';
+import 'update_available_dialog.dart';
+
+class UpdatePromptListener extends StatefulWidget {
+  const UpdatePromptListener({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<UpdatePromptListener> createState() => _UpdatePromptListenerState();
+}
+
+class _UpdatePromptListenerState extends State<UpdatePromptListener> {
+  bool _started = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _check());
+  }
+
+  Future<void> _check() async {
+    if (_started || !mounted) return;
+    _started = true;
+    final config = await MobileConfig.load();
+    final update = await UpdateService.checkForUpdate(config.updateCheckUrl);
+    if (!mounted || update == null) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      useRootNavigator: true,
+      builder: (ctx) => UpdateAvailableDialog(update: update),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
