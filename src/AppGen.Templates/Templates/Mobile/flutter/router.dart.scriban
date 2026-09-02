@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+// Do not add GoRoute onExit handlers that call handleRouterBack — router.go(home) retriggers onExit and loops.
 import 'app_shell.dart';
 {{ if auth_enabled }}
 import '../core/auth/auth_provider.dart';

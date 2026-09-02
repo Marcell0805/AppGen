@@ -44,7 +44,11 @@ class _AppShellState extends State<AppShell> {
     // Allow system exit only on the home list when nothing is stacked.
     final allowSystemExit = !routerCanPop && location == _homePath;
 
-    return PopScope(
+    return BackButtonListener(
+      onBackButtonPressed: () async {
+        return handleRouterBack(GoRouter.of(context));
+      },
+      child: PopScope(
       canPop: routerCanPop || allowSystemExit,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
@@ -124,6 +128,7 @@ class _AppShellState extends State<AppShell> {
           );
         },
       ),
+    ),
     );
   }
 

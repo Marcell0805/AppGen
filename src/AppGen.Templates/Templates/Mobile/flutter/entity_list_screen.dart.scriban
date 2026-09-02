@@ -36,8 +36,8 @@ class {{ entity_name }}ListScreen extends ConsumerWidget {
                   final item = items[index];
                   return EntityRecordCard(
                     entityName: '{{ entity_name }}',
-                    title: item.{{ key_field }}.toString(),
-                    subtitle: {{ if has_display_field }}item.{{ display_field }}.toString(){{ else }}'{{ entity_name }} record'{{ end }},
+                    icon: EntityListIcons.forEntity('{{ entity_name }}'),
+                    title: {{ if has_display_field }}item.{{ display_field }}.toString(){{ else }}'{{ entity_name }} record'{{ end }},
                     onTap: () => context.push('/{{ entity_snake }}/${item.{{ key_field }}}'),
                   );
                 },

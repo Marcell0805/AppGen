@@ -3,48 +3,33 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app/router.dart';
 import 'app/theme.dart';
-import 'core/logging/app_log_sink.dart';
-import 'core/widgets/update_prompt_listener.dart';
+import 'core/platform/android_back_bridge.dart';
 
 void main() {
-  // Default sink is FileAppLogSink (mobile/desktop) or ConsoleAppLogSink (web).
-  // AppLogSink.instance = RemoteAppLogSink();
-
-  ErrorWidget.builder = (details) {
-    AppLogSink.instance.logError(
-      details.exception,
-      stackTrace: details.stack,
-      context: 'Widget build error',
-    );
-    return Material(
-      color: Colors.white,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            'Something went wrong loading this screen.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey.shade700),
-          ),
-        ),
-      ),
-    );
-  };
-
   runApp(const ProviderScope(child: {{ app_class_name }}App()));
 }
 
-class {{ app_class_name }}App extends ConsumerWidget {
+class {{ app_class_name }}App extends ConsumerStatefulWidget {
   const {{ app_class_name }}App({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<{{ app_class_name }}App> createState() => _{{ app_class_name }}AppState();
+}
+
+class _{{ app_class_name }}AppState extends ConsumerState<{{ app_class_name }}App> {
+  var _backBridgeInstalled = false;
+
+  @override
+  Widget build(BuildContext context) {
     final router = ref.watch(appRouterProvider);
-    final app = MaterialApp.router(
+    if (!_backBridgeInstalled) {
+      _backBridgeInstalled = true;
+      AndroidBackBridge.install(router);
+    }
+    return MaterialApp.router(
       title: '{{ app_name }}',
       theme: buildAppTheme(),
       routerConfig: router,
     );
-    return UpdatePromptListener(child: app);
   }
 }

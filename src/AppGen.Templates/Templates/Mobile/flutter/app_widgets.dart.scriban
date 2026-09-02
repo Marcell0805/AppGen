@@ -122,22 +122,55 @@ class AppErrorState extends StatelessWidget {
   }
 }
 
+class EntityListIcons {
+  EntityListIcons._();
+
+  static IconData forEntity(String entityName) {
+    switch (entityName.toLowerCase()) {
+      case 'category':
+        return Icons.category_outlined;
+      case 'account':
+        return Icons.account_balance_wallet_outlined;
+      case 'transaction':
+        return Icons.receipt_long_outlined;
+      case 'goal':
+        return Icons.flag_outlined;
+      case 'user':
+        return Icons.person_outline;
+      case 'order':
+      case 'orders':
+        return Icons.shopping_bag_outlined;
+      case 'product':
+        return Icons.inventory_2_outlined;
+      case 'customer':
+        return Icons.people_outline;
+      default:
+        return Icons.article_outlined;
+    }
+  }
+}
+
 class EntityRecordCard extends StatelessWidget {
   const EntityRecordCard({
     super.key,
     required this.entityName,
     required this.title,
-    required this.subtitle,
+    this.subtitle,
+    this.icon,
     this.onTap,
   });
 
   final String entityName;
   final String title;
-  final String subtitle;
+  final String? subtitle;
+  final IconData? icon;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
+    final leadingIcon = icon ?? EntityListIcons.forEntity(entityName);
+    final showSubtitle = subtitle != null && subtitle!.trim().isNotEmpty;
+
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -155,25 +188,37 @@ class EntityRecordCard extends StatelessWidget {
                       CircleAvatar(
                         radius: 22,
                         backgroundColor: AppColors.accent.withValues(alpha: 0.12),
-                        child: Text(
-                          entityName.isNotEmpty ? entityName[0].toUpperCase() : '?',
-                          style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.w700),
+                        child: Icon(
+                          leadingIcon,
+                          color: AppColors.accent,
+                          size: 22,
                         ),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: showSubtitle
+                              ? MainAxisAlignment.start
+                              : MainAxisAlignment.center,
                           children: [
-                            Text(title, style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.text,
-                            )),
-                            const SizedBox(height: 4),
                             Text(
-                              subtitle,
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textMuted),
+                              title,
+                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.text,
+                                  ),
                             ),
+                            if (showSubtitle) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                subtitle!,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(color: AppColors.textMuted),
+                              ),
+                            ],
                           ],
                         ),
                       ),
