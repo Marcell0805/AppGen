@@ -1,24 +1,95 @@
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
-/// Default "home" list route for this generated app.
+// Never wire handleRouterBack to GoRoute onExit — router.go(home) retriggers onExit and loops.
 const String appHomePath = '/{{ first_entity_snake }}';
 
-/// Prefer popping the go_router stack; otherwise navigate to [homePath].
-///
-/// Use this for header back buttons and Android system back when sibling
-/// shell routes were opened with [GoRouter.go] (no stack entry to pop).
+const Set<String> rootTabPaths = {
+{{ for e in entities }}
+  '/{{ e.entity_snake }}',
+{{ end }}
+};
+
+bool _isHandlingRouterBack = false;
+
+bool isRootTabPath(String location) => rootTabPaths.contains(_normalizePath(location));
+
+String _normalizePath(String path) {
+  if (path.length > 1 && path.endsWith('/')) {
+    return path.substring(0, path.length - 1);
+  }
+  return path;
+}
+
+String? parentRoute(String location) {
+  final normalized = _normalizePath(location);
+  if (isRootTabPath(normalized)) return null;
+
+  final segments = Uri.parse(normalized).pathSegments;
+  if (segments.isEmpty) return null;
+
+  final last = segments.last;
+  if (last == 'edit') {
+    return '/${segments.sublist(0, segments.length - 1).join('/')}';
+  }
+  if (last == 'new') {
+    return '/${segments.first}';
+  }
+
+  if (segments.length >= 2) {
+    return '/${segments.first}';
+  }
+
+  return null;
+}
+
+bool handleRouterBack(
+  GoRouter router, {
+  String? fallbackHomePath,
+}) {
+  if (_isHandlingRouterBack) return true;
+
+  final location = _normalizePath(router.state.uri.path);
+
+  if (location == appHomePath) {
+    return false;
+  }
+
+  _isHandlingRouterBack = true;
+  try {
+    if (isRootTabPath(location)) {
+      router.go(appHomePath);
+      return true;
+    }
+
+    if (router.canPop()) {
+      router.pop();
+      return true;
+    }
+
+    final parent = parentRoute(location);
+    if (parent != null) {
+      router.go(parent);
+      return true;
+    }
+
+    router.go(fallbackHomePath ?? appHomePath);
+    return true;
+  } finally {
+    _isHandlingRouterBack = false;
+  }
+}
+
+void handleSystemBack(
+  BuildContext context, {
+  String? fallbackHomePath,
+}) {
+  handleRouterBack(GoRouter.of(context), fallbackHomePath: fallbackHomePath);
+}
+
 void navigateBackOrHome(
   BuildContext context, {
   String homePath = appHomePath,
 }) {
-  if (context.canPop()) {
-    context.pop();
-    return;
-  }
-
-  final location = GoRouterState.of(context).uri.path;
-  if (location != homePath) {
-    context.go(homePath);
-  }
+  handleSystemBack(context, fallbackHomePath: homePath);
 }

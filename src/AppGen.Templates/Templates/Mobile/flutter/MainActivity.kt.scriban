@@ -1,0 +1,54 @@
+package {{ package_name }}
+
+import androidx.activity.OnBackPressedCallback
+import io.flutter.embedding.android.FlutterFragmentActivity
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
+
+class MainActivity : FlutterFragmentActivity() {
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        super.configureFlutterEngine(flutterEngine)
+
+        val backChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            BACK_CHANNEL,
+        )
+        onBackPressedDispatcher.addCallback(
+            this,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    backChannel.invokeMethod(
+                        "onBack",
+                        null,
+                        object : MethodChannel.Result {
+                            override fun success(result: Any?) {
+                                if (result != true) {
+                                    isEnabled = false
+                                    onBackPressedDispatcher.onBackPressed()
+                                }
+                            }
+
+                            override fun error(
+                                errorCode: String,
+                                errorMessage: String?,
+                                errorDetails: Any?,
+                            ) {
+                                isEnabled = false
+                                onBackPressedDispatcher.onBackPressed()
+                            }
+
+                            override fun notImplemented() {
+                                isEnabled = false
+                                onBackPressedDispatcher.onBackPressed()
+                            }
+                        },
+                    )
+                }
+            },
+        )
+    }
+
+    companion object {
+        private const val BACK_CHANNEL = "{{ package_name }}/back"
+    }
+}

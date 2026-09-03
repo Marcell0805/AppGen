@@ -1,0 +1,20 @@
+import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../app/navigation_helpers.dart';
+
+class AndroidBackBridge {
+  static const _channel = MethodChannel('{{ package_name }}/back');
+  static GoRouter? _router;
+
+  static void install(GoRouter router) {
+    _router = router;
+    _channel.setMethodCallHandler((call) async {
+      if (call.method != 'onBack') return null;
+      final activeRouter = _router;
+      if (activeRouter == null) return false;
+
+      return handleRouterBack(activeRouter);
+    });
+  }
+}

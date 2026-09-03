@@ -53,6 +53,7 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
         await WriteTemplateAsync("Mobile/flutter/navigation_helpers.dart.scriban", flutterRoot, "lib/app/navigation_helpers.dart", appModel, ct);
         await WriteTemplateAsync("Mobile/flutter/app_page_header.dart.scriban", flutterRoot, "lib/core/widgets/app_page_header.dart", firstModel, ct);
         await WriteTemplateAsync("Mobile/flutter/app_shell.dart.scriban", flutterRoot, "lib/app/app_shell.dart", appModel, ct);
+        await WriteTemplateAsync("Mobile/flutter/android_back_bridge.dart.scriban", flutterRoot, "lib/core/platform/android_back_bridge.dart", firstModel, ct);
         await WriteTemplateAsync("Mobile/flutter/app_widgets.dart.scriban", flutterRoot, "lib/core/widgets/app_widgets.dart", firstModel, ct);
         await WriteTemplateAsync("Mobile/flutter/router.dart.scriban", flutterRoot, "lib/app/router.dart", appModel, ct);
 
@@ -205,6 +206,12 @@ public sealed class FlutterGenerator(TemplateRenderer renderer)
         Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
         await File.WriteAllTextAsync(fullPath, content, ct);
     }
+
+    internal async Task<PlatformPatchResult> PatchMainActivityAsync(
+        string flutterRoot,
+        string packageName,
+        CancellationToken ct = default) =>
+        await FlutterMainActivityPatcher.PatchAsync(renderer, flutterRoot, packageName, ct);
 
     internal static object BuildAppModel(SolutionSpec spec, MobileTargetSpec mobile, IReadOnlyList<EntitySpec> entities)
     {
@@ -525,6 +532,11 @@ public sealed class MobileApplicationGenerator(FlutterGenerator flutterGenerator
             var capabilities = MobileCapabilityResolver.Resolve(normalized);
             var patch = await FlutterPlatformConfigPatcher.PatchAsync(flutterRoot, capabilities, ct);
 
+            var packageName = string.IsNullOrWhiteSpace(mobile.PackageName)
+                ? $"com.{normalized.ApplicationName.ToLowerInvariant()}.app"
+                : mobile.PackageName;
+            var mainActivityPatch = await flutterGenerator.PatchMainActivityAsync(flutterRoot, packageName, ct);
+
             var names = string.Join(", ", entities.Select(e => e.Name));
             var prefix = options.Force ? "Regenerated" : "Generated";
             var message = entities.Count == 1
@@ -539,6 +551,9 @@ public sealed class MobileApplicationGenerator(FlutterGenerator flutterGenerator
 
             if (!string.IsNullOrWhiteSpace(patch.Message))
                 message += " " + patch.Message;
+
+            if (!string.IsNullOrWhiteSpace(mainActivityPatch.Message))
+                message += " " + mainActivityPatch.Message;
 
             var hubDir = ProjectBrandingEmitter.ResolveHubDirectoryFromLayer(projectDirectory);
             if (hubDir is not null)
